@@ -1,0 +1,18 @@
+# Environment & secrets
+.env
+
+# Generated database files
+fitvibe.db
+fitvibe.db-*
+*.db-journal
+
+# Compiled binary
+server-bin
+server-bin.exe
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db

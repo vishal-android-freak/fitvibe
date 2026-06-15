@@ -1,0 +1,6 @@
+# Ignore everything in the repo root except the backend folder, README, and this file.
+/*
+!/backend
+!/backend/**
+!/README.md
+!/.gitignore
