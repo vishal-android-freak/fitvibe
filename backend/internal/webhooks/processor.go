@@ -184,14 +184,30 @@ func parseNotificationPayload(raw string) (*notificationPayload, error) {
 }
 
 func intervalBounds(i notificationInterval) (time.Time, time.Time, error) {
-	// Prefer physical time interval.
-	if !i.PhysicalTimeInterval.StartTime.IsZero() {
-		return i.PhysicalTimeInterval.StartTime, i.PhysicalTimeInterval.EndTime, nil
+	// Prefer physical time interval (RFC3339 with Z).
+	if i.PhysicalTimeInterval.StartTime != "" {
+		start, err := time.Parse(time.RFC3339, i.PhysicalTimeInterval.StartTime)
+		if err != nil {
+			return time.Time{}, time.Time{}, err
+		}
+		end, err := time.Parse(time.RFC3339, i.PhysicalTimeInterval.EndTime)
+		if err != nil {
+			return time.Time{}, time.Time{}, err
+		}
+		return start, end, nil
 	}
 
-	// Fall back to civil ISO 8601 interval.
-	if !i.CivilIso8601TimeInterval.StartTime.IsZero() {
-		return i.CivilIso8601TimeInterval.StartTime, i.CivilIso8601TimeInterval.EndTime, nil
+	// Fall back to civil ISO 8601 interval (no timezone).
+	if i.CivilIso8601TimeInterval.StartTime != "" {
+		start, err := time.Parse("2006-01-02T15:04:05.999999999", i.CivilIso8601TimeInterval.StartTime)
+		if err != nil {
+			return time.Time{}, time.Time{}, err
+		}
+		end, err := time.Parse("2006-01-02T15:04:05.999999999", i.CivilIso8601TimeInterval.EndTime)
+		if err != nil {
+			return time.Time{}, time.Time{}, err
+		}
+		return start, end, nil
 	}
 
 	return time.Time{}, time.Time{}, nil

@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/vishal-android-freak/fitvibe/internal/config"
 	"github.com/vishal-android-freak/fitvibe/internal/db/repositories"
@@ -164,7 +163,7 @@ type notificationInterval struct {
 }
 
 type interval struct {
-	StartTime time.Time `json:"startTime"`
-	EndTime   time.Time `json:"endTime"`
+	StartTime string `json:"startTime"`
+	EndTime   string `json:"endTime"`
 }
 
