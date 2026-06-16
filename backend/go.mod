@@ -9,6 +9,7 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/tink-crypto/tink-go/v2 v2.7.0
 	golang.org/x/oauth2 v0.36.0
+	golang.org/x/time v0.15.0
 	turso.tech/database/tursogo v0.6.1
 )
 

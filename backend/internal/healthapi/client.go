@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
 const (
@@ -24,15 +26,31 @@ type Client struct {
 	httpClient *http.Client
 	baseURL    string
 	tokenFn    func(context.Context) (string, error)
+	limiter    *rate.Limiter
 }
 
 // NewClient creates a new Google Health API client.
 // tokenFn should return a valid OAuth access token for the request.
+// The client is rate-limited to stay under the Google Health API quota of
+// 300 requests per minute per user.
 func NewClient(tokenFn func(context.Context) (string, error)) *Client {
 	return &Client{
 		httpClient: &http.Client{Timeout: defaultTimeout},
 		baseURL:    defaultBaseURL,
 		tokenFn:    tokenFn,
+		// 250 requests per minute with a small burst to avoid the 300/min quota.
+		limiter: rate.NewLimiter(rate.Every(time.Minute/time.Duration(250)), 5),
+	}
+}
+
+// NewClientWithLimiter creates a client sharing an existing rate limiter.
+// Useful when multiple goroutines need to share a single rate limit.
+func NewClientWithLimiter(tokenFn func(context.Context) (string, error), limiter *rate.Limiter) *Client {
+	return &Client{
+		httpClient: &http.Client{Timeout: defaultTimeout},
+		baseURL:    defaultBaseURL,
+		tokenFn:    tokenFn,
+		limiter:    limiter,
 	}
 }
 
@@ -96,6 +114,12 @@ func (c *Client) doRequest(ctx context.Context, method, path string, query url.V
 			return fmt.Errorf("get access token: %w", err)
 		}
 		req.Header.Set("Authorization", "Bearer "+token)
+
+			if c.limiter != nil {
+			if err := c.limiter.Wait(ctx); err != nil {
+				return fmt.Errorf("rate limiter: %w", err)
+			}
+		}
 
 		var resp *http.Response
 		resp, err = c.httpClient.Do(req)
@@ -181,11 +205,9 @@ func setFilterQuery(q url.Values, dataType, category string, start, end time.Tim
 	var field string
 	var useCivilDate bool
 
-	// Sleep filters on interval.end_time; ECG on interval.start_time (physical).
+	// Sleep filters on interval.end_time.
 	if dataType == "sleep" {
 		field = snake + ".interval.end_time"
-	} else if dataType == "electrocardiogram" {
-		field = snake + ".interval.start_time"
 	} else {
 		switch category {
 		case "interval":
@@ -210,7 +232,13 @@ func setFilterQuery(q url.Values, dataType, category string, start, end time.Tim
 		endStr = end.UTC().Format("2006-01-02")
 	}
 
-	filter := fmt.Sprintf(`%s >= "%s" AND %s < "%s"`, field, startStr, field, endStr)
+	var filter string
+	if dataType == "electrocardiogram" {
+		// ECG only supports the >= operator on start_time.
+		filter = fmt.Sprintf(`%s >= "%s"`, field, startStr)
+	} else {
+		filter = fmt.Sprintf(`%s >= "%s" AND %s < "%s"`, field, startStr, field, endStr)
+	}
 	q.Set("filter", filter)
 }
 

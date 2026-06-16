@@ -79,14 +79,14 @@ func (b *BackfillJob) Run(ctx context.Context) error {
 	end := time.Now().UTC()
 
 	// Process data types concurrently to speed up backfill.
-	const workers = 6
-	type workItem struct {
-		dataType string
-		client   *healthapi.Client
-	}
-	workCh := make(chan workItem, len(dataTypes))
+	// Use a shared rate-limited client so all workers stay under the Google
+	// Health API quota of 300 requests/minute per user.
+	const workers = 3
+	sharedClient := healthapi.NewClient(b.oauthService.TokenProvider(user.ID))
+
+	workCh := make(chan string, len(dataTypes))
 	for _, dt := range dataTypes {
-		workCh <- workItem{dataType: dt, client: healthapi.NewClient(b.oauthService.TokenProvider(user.ID))}
+		workCh <- dt
 	}
 	close(workCh)
 
@@ -95,15 +95,15 @@ func (b *BackfillJob) Run(ctx context.Context) error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for item := range workCh {
-				b.logger.Info("backfill data type starting", "user_id", user.ID, "data_type", item.dataType)
-				if err := b.syncDataType(ctx, item.client, user.ID, item.dataType, start, end); err != nil {
+			for dataType := range workCh {
+				b.logger.Info("backfill data type starting", "user_id", user.ID, "data_type", dataType)
+				if err := b.syncDataType(ctx, sharedClient, user.ID, dataType, start, end); err != nil {
 					b.logger.Error("backfill data type failed",
 						"user_id", user.ID,
-						"data_type", item.dataType,
+						"data_type", dataType,
 						"error", err)
 				} else {
-					b.logger.Info("backfill data type done", "user_id", user.ID, "data_type", item.dataType)
+					b.logger.Info("backfill data type done", "user_id", user.ID, "data_type", dataType)
 				}
 			}
 		}()

@@ -58,6 +58,19 @@ func TestSetFilterQuerySleep(t *testing.T) {
 	}
 }
 
+func TestSetFilterQueryECG(t *testing.T) {
+	q := url.Values{}
+	start := time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 6, 16, 0, 0, 0, 0, time.UTC)
+	setFilterQuery(q, "electrocardiogram", "interval", start, end)
+
+	got := q.Get("filter")
+	want := `electrocardiogram.interval.start_time >= "2026-06-15T00:00:00Z"`
+	if got != want {
+		t.Errorf("filter = %q, want %q", got, want)
+	}
+}
+
 func TestKebabToSnake(t *testing.T) {
 	if got := kebabToSnake("heart-rate"); got != "heart_rate" {
 		t.Errorf("kebabToSnake = %q", got)
