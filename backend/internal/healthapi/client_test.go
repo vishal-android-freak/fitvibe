@@ -39,7 +39,9 @@ func TestSetFilterQuerySession(t *testing.T) {
 	setFilterQuery(q, "exercise", "session", start, end)
 
 	got := q.Get("filter")
-	want := `exercise.interval.civil_start_time >= "2026-06-15" AND exercise.interval.civil_start_time < "2026-06-16"`
+	// Sessions filter on the physical interval.start_time (RFC3339), matching
+	// the live API; civil-date filtering on sessions returned wrong windows.
+	want := `exercise.interval.start_time >= "2026-06-15T00:00:00Z" AND exercise.interval.start_time < "2026-06-16T00:00:00Z"`
 	if got != want {
 		t.Errorf("filter = %q, want %q", got, want)
 	}

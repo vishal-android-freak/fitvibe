@@ -2,7 +2,8 @@ package healthapi
 
 import (
 	"encoding/json"
-	"fmt"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -66,13 +67,61 @@ type SettingsResponse struct {
 }
 
 // DataSource represents the source of a data point.
+//
+// The live API nests device metadata under a "device" object and application
+// metadata under an "application" object, e.g.:
+//
+//	"dataSource": {
+//	  "recordingMethod": "PASSIVELY_MEASURED",
+//	  "device": {"name": "...", "formFactor": "FITNESS_BAND", "manufacturer": "...", "model": "..."},
+//	  "application": {"packageName": "..."},
+//	  "platform": "FITBIT"
+//	}
+//
+// dataSourceFamily is only present on reconcile responses, not on list.
 type DataSource struct {
-	DataSourceFamily       string `json:"dataSourceFamily"`
-	RecordingMethod        string `json:"recordingMethod"`
-	Platform               string `json:"platform"`
-	DeviceName             string `json:"deviceName"`
-	DeviceFormFactor       string `json:"deviceFormFactor"`
-	ApplicationPackageName string `json:"applicationPackageName"`
+	DataSourceFamily string             `json:"dataSourceFamily"`
+	RecordingMethod  string             `json:"recordingMethod"`
+	Platform         string             `json:"platform"`
+	Device           DataSourceDevice   `json:"device"`
+	Application      DataSourceApp      `json:"application"`
+}
+
+// DataSourceDevice is the nested device object.
+type DataSourceDevice struct {
+	Name         string `json:"name"`
+	Manufacturer string `json:"manufacturer"`
+	Model        string `json:"model"`
+	UID          string `json:"uid"`
+	FormFactor   string `json:"formFactor"`
+}
+
+// DataSourceApp is the nested application object.
+type DataSourceApp struct {
+	PackageName string `json:"packageName"`
+	Name        string `json:"name"`
+	Version     string `json:"version"`
+}
+
+// DeviceName returns the best available device identifier.
+func (ds DataSource) DeviceName() string {
+	if ds.Device.Name != "" {
+		return ds.Device.Name
+	}
+	if ds.Device.Model != "" {
+		return ds.Device.Model
+	}
+	return ds.Device.Manufacturer
+}
+
+// DeviceFormFactor returns the device form factor.
+func (ds DataSource) DeviceFormFactor() string {
+	return ds.Device.FormFactor
+}
+
+// ApplicationPackageName returns the application package name.
+func (ds DataSource) ApplicationPackageName() string {
+	return ds.Application.PackageName
 }
 
 // DataPoint represents a single Google Health data point.
@@ -102,6 +151,12 @@ func (dp *DataPoint) UnmarshalJSON(b []byte) error {
 
 	if name, ok := raw["name"].(string); ok {
 		dp.Name = name
+	}
+	// :reconcile responses key the identifier as "dataPointName" instead of "name".
+	if dp.Name == "" {
+		if name, ok := raw["dataPointName"].(string); ok {
+			dp.Name = name
+		}
 	}
 	if ds, ok := raw["dataSource"].(map[string]interface{}); ok {
 		dsBytes, _ := json.Marshal(ds)
@@ -237,7 +292,10 @@ func (dp *DataPoint) ValueMap() map[string]interface{} {
 	return dp.data
 }
 
-func parseTimeString(v interface{}) time.Time {
+// ParseTimeString parses an RFC3339(Nano) timestamp from a JSON value,
+// returning the zero time if absent or unparseable. Shared by the ingestion
+// layer for parsing nested timestamps in stored payloads.
+func ParseTimeString(v interface{}) time.Time {
 	s, _ := v.(string)
 	if s == "" {
 		return time.Time{}
@@ -249,6 +307,8 @@ func parseTimeString(v interface{}) time.Time {
 	}
 	return time.Time{}
 }
+
+func parseTimeString(v interface{}) time.Time { return ParseTimeString(v) }
 
 func parseCivilDateTime(v interface{}) time.Time {
 	m, _ := v.(map[string]interface{})
@@ -281,20 +341,33 @@ func parseDate(v interface{}) time.Time {
 	return time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
 }
 
-func parseDurationSeconds(v interface{}) *int32 {
-	s, _ := v.(string)
-	if s == "" {
-		return nil
+// DurationSeconds parses a protobuf Duration string (e.g. "600s", "1.5s",
+// "19800s") into seconds, returning 0 if absent or unparseable. Shared across
+// the ingestion and cron layers for duration and UTC-offset fields.
+func DurationSeconds(v interface{}) float64 {
+	s, ok := v.(string)
+	if !ok || s == "" {
+		return 0
 	}
-	var sec float64
-	if _, err := fmt.Sscanf(s, "%fs", &sec); err == nil {
-		i := int32(sec)
-		return &i
+	f, err := strconv.ParseFloat(strings.TrimSuffix(s, "s"), 64)
+	if err != nil {
+		return 0
 	}
-	return nil
+	return f
 }
 
-func number(v interface{}) float64 {
+func parseDurationSeconds(v interface{}) *int32 {
+	if _, ok := v.(string); !ok {
+		return nil
+	}
+	i := int32(DurationSeconds(v))
+	return &i
+}
+
+// Number coerces a JSON value to float64, accepting native numbers and the
+// string-encoded int64s the Health API returns (e.g. "46"). Shared coercion
+// helper for all extraction layers.
+func Number(v interface{}) float64 {
 	switch n := v.(type) {
 	case float64:
 		return n
@@ -303,12 +376,13 @@ func number(v interface{}) float64 {
 	case int64:
 		return float64(n)
 	case string:
-		var f float64
-		fmt.Sscanf(n, "%f", &f)
+		f, _ := strconv.ParseFloat(n, 64)
 		return f
 	}
 	return 0
 }
+
+func number(v interface{}) float64 { return Number(v) }
 
 // ListDataPointsRequest is the request for dataPoints:list.
 type ListDataPointsRequest struct {

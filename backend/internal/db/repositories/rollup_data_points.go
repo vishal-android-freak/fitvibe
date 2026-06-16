@@ -43,6 +43,39 @@ type RollupDataPointRecord struct {
 	PayloadJSON        string
 }
 
+// RawRollup is a minimal projection used by the backfill re-parser.
+type RawRollup struct {
+	ID         int64
+	UserID     int64
+	DataType   string
+	RollupKind string
+	WindowSize sql.NullString
+	PayloadJSON string
+}
+
+// IterateRaw streams every rollup's raw payload to fn in id order.
+func (r *RollupDataPointRepo) IterateRaw(ctx context.Context, fn func(*RawRollup) error) error {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, user_id, data_type, rollup_kind, window_size, payload_json
+		FROM rollup_data_points ORDER BY id
+	`)
+	if err != nil {
+		return fmt.Errorf("query rollups: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var rr RawRollup
+		if err := rows.Scan(&rr.ID, &rr.UserID, &rr.DataType, &rr.RollupKind, &rr.WindowSize, &rr.PayloadJSON); err != nil {
+			return fmt.Errorf("scan rollup: %w", err)
+		}
+		if err := fn(&rr); err != nil {
+			return err
+		}
+	}
+	return rows.Err()
+}
+
 // InsertMany stores rollup records in a transaction.
 func (r *RollupDataPointRepo) InsertMany(ctx context.Context, recs []*RollupDataPointRecord) error {
 	tx, err := r.db.BeginTx(ctx, nil)
@@ -52,7 +85,7 @@ func (r *RollupDataPointRepo) InsertMany(ctx context.Context, recs []*RollupData
 	defer tx.Rollback()
 
 	stmt, err := tx.PrepareContext(ctx, `
-		INSERT INTO rollup_data_points (
+		INSERT OR REPLACE INTO rollup_data_points (
 			user_id, data_type, rollup_kind, window_size, data_source_family,
 			start_time, end_time, civil_start_date, civil_end_date,
 			count_sum, count_avg, count_min, count_max,

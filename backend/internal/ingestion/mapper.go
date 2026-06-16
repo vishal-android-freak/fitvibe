@@ -11,6 +11,19 @@ import (
 	"github.com/vishal-android-freak/fitvibe/internal/healthapi"
 )
 
+// RemapPayload re-parses a stored payload_json blob back into a DB record using
+// the current parsing/extraction logic. Used by the backfill command to
+// recompute extracted fields and child rows from already-persisted raw data
+// without re-fetching from Google. The produced record carries the same time
+// coordinates, so re-inserting it upserts in place (no duplicates).
+func RemapPayload(userID int64, dataType, fetchedVia string, payloadJSON string, webhookID sql.NullInt64) (*repositories.DataPointRecord, error) {
+	var dp healthapi.DataPoint
+	if err := json.Unmarshal([]byte(payloadJSON), &dp); err != nil {
+		return nil, fmt.Errorf("unmarshal payload: %w", err)
+	}
+	return MapDataPoint(userID, dataType, fetchedVia, &dp, webhookID)
+}
+
 // MapDataPoint converts a healthapi.DataPoint into a DB record.
 func MapDataPoint(userID int64, dataType, fetchedVia string, dp *healthapi.DataPoint, webhookID sql.NullInt64) (*repositories.DataPointRecord, error) {
 	category := healthapi.Category(dataType)
@@ -41,14 +54,14 @@ func MapDataPoint(userID int64, dataType, fetchedVia string, dp *healthapi.DataP
 	if dp.DataSource.Platform != "" {
 		rec.Platform = sql.NullString{String: dp.DataSource.Platform, Valid: true}
 	}
-	if dp.DataSource.DeviceName != "" {
-		rec.DeviceName = sql.NullString{String: dp.DataSource.DeviceName, Valid: true}
+	if name := dp.DataSource.DeviceName(); name != "" {
+		rec.DeviceName = sql.NullString{String: name, Valid: true}
 	}
-	if dp.DataSource.DeviceFormFactor != "" {
-		rec.DeviceFormFactor = sql.NullString{String: dp.DataSource.DeviceFormFactor, Valid: true}
+	if ff := dp.DataSource.DeviceFormFactor(); ff != "" {
+		rec.DeviceFormFactor = sql.NullString{String: ff, Valid: true}
 	}
-	if dp.DataSource.ApplicationPackageName != "" {
-		rec.ApplicationPackageName = sql.NullString{String: dp.DataSource.ApplicationPackageName, Valid: true}
+	if pkg := dp.DataSource.ApplicationPackageName(); pkg != "" {
+		rec.ApplicationPackageName = sql.NullString{String: pkg, Valid: true}
 	}
 
 	dsJSON, _ := json.Marshal(dp.DataSource)
@@ -92,6 +105,7 @@ func MapDataPoint(userID int64, dataType, fetchedVia string, dp *healthapi.DataP
 	}
 
 	extractScalars(rec, dataType, dp.ValueMap())
+	extractChildren(rec, dataType, dp.ValueMap())
 	return rec, nil
 }
 
@@ -161,7 +175,16 @@ func extractScalars(rec *repositories.DataPointRecord, dataType string, value ma
 			rec.EnumValueSecondary = sql.NullString{String: n, Valid: true}
 		}
 	case "hydration-log":
-		if n, ok := value["volumeMilliliters"]; ok {
+		// Real payload: {"amountConsumed":{"milliliters":1300,"userProvidedUnit":"LITER"}}
+		if amt, ok := value["amountConsumed"].(map[string]interface{}); ok {
+			if n, ok := amt["milliliters"]; ok {
+				rec.ValueSum = sql.NullFloat64{Float64: number(n), Valid: true}
+			}
+		} else if vol, ok := value["volume"].(map[string]interface{}); ok {
+			if n, ok := vol["value"]; ok {
+				rec.ValueSum = sql.NullFloat64{Float64: number(n), Valid: true}
+			}
+		} else if n, ok := value["volumeMilliliters"]; ok {
 			rec.ValueSum = sql.NullFloat64{Float64: number(n), Valid: true}
 		}
 	case "activity-level":
@@ -175,8 +198,12 @@ func extractScalars(rec *repositories.DataPointRecord, dataType string, value ma
 		if n, ok := value["heartRateZoneType"].(string); ok {
 			rec.EnumValue = sql.NullString{String: n, Valid: true}
 		}
-		if n, ok := value["timeInHeartRateZoneMinutes"]; ok {
-			rec.ValueCount = sql.NullInt32{Int32: int32(number(n)), Valid: true}
+		// The duration is expressed as a Duration string ("600s") under
+		// "timeInZone"; older payloads used "timeInHeartRateZoneMinutes".
+		if secs := durationSeconds(value["timeInZone"]); secs > 0 {
+			rec.ValueSum = sql.NullFloat64{Float64: secs, Valid: true}
+		} else if n, ok := value["timeInHeartRateZoneMinutes"]; ok {
+			rec.ValueSum = sql.NullFloat64{Float64: number(n) * 60, Valid: true}
 		}
 	case "sleep":
 		if n, ok := value["type"].(string); ok {
@@ -203,19 +230,29 @@ func extractScalars(rec *repositories.DataPointRecord, dataType string, value ma
 			}
 		}
 	case "heart-rate-variability":
-		if n, ok := value["milliseconds"]; ok {
+		// Real field: rootMeanSquareOfSuccessiveDifferencesMilliseconds (RMSSD).
+		if n, ok := value["rootMeanSquareOfSuccessiveDifferencesMilliseconds"]; ok {
 			rec.ValueAvg = sql.NullFloat64{Float64: number(n), Valid: true}
+		} else if n, ok := value["milliseconds"]; ok {
+			rec.ValueAvg = sql.NullFloat64{Float64: number(n), Valid: true}
+		}
+		if n, ok := value["standardDeviationMilliseconds"]; ok {
+			rec.ValueMin = sql.NullFloat64{Float64: number(n), Valid: true}
 		}
 	case "daily-resting-heart-rate":
 		if n, ok := value["beatsPerMinute"]; ok {
 			rec.ValueAvg = sql.NullFloat64{Float64: number(n), Valid: true}
 		}
 	case "daily-heart-rate-variability":
-		if n, ok := value["milliseconds"]; ok {
+		if n, ok := value["averageHeartRateVariabilityMilliseconds"]; ok {
+			rec.ValueAvg = sql.NullFloat64{Float64: number(n), Valid: true}
+		} else if n, ok := value["milliseconds"]; ok {
 			rec.ValueAvg = sql.NullFloat64{Float64: number(n), Valid: true}
 		}
 	case "daily-heart-rate-zones":
-		if zones, ok := value["zones"].([]interface{}); ok {
+		if zones, ok := value["heartRateZones"].([]interface{}); ok {
+			rec.ValueCount = sql.NullInt32{Int32: int32(len(zones)), Valid: true}
+		} else if zones, ok := value["zones"].([]interface{}); ok {
 			rec.ValueCount = sql.NullInt32{Int32: int32(len(zones)), Valid: true}
 		}
 	case "run-vo2-max":
@@ -223,7 +260,13 @@ func extractScalars(rec *repositories.DataPointRecord, dataType string, value ma
 			rec.ValueAvg = sql.NullFloat64{Float64: number(n), Valid: true}
 		}
 	case "respiratory-rate-sleep-summary":
-		if n, ok := value["breathsPerMinute"]; ok {
+		// Real payload nests stats under fullSleepStats/deepSleepStats/etc.
+		// Prefer the full-sleep breaths-per-minute summary.
+		if stats, ok := value["fullSleepStats"].(map[string]interface{}); ok {
+			if n, ok := stats["breathsPerMinute"]; ok {
+				rec.ValueAvg = sql.NullFloat64{Float64: number(n), Valid: true}
+			}
+		} else if n, ok := value["breathsPerMinute"]; ok {
 			rec.ValueAvg = sql.NullFloat64{Float64: number(n), Valid: true}
 		}
 	case "height":
@@ -241,8 +284,16 @@ func extractScalars(rec *repositories.DataPointRecord, dataType string, value ma
 			rec.ValueAvg = sql.NullFloat64{Float64: number(n), Valid: true}
 		}
 	case "daily-oxygen-saturation":
-		if n, ok := value["percentage"]; ok {
+		if n, ok := value["averagePercentage"]; ok {
 			rec.ValueAvg = sql.NullFloat64{Float64: number(n), Valid: true}
+		} else if n, ok := value["percentage"]; ok {
+			rec.ValueAvg = sql.NullFloat64{Float64: number(n), Valid: true}
+		}
+		if n, ok := value["lowerBoundPercentage"]; ok {
+			rec.ValueMin = sql.NullFloat64{Float64: number(n), Valid: true}
+		}
+		if n, ok := value["upperBoundPercentage"]; ok {
+			rec.ValueMax = sql.NullFloat64{Float64: number(n), Valid: true}
 		}
 	case "daily-respiratory-rate":
 		if n, ok := value["breathsPerMinute"]; ok {
@@ -269,8 +320,15 @@ func extractScalars(rec *repositories.DataPointRecord, dataType string, value ma
 			rec.ValueCount = sql.NullInt32{Int32: int32(len(n)), Valid: true}
 		}
 	case "sedentary-period":
+		// Real payload carries no explicit duration; derive seconds from the
+		// interval bounds already extracted onto the record.
 		if n, ok := value["sedentaryDurationMinutes"]; ok {
-			rec.ValueCount = sql.NullInt32{Int32: int32(number(n)), Valid: true}
+			rec.ValueSum = sql.NullFloat64{Float64: number(n) * 60, Valid: true}
+		} else if rec.StartTime.Valid && rec.EndTime.Valid {
+			secs := rec.EndTime.Time.Sub(rec.StartTime.Time).Seconds()
+			if secs > 0 {
+				rec.ValueSum = sql.NullFloat64{Float64: secs, Valid: true}
+			}
 		}
 	case "nutrition-log":
 		if energy, ok := value["energy"].(map[string]interface{}); ok {
@@ -284,21 +342,10 @@ func extractScalars(rec *repositories.DataPointRecord, dataType string, value ma
 	}
 }
 
-func number(v interface{}) float64 {
-	switch n := v.(type) {
-	case float64:
-		return n
-	case int:
-		return float64(n)
-	case int64:
-		return float64(n)
-	case string:
-		var f float64
-		fmt.Sscanf(n, "%f", &f)
-		return f
-	}
-	return 0
-}
+// number and durationSeconds delegate to the shared healthapi coercion helpers
+// so all extraction layers parse numbers and Duration strings identically.
+func number(v interface{}) float64          { return healthapi.Number(v) }
+func durationSeconds(v interface{}) float64 { return healthapi.DurationSeconds(v) }
 
 // ParseInterval parses an RFC3339 interval string.
 func ParseInterval(s string) (time.Time, error) {

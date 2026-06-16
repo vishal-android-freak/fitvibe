@@ -205,18 +205,18 @@ func setFilterQuery(q url.Values, dataType, category string, start, end time.Tim
 	var field string
 	var useCivilDate bool
 
-	// Sleep filters on interval.end_time.
+	// Sleep filters on interval.end_time (a session may start the prior day).
 	if dataType == "sleep" {
 		field = snake + ".interval.end_time"
 	} else {
 		switch category {
-		case "interval":
+		case "interval", "session":
+			// Sessions (exercise, nutrition-log, hydration-log) carry an
+			// interval just like interval-category types; filter on the
+			// physical start_time, not a civil date.
 			field = snake + ".interval.start_time"
 		case "sample":
 			field = snake + ".sample_time.physical_time"
-		case "session":
-			field = snake + ".interval.civil_start_time"
-			useCivilDate = true
 		case "daily":
 			field = snake + ".date"
 			useCivilDate = true

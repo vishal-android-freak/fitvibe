@@ -117,6 +117,18 @@ func (p *Processor) process(ctx context.Context, n *repositories.WebhookNotifica
 				dataType = n.DataType
 			}
 
+			// DELETE notifications mean the data in the interval was removed
+			// upstream; reflect that locally instead of re-fetching.
+			if strings.EqualFold(payload.Data.Operation, "DELETE") {
+				deleted, err := p.dataPointRepo.DeleteByTimeRange(ctx, user.ID, dataType, start, end)
+				if err != nil {
+					return fmt.Errorf("delete data points %s: %w", dataType, err)
+				}
+				p.logger.Info("applied webhook DELETE",
+					"data_type", dataType, "deleted", deleted, "notification_id", n.ID)
+				continue
+			}
+
 			if err := p.fetchAndStore(ctx, client, user.ID, dataType, start, end, webhookID); err != nil {
 				if isUnsupportedListAction(err) {
 					p.logger.Warn("skipping unsupported list data type",

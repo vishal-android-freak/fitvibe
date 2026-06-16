@@ -62,18 +62,7 @@ func (b *BackfillJob) Run(ctx context.Context) error {
 		return fmt.Errorf("user %d not found", b.userID)
 	}
 
-	// Webhook-supported types we backfill on signup.
-	// Excludes types that only support rollup/dailyRollup (no list).
-	// Excludes activity-level because its filter field path is not documented/supported yet.
-	dataTypes := []string{
-		"active-zone-minutes", "altitude", "blood-glucose", "body-fat",
-		"daily-heart-rate-variability", "daily-heart-rate-zones",
-		"daily-oxygen-saturation", "daily-respiratory-rate", "daily-resting-heart-rate",
-		"daily-sleep-temperature-derivations", "distance", "exercise", "heart-rate",
-		"heart-rate-variability", "height", "hydration-log", "nutrition-log",
-		"respiratory-rate-sleep-summary", "run-vo2-max", "sedentary-period", "sleep", "steps",
-		"time-in-heart-rate-zone", "weight",
-	}
+	dataTypes := WebhookListDataTypes
 
 	start := time.Now().UTC().Add(-time.Duration(b.cfg.DefaultBackfillDays) * 24 * time.Hour)
 	end := time.Now().UTC()

@@ -40,6 +40,8 @@ type Config struct {
 	CronListSync                  string        `env:"CRON_LIST_SYNC" envDefault:"0 */6 * * *"`
 	CronProfileSettingsSync       string        `env:"CRON_PROFILE_SETTINGS_SYNC" envDefault:"0 2 * * *"`
 	CronReconcileSync             string        `env:"CRON_RECONCILE_SYNC" envDefault:"0 3 * * *"`
+	CronCatchupSync               string        `env:"CRON_CATCHUP_SYNC" envDefault:"0 */3 * * *"`
+	CatchupLookbackHours          int           `env:"CATCHUP_LOOKBACK_HOURS" envDefault:"48"`
 	SQLiteBusyTimeoutMs           int           `env:"SQLITE_BUSY_TIMEOUT_MS" envDefault:"5000"`
 }
 

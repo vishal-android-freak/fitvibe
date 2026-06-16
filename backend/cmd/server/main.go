@@ -78,6 +78,10 @@ func main() {
 		logger.Error("failed to register reconcile sync cron", "error", err)
 		os.Exit(1)
 	}
+	if err := scheduler.Register(cfg.CronCatchupSync, cron.NewCatchupSyncer(cfg, oauthService, userRepo, syncStateRepo, dataPointRepo, logger)); err != nil {
+		logger.Error("failed to register webhook catchup sync cron", "error", err)
+		os.Exit(1)
+	}
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)

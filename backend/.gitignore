@@ -5,6 +5,7 @@ service-account.json
 # Generated database files
 fitvibe.db
 fitvibe.db-*
+*.db.bak-*
 *.db-journal
 
 # Compiled binary
