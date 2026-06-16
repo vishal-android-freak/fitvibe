@@ -54,7 +54,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Real notification: verify signature.
-	sigHeader := r.Header.Get("GOOGLE-HEALTH-API-SIGNATURE")
+	// The live API sends this header as X-Healthapi-Signature (confirmed).
+	sigHeader := r.Header.Get("X-Healthapi-Signature")
 	if sigHeader == "" {
 		h.logger.Warn("missing signature header", "headers", r.Header)
 		http.Error(w, "missing signature", http.StatusUnauthorized)
