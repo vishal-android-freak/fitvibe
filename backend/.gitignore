@@ -18,3 +18,4 @@ server-bin.exe
 .DS_Store
 Thumbs.db
 *.exe
+server-bin~
