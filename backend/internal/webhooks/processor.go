@@ -92,7 +92,7 @@ func (p *Processor) process(ctx context.Context, n *repositories.WebhookNotifica
 		return fmt.Errorf("user not found for health_user_id %s", n.HealthUserID)
 	}
 
-	payload, err := parseNotificationPayload(n.NotificationJSON)
+	payloads, err := parseNotificationPayload(n.NotificationJSON)
 	if err != nil {
 		return fmt.Errorf("parse notification: %w", err)
 	}
@@ -100,17 +100,24 @@ func (p *Processor) process(ctx context.Context, n *repositories.WebhookNotifica
 	client := healthapi.NewClient(p.oauthService.TokenProvider(user.ID))
 	webhookID := sql.NullInt64{Int64: n.ID, Valid: true}
 
-	for _, interval := range payload.Data.Intervals {
-		start, end, err := intervalBounds(interval)
-		if err != nil {
-			return fmt.Errorf("interval bounds: %w", err)
-		}
-		if start.IsZero() || end.IsZero() {
-			continue
-		}
+	for _, payload := range payloads {
+		for _, interval := range payload.Data.Intervals {
+			start, end, err := intervalBounds(interval)
+			if err != nil {
+				return fmt.Errorf("interval bounds: %w", err)
+			}
+			if start.IsZero() || end.IsZero() {
+				continue
+			}
 
-		if err := p.fetchAndStore(ctx, client, user.ID, n.DataType, start, end, webhookID); err != nil {
-			return fmt.Errorf("fetch and store %s: %w", n.DataType, err)
+			dataType := payload.Data.DataType
+			if dataType == "" {
+				dataType = n.DataType
+			}
+
+			if err := p.fetchAndStore(ctx, client, user.ID, dataType, start, end, webhookID); err != nil {
+				return fmt.Errorf("fetch and store %s: %w", dataType, err)
+			}
 		}
 	}
 
@@ -175,12 +182,18 @@ func min(a, b int) int {
 	return b
 }
 
-func parseNotificationPayload(raw string) (*notificationPayload, error) {
-	var p notificationPayload
-	if err := json.Unmarshal([]byte(raw), &p); err != nil {
+func parseNotificationPayload(raw string) ([]notificationPayload, error) {
+	// Google sends notifications as either a single object or a batch array.
+	var single notificationPayload
+	if err := json.Unmarshal([]byte(raw), &single); err == nil && single.Data.HealthUserID != "" {
+		return []notificationPayload{single}, nil
+	}
+
+	var batch []notificationPayload
+	if err := json.Unmarshal([]byte(raw), &batch); err != nil {
 		return nil, err
 	}
-	return &p, nil
+	return batch, nil
 }
 
 func intervalBounds(i notificationInterval) (time.Time, time.Time, error) {

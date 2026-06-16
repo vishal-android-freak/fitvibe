@@ -40,12 +40,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	h.logger.Info("webhook request",
-		"method", r.Method,
-		"path", r.URL.Path,
-		"headers", r.Header,
-		"body", string(body))
-
 	// Verification handshake.
 	if isVerification(body) {
 		h.handleVerification(w, r)
