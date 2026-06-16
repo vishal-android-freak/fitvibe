@@ -48,13 +48,14 @@ func (p *Processor) Start(ctx context.Context, interval time.Duration) {
 	defer ticker.Stop()
 
 	for {
+		if err := p.ProcessBatch(ctx); err != nil {
+			p.logger.Error("webhook batch processing error", "error", err)
+		}
+
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := p.ProcessBatch(ctx); err != nil {
-				p.logger.Error("webhook batch processing error", "error", err)
-			}
 		}
 	}
 }
