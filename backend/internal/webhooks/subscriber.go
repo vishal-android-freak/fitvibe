@@ -54,9 +54,13 @@ func (m *SubscriberManager) Config() *config.Config {
 }
 
 // CreateSubscriber creates a new subscriber for all webhook-supported data types.
-func (m *SubscriberManager) CreateSubscriber(ctx context.Context, cfg *SubscriberConfig) (*SubscriberConfig, error) {
+// subscriberID must match [a-z]([a-z0-9-]{2,34}[a-z0-9]) and be 4-36 characters.
+func (m *SubscriberManager) CreateSubscriber(ctx context.Context, subscriberID string, cfg *SubscriberConfig) (*SubscriberConfig, error) {
 	if m.cfg.GoogleProjectNumber == "" {
 		return nil, fmt.Errorf("GOOGLE_PROJECT_NUMBER is required")
+	}
+	if subscriberID == "" {
+		return nil, fmt.Errorf("subscriberID is required")
 	}
 
 	// Use AUTOMATIC policy if not specified.
@@ -66,10 +70,19 @@ func (m *SubscriberManager) CreateSubscriber(ctx context.Context, cfg *Subscribe
 		}
 	}
 
-	url := fmt.Sprintf("https://health.googleapis.com/v4/projects/%s/subscribers", m.cfg.GoogleProjectNumber)
-	var created SubscriberConfig
-	if err := m.doJSON(ctx, http.MethodPost, url, cfg, &created); err != nil {
+	url := fmt.Sprintf("https://health.googleapis.com/v4/projects/%s/subscribers?subscriberId=%s", m.cfg.GoogleProjectNumber, subscriberID)
+	var op operation
+	if err := m.doJSON(ctx, http.MethodPost, url, cfg, &op); err != nil {
 		return nil, err
+	}
+
+	if op.Error != nil {
+		return nil, fmt.Errorf("operation failed: %s", op.Error.Message)
+	}
+
+	var created SubscriberConfig
+	if err := json.Unmarshal(op.Response, &created); err != nil {
+		return nil, fmt.Errorf("decode created subscriber: %w", err)
 	}
 	return &created, nil
 }
@@ -106,6 +119,19 @@ func (m *SubscriberManager) DeleteSubscriber(ctx context.Context, name string) e
 
 type listSubscribersResponse struct {
 	Subscribers []SubscriberConfig `json:"subscribers"`
+}
+
+type operation struct {
+	Name     string          `json:"name"`
+	Done     bool            `json:"done"`
+	Error    *operationError `json:"error,omitempty"`
+	Response json.RawMessage `json:"response,omitempty"`
+}
+
+type operationError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Status  string `json:"status"`
 }
 
 func (m *SubscriberManager) doJSON(ctx context.Context, method, url string, body, dest interface{}) error {

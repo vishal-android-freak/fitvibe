@@ -82,7 +82,12 @@ func (h *AdminHandler) createSubscriber(w http.ResponseWriter, r *http.Request) 
 		return token, nil
 	})
 
-	created, err := mgr.CreateSubscriber(ctx, &cfg)
+	subscriberID := r.URL.Query().Get("subscriberId")
+	if subscriberID == "" {
+		subscriberID = "fitvibe-webhook"
+	}
+
+	created, err := mgr.CreateSubscriber(ctx, subscriberID, &cfg)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

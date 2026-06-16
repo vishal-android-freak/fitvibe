@@ -48,7 +48,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Real notification: verify signature.
-	sigHeader := r.Header.Get("GOOGLE-HEALTH-API-SIGNATURE")
+	sigHeader := r.Header.Get("X-HEALTHAPI-SIGNATURE")
 	if sigHeader == "" {
 		h.logger.Warn("missing signature header")
 		http.Error(w, "missing signature", http.StatusUnauthorized)
@@ -110,7 +110,7 @@ func (h *Handler) handleVerification(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusCreated)
 }
 
 func isVerification(body []byte) bool {

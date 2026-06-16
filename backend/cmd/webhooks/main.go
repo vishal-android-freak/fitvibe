@@ -78,15 +78,15 @@ func usage() {
 }
 
 func tokenSourceFromServiceAccount(ctx context.Context, path string) (oauth2.TokenSource, error) {
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read service account file: %w", err)
+	// Set ADC path so google.FindDefaultCredentials can use the service account.
+	if os.Getenv("GOOGLE_APPLICATION_CREDENTIALS") == "" {
+		os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", path)
 	}
-	cfg, err := google.JWTConfigFromJSON(b, "https://www.googleapis.com/auth/googlehealth.webhooks")
+	creds, err := google.FindDefaultCredentials(ctx, "https://www.googleapis.com/auth/cloud-platform")
 	if err != nil {
-		return nil, fmt.Errorf("parse service account: %w", err)
+		return nil, fmt.Errorf("find default credentials: %w", err)
 	}
-	return cfg.TokenSource(ctx), nil
+	return creds.TokenSource, nil
 }
 
 func create(ctx context.Context, cfg *config.Config, sub *webhooks.SubscriberManager, args []string) {
@@ -94,6 +94,7 @@ func create(ctx context.Context, cfg *config.Config, sub *webhooks.SubscriberMan
 	endpoint := fs.String("endpoint", os.Getenv("WEBHOOK_ENDPOINT_URI"), "Webhook endpoint URI")
 	secret := fs.String("secret", cfg.WebhookSecret, "Webhook verification secret")
 	typesStr := fs.String("types", "", "Comma-separated data types (default: all supported webhook types)")
+	subscriberID := fs.String("subscriber-id", "fitvibe-webhook", "Unique subscriber ID (4-36 chars, lowercase)")
 	if err := fs.Parse(args); err != nil {
 		log.Fatalf("parse flags: %v", err)
 	}
@@ -101,15 +102,23 @@ func create(ctx context.Context, cfg *config.Config, sub *webhooks.SubscriberMan
 	if *endpoint == "" {
 		log.Fatal("-endpoint is required")
 	}
+	if *subscriberID == "" {
+		log.Fatal("-subscriber-id is required")
+	}
 
 	dataTypes := webhooksSupportedTypes()
 	if *typesStr != "" {
 		dataTypes = strings.Split(*typesStr, ",")
 	}
 
+	authSecret := *secret
+	if authSecret != "" && !strings.HasPrefix(authSecret, "Bearer ") && !strings.HasPrefix(authSecret, "Basic ") {
+		authSecret = "Bearer " + authSecret
+	}
+
 	req := &webhooks.SubscriberConfig{
 		EndpointURI:           *endpoint,
-		EndpointAuthorization: webhooks.EndpointAuth{Secret: *secret},
+		EndpointAuthorization: webhooks.EndpointAuth{Secret: authSecret},
 		SubscriberConfigs: []webhooks.DataTypeConfig{
 			{
 				DataTypes:                dataTypes,
@@ -118,7 +127,7 @@ func create(ctx context.Context, cfg *config.Config, sub *webhooks.SubscriberMan
 		},
 	}
 
-	created, err := sub.CreateSubscriber(ctx, req)
+	created, err := sub.CreateSubscriber(ctx, *subscriberID, req)
 	if err != nil {
 		log.Fatalf("create subscriber: %v", err)
 	}
@@ -167,41 +176,34 @@ func printJSON(v interface{}) {
 }
 
 func webhooksSupportedTypes() []string {
+	// Matches the webhook-supported data types listed in the Google Health API docs.
 	return []string{
-		"active-energy-burned",
-		"active-minutes",
 		"active-zone-minutes",
+		"activity-level",
+		"altitude",
 		"blood-glucose",
-		"blood-pressure",
 		"body-fat",
 		"calories-in-heart-rate-zone",
-		"cervical-mucus",
-		"cycling-pedaling-cadence",
+		"daily-heart-rate-variability",
+		"daily-heart-rate-zones",
+		"daily-oxygen-saturation",
+		"daily-respiratory-rate",
+		"daily-resting-heart-rate",
+		"daily-sleep-temperature-derivations",
 		"distance",
-		"elevation-gained",
 		"exercise",
 		"floors",
 		"heart-rate",
 		"heart-rate-variability",
 		"height",
-		"hydration",
-		"intermenstrual-bleeding",
-		"menstruation",
-		"nutrition",
+		"hydration-log",
 		"nutrition-log",
-		"oxygen-saturation",
-		"power",
-		"respiratory-rate",
-		"resting-heart-rate",
-		"sexual-activity",
+		"respiratory-rate-sleep-summary",
+		"run-vo2-max",
+		"sedentary-period",
 		"sleep",
-		"speed",
 		"steps",
-		"swim-lengths-data",
 		"time-in-heart-rate-zone",
-		"total-calories",
-		"vo2-max",
 		"weight",
-		"wheelchair-pushes",
 	}
 }
