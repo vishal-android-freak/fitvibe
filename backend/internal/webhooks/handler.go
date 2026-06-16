@@ -41,6 +41,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
+	h.logger.Info("webhook request",
+		"method", r.Method,
+		"path", r.URL.Path,
+		"headers", r.Header,
+		"body", string(body))
+
 	// Verification handshake.
 	if isVerification(body) {
 		h.handleVerification(w, r)
@@ -48,11 +54,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Real notification: verify signature.
-	// Google has used both header names in different docs/releases.
-	sigHeader := r.Header.Get("X-HEALTHAPI-SIGNATURE")
-	if sigHeader == "" {
-		sigHeader = r.Header.Get("GOOGLE-HEALTH-API-SIGNATURE")
-	}
+	sigHeader := r.Header.Get("GOOGLE-HEALTH-API-SIGNATURE")
 	if sigHeader == "" {
 		h.logger.Warn("missing signature header", "headers", r.Header)
 		http.Error(w, "missing signature", http.StatusUnauthorized)
@@ -65,21 +67,21 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Queue the notification.
-	var payload notificationPayload
-	if err := json.Unmarshal(body, &payload); err != nil {
-		h.logger.Error("failed to unmarshal notification", "error", err)
+	// Queue the notification(s).
+	payloads, err := parseNotificationPayloads(body)
+	if err != nil {
+		h.logger.Error("failed to unmarshal notification", "error", err, "body", string(body))
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
 
-	data := payload.Data
-	if data.HealthUserID == "" || data.DataType == "" {
-		http.Error(w, "missing health user id or data type", http.StatusBadRequest)
-		return
-	}
+	for _, payload := range payloads {
+		data := payload.Data
+		if data.HealthUserID == "" || data.DataType == "" {
+			h.logger.Warn("notification missing health user id or data type", "body", string(body))
+			continue
+		}
 
-	for _, _ = range data.Intervals {
 		rec := &repositories.WebhookNotificationRecord{
 			HealthUserID:                   data.HealthUserID,
 			DataType:                       data.DataType,
@@ -125,6 +127,20 @@ func isVerification(body []byte) bool {
 		return false
 	}
 	return v.Type == "verification"
+}
+
+func parseNotificationPayloads(body []byte) ([]notificationPayload, error) {
+	// Google may send a single notification object or a batch array.
+	var single notificationPayload
+	if err := json.Unmarshal(body, &single); err == nil && single.Data.HealthUserID != "" {
+		return []notificationPayload{single}, nil
+	}
+
+	var batch []notificationPayload
+	if err := json.Unmarshal(body, &batch); err != nil {
+		return nil, err
+	}
+	return batch, nil
 }
 
 type notificationPayload struct {
