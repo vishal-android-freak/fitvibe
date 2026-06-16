@@ -1,5 +1,6 @@
 # Environment & secrets
 .env
+service-account.json
 
 # Generated database files
 fitvibe.db
