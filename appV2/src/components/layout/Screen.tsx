@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, StyleSheet, type ViewStyle } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useResponsive } from '@/theme';
 
@@ -9,29 +9,23 @@ export interface ScreenProps {
   children: React.ReactNode;
   /** apply horizontal gutter padding (default true) */
   pad?: boolean;
-  contentStyle?: ViewStyle;
-  scrollRef?: React.Ref<ScrollView>;
 }
 
 /**
  * Scrollable content region inside the screen column. Leaves clearance for the
  * floating glass bottom nav, and applies the responsive side gutter.
  */
-export function Screen({ children, pad = true, contentStyle, scrollRef }: ScreenProps) {
+export function Screen({ children, pad = true }: ScreenProps) {
   const insets = useSafeAreaInsets();
   const { gutter } = useResponsive();
   return (
     <ScrollView
-      ref={scrollRef}
       style={styles.scroll}
-      contentContainerStyle={[
-        {
-          paddingTop: insets.top + 8,
-          paddingBottom: NAV_CLEARANCE + insets.bottom,
-          paddingHorizontal: pad ? gutter : 0,
-        },
-        contentStyle,
-      ]}
+      contentContainerStyle={{
+        paddingTop: insets.top + 8,
+        paddingBottom: NAV_CLEARANCE + insets.bottom,
+        paddingHorizontal: pad ? gutter : 0,
+      }}
       showsVerticalScrollIndicator={false}
     >
       {children}
@@ -40,6 +34,7 @@ export function Screen({ children, pad = true, contentStyle, scrollRef }: Screen
 }
 
 const styles = StyleSheet.create({
+  // Width is bounded once by ScreenContainer's column; the scroller just fills it.
   scroll: { flex: 1 },
 });
 

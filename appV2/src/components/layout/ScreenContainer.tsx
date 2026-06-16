@@ -22,5 +22,9 @@ export function ScreenContainer({ children }: { children: React.ReactNode }) {
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center' },
-  column: { flex: 1, width: '100%' },
+  // alignSelf:stretch (not width:100%) sizes the column to EXACTLY the parent
+  // width — capped by maxWidth — so it can never measure wider than the
+  // viewport and clip content on the right. This is the single place width is
+  // bounded; descendants (Screen's scroller) just inherit via flex.
+  column: { flex: 1, alignSelf: 'stretch' },
 });

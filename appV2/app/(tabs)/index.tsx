@@ -1,5 +1,5 @@
-import { Placeholder } from '@/components/layout/Placeholder';
+import { TodayScreen } from '@/screens/today/TodayScreen';
 
-export default function TodayScreen() {
-  return <Placeholder title="Today" icon="house" />;
+export default function Today() {
+  return <TodayScreen />;
 }

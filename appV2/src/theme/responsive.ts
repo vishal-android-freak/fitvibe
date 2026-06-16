@@ -34,7 +34,7 @@ export function useResponsive(): Responsive {
     height,
     isCompact,
     isExpanded,
-    gutter: isCompact ? 20 : 24,
+    gutter: isCompact ? 14 : 18,
     // Let the column breathe a touch on big screens but keep the mobile feel.
     maxContent: isExpanded ? 480 : 440,
   };
