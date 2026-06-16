@@ -39,6 +39,7 @@ type Config struct {
 	CronDailyRollup               string        `env:"CRON_DAILY_ROLLUP" envDefault:"10 0 * * *"`
 	CronListSync                  string        `env:"CRON_LIST_SYNC" envDefault:"0 */6 * * *"`
 	CronProfileSettingsSync       string        `env:"CRON_PROFILE_SETTINGS_SYNC" envDefault:"0 2 * * *"`
+	CronReconcileSync             string        `env:"CRON_RECONCILE_SYNC" envDefault:"0 3 * * *"`
 	SQLiteBusyTimeoutMs           int           `env:"SQLITE_BUSY_TIMEOUT_MS" envDefault:"5000"`
 }
 

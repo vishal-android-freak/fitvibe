@@ -337,9 +337,11 @@ type ReconcileDataPointsRequest struct {
 }
 
 // ReconcileDataPointsResponse is the response for dataPoints:reconcile.
+// The live API returns the same dataPoints array shape as list, not a separate
+// dataPointStream field.
 type ReconcileDataPointsResponse struct {
-	DataPointStream []DataPoint `json:"dataPointStream"`
-	NextPageToken   string      `json:"nextPageToken"`
+	DataPoints    []DataPoint `json:"dataPoints"`
+	NextPageToken string      `json:"nextPageToken"`
 }
 
 // RollupRequest is the request for dataPoints:rollUp or :dailyRollUp.
