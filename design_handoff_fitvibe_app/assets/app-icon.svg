@@ -1,0 +1,21 @@
+<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="FitVibe app icon">
+  <defs>
+    <linearGradient id="fvIcoBg" x1="0" y1="0" x2="180" y2="180" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F1726"></stop>
+      <stop offset="1" stop-color="#070B14"></stop>
+    </linearGradient>
+    <linearGradient id="fvIcoStroke" x1="34" y1="40" x2="150" y2="150" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4ADE80"></stop>
+      <stop offset="0.5" stop-color="#38E0D8"></stop>
+      <stop offset="1" stop-color="#60A5FA"></stop>
+    </linearGradient>
+    <radialGradient id="fvIcoGlow" cx="0.32" cy="0.2" r="0.9">
+      <stop stop-color="#4ADE80" stop-opacity="0.28"></stop>
+      <stop offset="1" stop-color="#4ADE80" stop-opacity="0"></stop>
+    </radialGradient>
+  </defs>
+  <rect width="180" height="180" rx="44" fill="url(#fvIcoBg)"></rect>
+  <rect width="180" height="180" rx="44" fill="url(#fvIcoGlow)"></rect>
+  <path d="M90 32 a58 58 0 1 1 -41 17" stroke="url(#fvIcoStroke)" stroke-width="16" stroke-linecap="round" fill="none"></path>
+  <path d="M52 90 H73 l8 -24 l15 48 l8 -24 H128" stroke="url(#fvIcoStroke)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
+</svg>

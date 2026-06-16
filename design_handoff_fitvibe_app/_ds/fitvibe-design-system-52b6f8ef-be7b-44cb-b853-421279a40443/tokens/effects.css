@@ -1,0 +1,36 @@
+/* ============================================================
+   FitVibe — Effects: shadows, glows, blur, motion
+   ============================================================ */
+
+:root {
+  /* Elevation shadows (dark UI — soft, diffuse) */
+  --shadow-xs:  0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-sm:  0 2px 8px -2px rgba(0, 0, 0, 0.45);
+  --shadow-md:  0 8px 24px -8px rgba(0, 0, 0, 0.55);
+  --shadow-lg:  0 18px 48px -12px rgba(0, 0, 0, 0.6);
+  --shadow-xl:  0 30px 70px -18px rgba(0, 0, 0, 0.7);
+
+  /* Inner top-light for raised glass cards */
+  --shadow-inner-top: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+
+  /* Accent glows (vibrant metrics) */
+  --glow-green: 0 0 28px -4px rgba(74, 222, 128, 0.5);
+  --glow-blue:  0 0 28px -4px rgba(96, 165, 250, 0.5);
+  --glow-soft:  0 0 0 1px var(--border-subtle), var(--shadow-md);
+
+  /* Blur (glass) */
+  --blur-sm: 8px;
+  --blur-md: 16px;
+  --blur-lg: 28px;
+
+  /* Motion — calm, springy ease */
+  --ease-out:    cubic-bezier(0.22, 1, 0.36, 1); /* @kind other */
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1); /* @kind other */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* @kind other */
+  --dur-fast:    140ms; /* @kind other */
+  --dur-base:    220ms; /* @kind other */
+  --dur-slow:    380ms; /* @kind other */
+
+  /* Ring track color (for activity rings background) */
+  --ring-track: rgba(255, 255, 255, 0.08);
+}

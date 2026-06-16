@@ -1,0 +1,14 @@
+<svg width="300" height="80" viewBox="0 0 300 80" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="FitVibe">
+  <defs>
+    <linearGradient id="fvGradW" x1="10" y1="14" x2="62" y2="66" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4ADE80"></stop>
+      <stop offset="0.5" stop-color="#38E0D8"></stop>
+      <stop offset="1" stop-color="#60A5FA"></stop>
+    </linearGradient>
+  </defs>
+  <g transform="translate(8,8)">
+    <path d="M32 4 a28 28 0 1 1 -19.8 8.2" stroke="url(#fvGradW)" stroke-width="9" stroke-linecap="round" fill="none"></path>
+    <path d="M15 32 H26 l4 -12 l7.5 24 l4 -12 H50" stroke="url(#fvGradW)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
+  </g>
+  <text x="86" y="52" font-family="&#39;Space Grotesk&#39;, sans-serif" font-size="38" font-weight="700" letter-spacing="-1.2" fill="#F4F8FF">Fit<tspan fill="url(#fvGradW)">Vibe</tspan></text>
+</svg>

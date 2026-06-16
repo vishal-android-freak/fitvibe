@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FitVibe — Onboarding & sign-in</title>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+<!-- FitVibe design system -->
+<link rel="stylesheet" href="_ds/fitvibe-design-system-52b6f8ef-be7b-44cb-b853-421279a40443/tokens/fonts.css" />
+<link rel="stylesheet" href="_ds/fitvibe-design-system-52b6f8ef-be7b-44cb-b853-421279a40443/tokens/colors.css" />
+<link rel="stylesheet" href="_ds/fitvibe-design-system-52b6f8ef-be7b-44cb-b853-421279a40443/tokens/typography.css" />
+<link rel="stylesheet" href="_ds/fitvibe-design-system-52b6f8ef-be7b-44cb-b853-421279a40443/tokens/spacing.css" />
+<link rel="stylesheet" href="_ds/fitvibe-design-system-52b6f8ef-be7b-44cb-b853-421279a40443/tokens/effects.css" />
+<link rel="stylesheet" href="_ds/fitvibe-design-system-52b6f8ef-be7b-44cb-b853-421279a40443/tokens/compat.css" />
+<link rel="stylesheet" href="_ds/fitvibe-design-system-52b6f8ef-be7b-44cb-b853-421279a40443/tokens/base.css" />
+<link rel="stylesheet" href="_ds/fitvibe-design-system-52b6f8ef-be7b-44cb-b853-421279a40443/styles.css" />
+<script src="_ds/fitvibe-design-system-52b6f8ef-be7b-44cb-b853-421279a40443/_ds_bundle.js"></script>
+
+<style>
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: radial-gradient(120% 80% at 50% -10%, #10151F 0%, #06080C 68%);
+    display: flex; align-items: center; justify-content: center; min-height: 100vh;
+    overflow: hidden; font-family: var(--font-sans);
+  }
+  *::-webkit-scrollbar { width: 0; height: 0; }
+  #root { display: flex; align-items: center; justify-content: center; }
+
+  /* ---- Screen + element entrance animations ---- */
+  @keyframes fvScreenIn { from { opacity: 0; transform: translateY(10px) scale(.992); } to { opacity: 1; transform: none; } }
+  .fv-screen { animation: fvScreenIn .42s var(--ease-out) both; }
+
+  @keyframes gSheetUp { from { transform: translateY(101%); } to { transform: translateY(0); } }
+  .g-sheet { animation: gSheetUp .46s var(--ease-out) both; }
+
+  @keyframes fvRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  .fv-rise { opacity: 0; animation: fvRise .55s var(--ease-out) both; }
+
+  @keyframes fvPop { from { opacity: 0; transform: scale(.82); } to { opacity: 1; transform: scale(1); } }
+  .fv-pop { animation: fvPop .5s var(--ease-spring) both; }
+
+  @keyframes gFade { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: none; } }
+  .g-fade { animation: gFade .3s var(--ease-out) both; }
+
+  @keyframes fvSpin { to { transform: rotate(360deg); } }
+
+  @keyframes toastUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+  .fv-toast { animation: toastUp .42s var(--ease-spring) both; }
+
+  .g-row { transition: background var(--dur-base) var(--ease-out); }
+  .g-row:hover { background: #F1F3F5 !important; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fv-screen, .g-sheet, .fv-rise, .fv-pop, .g-fade, .fv-toast { animation: none !important; opacity: 1 !important; transform: none !important; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="app/data.jsx"></script>
+<script type="text/babel" src="app/AppShell.jsx"></script>
+<script type="text/babel" src="app/GoogleAuth.jsx"></script>
+<script type="text/babel" src="app/WelcomeScreen.jsx"></script>
+<script type="text/babel" src="app/ConnectingScreen.jsx"></script>
+<script type="text/babel" src="app/SuccessScreen.jsx"></script>
+<script type="text/babel" src="app/Flow.jsx"></script>
+
+<script type="text/babel">
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "welcome": "Calm",
+    "consent": "Checklist",
+    "accent": "Aurora"
+  }/*EDITMODE-END*/;
+
+  function useScale(w, h, pad) {
+    const [s, setS] = React.useState(1);
+    React.useEffect(() => {
+      const fit = () => setS(Math.min(1, (window.innerWidth - pad) / w, (window.innerHeight - pad) / h));
+      fit();
+      window.addEventListener("resize", fit);
+      return () => window.removeEventListener("resize", fit);
+    }, []);
+    return s;
+  }
+
+  function App() {
+    const { useTweaks, TweaksPanel, TweakSection, TweakRadio } = window;
+    const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+    const scale = useScale(402, 858, 40);
+
+    React.useEffect(() => {
+      const el = document.documentElement;
+      if (t.accent === "Sunset") el.setAttribute("data-accent", "sunset");
+      else if (t.accent === "Aurora") el.setAttribute("data-accent", "aurora");
+      else el.removeAttribute("data-accent");
+    }, [t.accent]);
+
+    const welcomeVariant = t.welcome === "Vital" ? "vital" : "calm";
+    const consentLayout = t.consent === "Grouped" ? "grouped" : "checklist";
+
+    return (
+      <React.Fragment>
+        <div style={{ transform: `scale(${scale})`, transformOrigin: "center center", transition: "transform .15s ease" }}>
+          <window.PhoneFrame>
+            <window.OnboardingFlow welcomeVariant={welcomeVariant} consentLayout={consentLayout} />
+          </window.PhoneFrame>
+        </div>
+
+        <TweaksPanel>
+          <TweakSection label="Screens" />
+          <TweakRadio label="Welcome style" value={t.welcome} options={["Calm", "Vital"]}
+            onChange={(v) => setTweak("welcome", v)} />
+          <TweakRadio label="Consent layout" value={t.consent} options={["Checklist", "Grouped"]}
+            onChange={(v) => setTweak("consent", v)} />
+          <TweakSection label="Brand" />
+          <TweakRadio label="Accent" value={t.accent} options={["Aurora", "Vital", "Sunset"]}
+            onChange={(v) => setTweak("accent", v)} />
+        </TweaksPanel>
+      </React.Fragment>
+    );
+  }
+
+  (function mount() {
+    if (window.OnboardingFlow && window.FitVibeDesignSystem_52b6f8 && window.PhoneFrame
+        && window.useTweaks && window.lucide && window.GoogleAuthSheet) {
+      ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    } else {
+      setTimeout(mount, 60);
+    }
+  })();
+</script>
+</body>
+</html>

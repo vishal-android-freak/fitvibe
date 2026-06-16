@@ -1,0 +1,43 @@
+/* ============================================================
+   FitVibe — base reset + a few primitives
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--text-primary);
+  background: var(--bg-app);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Tabular figures everywhere numbers matter */
+.fnum, [data-num] {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: var(--fnum);
+}
+
+/* Eyebrow / caps label */
+.eyebrow {
+  font-size: var(--text-2xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+/* App-frame background field: subtle radial vignettes of accent glow */
+.fv-field {
+  background:
+    radial-gradient(120% 80% at 12% -8%, rgba(74,222,128,0.10) 0%, transparent 42%),
+    radial-gradient(120% 80% at 92% 4%, rgba(96,165,250,0.10) 0%, transparent 46%),
+    var(--bg-app);
+}
+
+::selection { background: var(--accent-soft); color: var(--text-primary); }
+
+:focus-visible { outline: none; box-shadow: var(--focus-ring); }

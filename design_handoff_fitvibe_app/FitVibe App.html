@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en" data-accent="aurora">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FitVibe — App (Today · Sleep)</title>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+
+<link rel="stylesheet" href="_ds/fitvibe-design-system-52b6f8ef-be7b-44cb-b853-421279a40443/styles.css" />
+<script src="_ds/fitvibe-design-system-52b6f8ef-be7b-44cb-b853-421279a40443/_ds_bundle.js"></script>
+
+<style>
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: radial-gradient(120% 70% at 50% -6%, #10151F 0%, #06080C 62%);
+    font-family: var(--font-sans); color: var(--text-strong);
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 28px 16px 40px; box-sizing: border-box;
+  }
+  *::-webkit-scrollbar { width: 0; height: 0; }
+  .lead { max-width: 860px; text-align: center; margin-bottom: 8px; }
+  .lead h1 { font-family: var(--font-display); font-size: var(--text-xl); letter-spacing: var(--tracking-tight); margin: 0 0 6px; }
+  .lead p { font-size: var(--text-sm); color: var(--text-secondary); margin: 0; line-height: var(--leading-normal); }
+  .lead b { color: var(--text-body); font-weight: 600; }
+  .phones { display: flex; gap: 36px; align-items: flex-start; transform-origin: top center; }
+  .phone-col { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .phone-label { display: flex; align-items: center; gap: 8px; }
+  .phone-label .dot { width: 9px; height: 9px; border-radius: 50%; }
+  .phone-label .t { font-family: var(--font-display); font-weight: 700; font-size: var(--text-md); color: var(--text-strong); }
+  .phone-label .s { font-size: var(--text-xs); color: var(--text-muted); }
+
+  @keyframes fvPop { from { opacity: 0; transform: scale(.82); } to { opacity: 1; transform: scale(1); } }
+  .fv-pop { animation: fvPop .5s var(--ease-spring) both; }
+  @keyframes fvSpin { to { transform: rotate(360deg); } }
+  @keyframes wig { 0%,100% { transform: rotate(-.7deg); } 50% { transform: rotate(.7deg); } }
+  .wig { animation: wig .45s ease-in-out infinite; }
+
+  @keyframes screenPush { from { transform: translateX(100%); } to { transform: translateX(0); } }
+  .screen-push { animation: screenPush .34s var(--ease-out) both; }
+
+  .ai-card-btn:hover { transform: translateY(-2px); }
+  .ai-card-btn:active { transform: scale(.99); }
+
+  .ask-typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); display: inline-block; animation: askBlink 1.2s infinite both; }
+  .ask-typing i:nth-child(2) { animation-delay: .2s; }
+  .ask-typing i:nth-child(3) { animation-delay: .4s; }
+  @keyframes askBlink { 0%, 60%, 100% { opacity: .25; } 30% { opacity: 1; } }
+
+  @media (prefers-reduced-motion: reduce) { .fv-pop,.wig,.screen-push { animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="lead">
+  <h1>FitVibe</h1>
+  <p>Switch screens from the bottom nav: <b>Today · Sleep · Body · Insights</b>. On <b>Insights</b>, filter by category and tap any card to ask FitVibe about it. The center <b>Ask</b> opens the chat.</p>
+</div>
+<div id="root"></div>
+
+<script type="text/babel" src="app/data.jsx?v=7"></script>
+<script type="text/babel" src="app/AppShell.jsx?v=7"></script>
+<script type="text/babel" src="app/today/hero.jsx?v=7"></script>
+<script type="text/babel" src="app/today/sleep.jsx?v=7"></script>
+<script type="text/babel" src="app/today/genui.jsx?v=7"></script>
+<script type="text/babel" src="app/today/aiDetail.jsx?v=7"></script>
+<script type="text/babel" src="app/today/TodayScreen.jsx?v=7"></script>
+<script type="text/babel" src="app/sleep/SleepScreen.jsx?v=7"></script>
+<script type="text/babel" src="app/body/logSheet.jsx?v=7"></script>
+<script type="text/babel" src="app/body/sections.jsx?v=7"></script>
+<script type="text/babel" src="app/body/BodyScreen.jsx?v=7"></script>
+<script type="text/babel" src="app/insights/insightCards.jsx?v=8"></script>
+<script type="text/babel" src="app/insights/InsightsScreen.jsx?v=7"></script>
+<script type="text/babel" src="app/AppRoot.jsx?v=7"></script>
+
+<script type="text/babel">
+  function App() {
+    const ref = React.useRef(null);
+    React.useEffect(() => {
+      const fit = () => {
+        const el = ref.current; if (!el) return;
+        el.style.transform = "scale(1)";
+        const s = Math.min(1, (window.innerWidth - 40) / 402, (window.innerHeight - 130) / 858);
+        el.style.transform = `scale(${s})`;
+        el.parentElement.style.height = (858 * s) + "px";
+      };
+      fit();
+      window.addEventListener("resize", fit);
+      const t = setTimeout(fit, 400);
+      return () => { window.removeEventListener("resize", fit); clearTimeout(t); };
+    }, []);
+    return (
+      <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
+        <div ref={ref} style={{ transformOrigin: "top center" }}>
+          <window.PhoneFrame>
+            <window.StatusBar />
+            <window.FitVibeApp />
+          </window.PhoneFrame>
+        </div>
+      </div>
+    );
+  }
+
+  (function mount() {
+    if (window.FitVibeApp && window.TodayContent && window.SleepContent && window.BodyContent && window.InsightsContent && window.INSIGHTS && window.FitVibeDesignSystem_52b6f8 && window.PhoneFrame && window.lucide && window.HeroCarousel && window.SleepCard && window.AIAnalysisDetail && window.AskConversation && window.GaugeArc && window.TrainingLoad) {
+      ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    } else { setTimeout(mount, 60); }
+  })();
+</script>
+</body>
+</html>

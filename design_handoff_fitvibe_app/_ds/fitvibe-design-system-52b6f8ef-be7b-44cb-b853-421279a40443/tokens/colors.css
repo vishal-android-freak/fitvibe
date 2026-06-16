@@ -1,0 +1,184 @@
+/* ============================================================
+   FitVibe — Color tokens (dark-first)
+   Vibrant metrics glow on deep navy. Green + blue signature.
+   ============================================================ */
+
+:root {
+  /* ---- Base brand palette ---- */
+  --green-300: #86EFAC;
+  --green-400: #4ADE80;   /* primary accent */
+  --green-500: #22C55E;
+  --green-600: #16A34A;
+
+  --blue-300: #93C5FD;
+  --blue-400: #60A5FA;    /* secondary accent */
+  --blue-500: #3B82F6;
+  --blue-600: #2563EB;
+
+  /* ---- Aurora alt-accent palette (violet + cyan) ---- */
+  --violet-300: #C4B5FD;
+  --violet-400: #A78BFA;  /* aurora primary */
+  --violet-500: #8B5CF6;
+  --violet-600: #7C3AED;
+  --cyan-300:   #67E8F9;
+  --cyan-450:   #22D3EE;  /* aurora secondary */
+  --cyan-500:   #06B6D4;
+
+  /* ---- Deep navy neutral ramp (dark surfaces) ---- */
+  --navy-950: #070B14;
+  --navy-900: #0A0E1A;
+  --navy-850: #0E1424;
+  --navy-800: #131A2B;
+  --navy-750: #1A2236;
+  --navy-700: #232D45;
+  --navy-600: #334155;
+  --navy-500: #475569;
+  --navy-400: #64748B;
+  --navy-300: #94A3B8;
+  --navy-200: #CBD5E1;
+  --navy-100: #E2E8F0;
+  --navy-50:  #F1F5F9;
+  --white:    #F8FAFC;
+
+  /* ---- Metric hues (rich, per-metric color coding) ---- */
+  --metric-activity:  #4ADE80;  /* move / active energy */
+  --metric-heart:     #FF5C7A;  /* heart rate / cardio */
+  --metric-steps:     #4ADE80;  /* steps / distance */
+  --metric-sleep:     #888CF9;  /* sleep */
+  --metric-nutrition: #FF844C;  /* nutrition / calories-in */
+  --metric-hydration: #4380FF;  /* hydration */
+  --metric-recovery:  #4ADE80;  /* HRV / recovery / readiness */
+  --metric-oxygen:    #38E0D8;  /* SpO2 / respiratory */
+
+  /* ---- Semantic status ---- */
+  --success: #4ADE80;
+  --warning: #FBBF24;
+  --danger:  #F43F5E;
+  --info:    #60A5FA;
+
+  /* ============================================================
+     SEMANTIC ALIASES (use these in components)
+     ============================================================ */
+
+  /* Backgrounds & surfaces */
+  --bg-app:        var(--navy-900);
+  --bg-sunken:     var(--navy-950);
+  --surface-card:  var(--navy-800);
+  --surface-raised:var(--navy-750);
+  --surface-overlay: var(--navy-850);
+  --surface-input: var(--navy-850);
+  --surface-hover: var(--navy-700);
+
+  /* Translucent glass surfaces (over imagery / blur) */
+  --glass-card:    rgba(19, 26, 43, 0.66);
+  --glass-bar:     rgba(10, 14, 26, 0.72);
+
+  /* Text */
+  --text-primary:   var(--white);
+  --text-secondary: var(--navy-300);
+  --text-tertiary:  var(--navy-400);
+  --text-muted:     var(--navy-500);
+  --text-on-accent: var(--navy-950);
+
+  /* Borders & dividers */
+  --border-subtle:  rgba(255, 255, 255, 0.07);
+  --border-default: rgba(255, 255, 255, 0.11);
+  --border-strong:  rgba(255, 255, 255, 0.18);
+  --border-accent:  rgba(74, 222, 128, 0.45);
+
+  /* Accent semantic */
+  --accent:          var(--green-400);
+  --accent-hover:    var(--green-300);
+  --accent-press:    var(--green-500);
+  --accent-secondary:var(--blue-400);
+  --accent-soft:     rgba(74, 222, 128, 0.14);
+  --accent-soft-blue:rgba(96, 165, 250, 0.14);
+
+  /* AI / insight signature gradient */
+  --ai-from: #4ADE80;
+  --ai-mid:  #38E0D8;
+  --ai-to:   #60A5FA;
+  --ai-gradient: linear-gradient(120deg, var(--ai-from) 0%, var(--ai-mid) 50%, var(--ai-to) 100%); /* @kind other */
+  --ai-glow: 0 0 0 1px rgba(96,165,250,0.35), 0 8px 40px -8px rgba(74,222,128,0.45);
+  --ai-soft: rgba(96, 165, 250, 0.10);
+
+  /* Focus ring */
+  --focus-ring: 0 0 0 3px rgba(96, 165, 250, 0.45);
+}
+
+/* ============================================================
+   LIGHT THEME (variation) — airy, clean
+   ============================================================ */
+[data-theme="light"] {
+  --bg-app:        #F4F7FB;
+  --bg-sunken:     #E9EEF6;
+  --surface-card:  #FFFFFF;
+  --surface-raised:#FFFFFF;
+  --surface-overlay:#FFFFFF;
+  --surface-input: #F1F5F9;
+  --surface-hover: #EEF2F8;
+
+  --glass-card:    rgba(255, 255, 255, 0.72);
+  --glass-bar:     rgba(255, 255, 255, 0.78);
+
+  --text-primary:   #0A0E1A;
+  --text-secondary: #475569;
+  --text-tertiary:  #64748B;
+  --text-muted:     #94A3B8;
+  --text-on-accent: #052e16;
+
+  --border-subtle:  rgba(10, 14, 26, 0.06);
+  --border-default: rgba(10, 14, 26, 0.10);
+  --border-strong:  rgba(10, 14, 26, 0.16);
+  --border-accent:  rgba(34, 197, 94, 0.5);
+
+  --accent:       var(--green-500);
+  --accent-hover: var(--green-400);
+  --accent-press: var(--green-600);
+  --accent-soft:  rgba(34, 197, 94, 0.12);
+
+  --ai-from: #22C55E;
+  --ai-mid:  #2DD4BF;
+  --ai-to:   #3B82F6;
+  --ai-gradient: linear-gradient(120deg, #22C55E 0%, #2DD4BF 50%, #3B82F6 100%); /* @kind other */
+  --ai-glow: 0 0 0 1px rgba(59,130,246,0.25), 0 10px 40px -10px rgba(34,197,94,0.35);
+}
+
+/* ============================================================
+   ALT ACCENT THEME (variation) — aurora (violet + cyan, AI-forward)
+   ============================================================ */
+[data-accent="aurora"] {
+  --accent:          var(--violet-400);
+  --accent-hover:    var(--violet-300);
+  --accent-press:    var(--violet-500);
+  --accent-secondary:var(--cyan-450);
+  --accent-soft:     rgba(167, 139, 250, 0.15);
+  --accent-soft-blue:rgba(34, 211, 238, 0.14);
+  --border-accent:   rgba(167, 139, 250, 0.45);
+  --ai-from: #A78BFA;
+  --ai-mid:  #22D3EE;
+  --ai-to:   #67E8F9;
+  --ai-gradient: linear-gradient(120deg, #A78BFA 0%, #22D3EE 50%, #67E8F9 100%); /* @kind other */
+  --ai-glow: 0 0 0 1px rgba(34,211,238,0.35), 0 8px 40px -8px rgba(167,139,250,0.5);
+  --ai-soft: rgba(167, 139, 250, 0.12);
+  --focus-ring: 0 0 0 3px rgba(167, 139, 250, 0.45);
+  --text-on-accent: #1a0b33;
+}
+
+/* ============================================================
+   ALT ACCENT THEME (variation) — sunset (activity-forward)
+   ============================================================ */
+[data-accent="sunset"] {
+  --accent:          var(--metric-activity);
+  --accent-hover:    #FF8466;
+  --accent-press:    #E85638;
+  --accent-secondary:var(--metric-nutrition);
+  --accent-soft:     rgba(255, 107, 74, 0.15);
+  --border-accent:   rgba(255, 107, 74, 0.45);
+  --ai-from: #FF6B4A;
+  --ai-mid:  #FB923C;
+  --ai-to:   #FBBF24;
+  --ai-gradient: linear-gradient(120deg, #FF6B4A 0%, #FB923C 50%, #FBBF24 100%); /* @kind other */
+  --ai-glow: 0 0 0 1px rgba(251,191,36,0.35), 0 8px 40px -8px rgba(255,107,74,0.45);
+  --text-on-accent: #2b0a02;
+}

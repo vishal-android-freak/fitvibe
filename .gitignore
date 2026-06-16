@@ -1,6 +1,21 @@
-# Ignore everything in the repo root except the backend folder, README, and this file.
+# Ignore everything in the repo root except the backend folder, the mobile app
+# (appV2), the design handoff, README, and this file.
 /*
 !/backend
 !/backend/**
+!/appV2
+!/appV2/**
+!/design_handoff_fitvibe_app
+!/design_handoff_fitvibe_app/**
 !/README.md
 !/.gitignore
+
+# Re-ignore heavy/generated dirs inside the re-included folders.
+/appV2/node_modules
+/appV2/.expo
+/appV2/dist
+/appV2/web-build
+/appV2/ios
+/appV2/android
+**/node_modules/
+/appV2/.claude

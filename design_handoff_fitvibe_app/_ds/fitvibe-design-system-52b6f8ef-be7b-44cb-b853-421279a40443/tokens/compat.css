@@ -1,0 +1,98 @@
+/* ============================================================
+   FitVibe — compatibility aliases
+   Maps the token vocabulary used across components/UI-kits/cards
+   onto the canonical semantic tokens. Kept theme-aware via var().
+   ============================================================ */
+
+:root {
+  /* ---- Extra base palette swatches referenced directly ---- */
+  --cyan-400: #38E0D8; /* @kind color */
+  --sky-400:  #60A5FA; /* @kind color */
+  --accent-2: var(--accent-secondary); /* @kind color */
+
+  /* ---- Metric hues (canonical --hue-* vocabulary, used app-wide) ---- */
+  --hue-move:      #4ADE80; /* @kind color */
+  --hue-heart:     #FF5C7A; /* @kind color */
+  --hue-steps:     #4ADE80; /* @kind color */
+  --hue-sleep:     #888CF9; /* @kind color */
+  --hue-energy:    #FFB020; /* @kind color */
+  --hue-hydration: #4380FF; /* @kind color */
+  --hue-oxygen:    #38E0D8; /* @kind color */
+  --hue-nutrition: #FF844C; /* @kind color */
+  --hue-mind:      #C792EA; /* @kind color */
+  --hue-recovery:  #4ADE80; /* @kind color */
+
+  /* ---- Text vocabulary ---- */
+  --text-strong: var(--text-primary);   /* @kind color */
+  --text-body:   var(--text-primary);   /* @kind color */
+  --text-faint:  var(--text-tertiary);  /* @kind color */
+  --text-dim:    var(--text-muted);     /* @kind color */
+
+  /* Foreground (text) ramp shown in specimen cards: bright → faint */
+  --fg-1: var(--white);     /* @kind color */
+  --fg-2: var(--navy-200);  /* @kind color */
+  --fg-3: var(--navy-300);  /* @kind color */
+  --fg-4: var(--navy-500);  /* @kind color */
+
+  /* Ink (dark surface) ramp: backdrop → hairline border */
+  --ink-0: var(--navy-950); /* @kind color */
+  --ink-1: var(--navy-900); /* @kind color */
+  --ink-2: var(--navy-800); /* @kind color */
+  --ink-3: var(--navy-750); /* @kind color */
+  --ink-4: var(--navy-700); /* @kind color */
+  --ink-5: var(--navy-600); /* @kind color */
+
+  /* ---- Surfaces & backgrounds ---- */
+  --bg-page:       var(--bg-app);       /* @kind color */
+  --surface-inset: var(--navy-850);     /* @kind color */
+
+  /* ---- Borders / "ring" vocabulary ---- */
+  --ring-card:     var(--border-default); /* @kind color */
+  --ring-hairline: var(--border-subtle);  /* @kind color */
+
+  /* ---- Glass ---- */
+  --glass-bg:     var(--glass-card);      /* @kind color */
+  --glass-border: rgba(255, 255, 255, 0.12); /* @kind color */
+  --glass-blur:   var(--blur-md);         /* @kind spacing */
+
+  /* ---- Status ---- */
+  --positive: var(--success); /* @kind color */
+
+  /* ---- AI / glow ---- */
+  --glow-ai: var(--ai-glow); /* @kind shadow */
+  --ai-gradient-soft: linear-gradient(120deg, rgba(74,222,128,0.16) 0%, rgba(96,165,250,0.16) 100%) /* @kind other */;
+
+  /* Field glow background-image (use as background-image over --bg-app) */
+  --field-glow: radial-gradient(120% 80% at 12% -8%, rgba(74,222,128,0.10) 0%, transparent 42%), radial-gradient(120% 80% at 92% 4%, rgba(96,165,250,0.10) 0%, transparent 46%) /* @kind other */;
+
+  /* ---- Spacing aliases ---- */
+  --card-pad:      var(--space-5); /* @kind spacing */
+  --screen-gutter: var(--gutter);  /* @kind spacing */
+
+  /* ---- Weight vocabulary ---- */
+  --weight-light:    300; /* @kind font */
+  --weight-regular:  400; /* @kind font */
+  --weight-medium:   500; /* @kind font */
+  --weight-semibold: 600; /* @kind font */
+  --weight-bold:     700; /* @kind font */
+
+  /* ---- Tracking ---- */
+  --tracking-snug: -0.01em; /* @kind other */
+}
+
+/* sunset accent re-points the energy-forward hue alias too */
+[data-accent="sunset"] {
+  --ai-gradient-soft: linear-gradient(120deg, rgba(255,107,74,0.18) 0%, rgba(251,191,36,0.18) 100%) /* @kind other */;
+  --field-glow: radial-gradient(120% 80% at 12% -8%, rgba(255,107,74,0.12) 0%, transparent 42%), radial-gradient(120% 80% at 92% 4%, rgba(251,191,36,0.10) 0%, transparent 46%) /* @kind other */;
+}
+
+/* aurora accent re-points the energy-forward gradients too */
+[data-accent="aurora"] {
+  --ai-gradient-soft: linear-gradient(120deg, rgba(167,139,250,0.18) 0%, rgba(34,211,238,0.18) 100%) /* @kind other */;
+  --field-glow: radial-gradient(120% 80% at 12% -8%, rgba(167,139,250,0.13) 0%, transparent 42%), radial-gradient(120% 80% at 92% 4%, rgba(34,211,238,0.11) 0%, transparent 46%) /* @kind other */;
+}
+
+[data-theme="light"] {
+  --glass-border: rgba(10, 14, 26, 0.10); /* @kind color */
+  --field-glow: radial-gradient(120% 80% at 12% -8%, rgba(34,197,94,0.10) 0%, transparent 42%), radial-gradient(120% 80% at 92% 4%, rgba(59,130,246,0.10) 0%, transparent 46%) /* @kind other */;
+}

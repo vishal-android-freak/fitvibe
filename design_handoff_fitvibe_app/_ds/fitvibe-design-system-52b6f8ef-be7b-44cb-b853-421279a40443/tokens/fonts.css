@@ -1,0 +1,7 @@
+/* FitVibe webfonts — Google Fonts (CDN).
+   Sora: geometric, sporty display + UI with strong tabular figures.
+   JetBrains Mono: data labels, tickers, code-like metric annotations.
+   NOTE: served from Google Fonts CDN. If brand fonts are provided later,
+   swap the @import + @font-face here and update --font-* vars in typography.css. */
+
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');

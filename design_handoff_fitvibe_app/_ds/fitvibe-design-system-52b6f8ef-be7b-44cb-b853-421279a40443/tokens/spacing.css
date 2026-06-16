@@ -1,0 +1,42 @@
+/* ============================================================
+   FitVibe — Spacing, radii, sizing tokens
+   4px base grid. Soft, pillowy radii (20px+ on cards).
+   ============================================================ */
+
+:root {
+  /* Spacing scale (4px base) */
+  --space-0:  0;
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-7:  32px;
+  --space-8:  40px;
+  --space-9:  48px;
+  --space-10: 64px;
+  --space-11: 80px;
+  --space-12: 96px;
+
+  /* Radii — pillowy */
+  --radius-xs:   8px;
+  --radius-sm:   12px;
+  --radius-md:   16px;
+  --radius-lg:   20px;
+  --radius-xl:   28px;
+  --radius-2xl:  36px;
+  --radius-pill: 999px;
+  --radius-card: var(--radius-xl);   /* default card */
+
+  /* Control sizing (44px min hit target on mobile) */
+  --control-sm: 36px;
+  --control-md: 44px;
+  --control-lg: 52px;
+
+  /* Layout */
+  --app-width:    402px;   /* iPhone 16 Pro logical width */
+  --gutter:       20px;
+  --safe-top:     59px;
+  --safe-bottom:  34px;
+}
