@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/vishal-android-freak/fitvibe/internal/db/repositories"
@@ -117,12 +118,27 @@ func (p *Processor) process(ctx context.Context, n *repositories.WebhookNotifica
 			}
 
 			if err := p.fetchAndStore(ctx, client, user.ID, dataType, start, end, webhookID); err != nil {
+				if isUnsupportedListAction(err) {
+					p.logger.Warn("skipping unsupported list data type",
+						"data_type", dataType,
+						"notification_id", n.ID)
+					continue
+				}
 				return fmt.Errorf("fetch and store %s: %w", dataType, err)
 			}
 		}
 	}
 
 	return p.webhookRepo.MarkProcessed(ctx, n.ID)
+}
+
+func isUnsupportedListAction(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "UNSUPPORTED_DATA_TYPE_ACTION") ||
+		strings.Contains(msg, "List is not supported for data type")
 }
 
 func (p *Processor) fetchAndStore(ctx context.Context, client *healthapi.Client, userID int64, dataType string, start, end time.Time, webhookID sql.NullInt64) error {
