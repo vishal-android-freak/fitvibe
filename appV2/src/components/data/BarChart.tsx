@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { type DimensionValue, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useReducedMotion,
@@ -39,8 +39,15 @@ export function BarChart({
   // Locally-tracked tapped bar (tooltip target); null when none is open.
   const [selected, setSelected] = useState<number | null>(null);
   const interactive = tooltips != null;
-  // A tapped bar (if any) takes the highlight; otherwise the tallest one glows.
-  const litIdx = selected != null ? selected : highlightMax ? maxIdx : -1;
+  // When interactive, only the tapped bar glows (and nothing once dismissed) —
+  // otherwise dismissing a tooltip would make the tallest bar look "selected".
+  // Non-interactive charts keep the tallest-bar highlight.
+  const litIdx = interactive ? (selected ?? -1) : highlightMax ? maxIdx : -1;
+
+  // Center of the selected column as a fraction of the row width (columns are
+  // evenly spaced via flex: 1), so the chart-level tooltip can sit over it.
+  const tipLeft: DimensionValue =
+    selected != null && data.length ? `${((selected + 0.5) / data.length) * 100}%` : '0%';
 
   return (
     <View style={style}>
@@ -56,11 +63,20 @@ export function BarChart({
               pct={Math.max(0.02, d / max)}
               color={lit ? hue : tint(hue, 0.3)}
               glow={lit}
-              tooltip={selected === i ? tooltips?.[i] : undefined}
               onPress={interactive ? () => setSelected((s) => (s === i ? null : i)) : undefined}
             />
           );
         })}
+        {/* One tooltip at the chart level so it isn't clipped by a bar column's
+            narrow width; placed at the selected column's center and shifted
+            back by half its own width so it stays centered at any text length. */}
+        {selected != null && tooltips?.[selected] != null && (
+          <View style={[styles.tooltip, { left: tipLeft }]} pointerEvents="none">
+            <Text style={styles.tooltipText} numberOfLines={1}>
+              {tooltips[selected]}
+            </Text>
+          </View>
+        )}
       </View>
       {labels.length > 0 && (
         <View style={styles.labels}>
@@ -85,13 +101,11 @@ function Bar({
   pct,
   color,
   glow,
-  tooltip,
   onPress,
 }: {
   pct: number;
   color: string;
   glow: boolean;
-  tooltip?: string;
   onPress?: () => void;
 }) {
   const reduced = useReducedMotion();
@@ -103,25 +117,15 @@ function Bar({
 
   const animStyle = useAnimatedStyle(() => ({ height: `${h.value * 100}%` }));
 
-  // The tooltip is anchored to the bar's top edge (bottom: '100%' of the bar
-  // wrapper) so it floats just above the bar tip regardless of the bar height.
-  const inner = (
-    <Animated.View style={[styles.barWrap, animStyle]}>
-      {tooltip != null && (
-        <View style={styles.tooltip} pointerEvents="none">
-          <Text style={styles.tooltipText} numberOfLines={1}>
-            {tooltip}
-          </Text>
-        </View>
-      )}
-      <View
-        style={[
-          styles.bar,
-          { backgroundColor: color },
-          glow && { shadowColor: color, shadowOpacity: 0.5, shadowRadius: 14, elevation: 6 },
-        ]}
-      />
-    </Animated.View>
+  const bar = (
+    <Animated.View
+      style={[
+        styles.bar,
+        { backgroundColor: color },
+        glow && { shadowColor: color, shadowOpacity: 0.5, shadowRadius: 14, elevation: 6 },
+        animStyle,
+      ]}
+    />
   );
 
   // The whole column is the touch target so the empty space above a short bar
@@ -129,25 +133,26 @@ function Bar({
   if (onPress) {
     return (
       <Pressable style={styles.barCol} onPress={onPress} hitSlop={6}>
-        {inner}
+        {bar}
       </Pressable>
     );
   }
-  return <View style={styles.barCol}>{inner}</View>;
+  return <View style={styles.barCol}>{bar}</View>;
 }
 
 const styles = StyleSheet.create({
   bars: { flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
   barCol: { flex: 1, justifyContent: 'flex-end', height: '100%' },
-  barWrap: { width: '100%' },
-  bar: { width: '100%', height: '100%', borderTopLeftRadius: radius.sm, borderTopRightRadius: radius.sm, borderBottomLeftRadius: 4, borderBottomRightRadius: 4 },
+  bar: { borderTopLeftRadius: radius.sm, borderTopRightRadius: radius.sm, borderBottomLeftRadius: 4, borderBottomRightRadius: 4 },
+  // Content-sized box at the selected column's center; translateX(-50%) pulls
+  // it back by half its own width so it stays centered at any text length.
+  // alignSelf: flex-start stops it from stretching to the row width.
   tooltip: {
     position: 'absolute',
-    bottom: '100%',
-    marginBottom: 6,
-    alignSelf: 'center',
-    minWidth: 56,
-    paddingHorizontal: 8,
+    top: 0,
+    alignSelf: 'flex-start',
+    transform: [{ translateX: '-50%' }],
+    paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: radius.md,
     backgroundColor: surface.raised,
