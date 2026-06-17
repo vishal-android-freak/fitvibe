@@ -101,10 +101,11 @@
   <header class="hero">
     <div class="eyebrow">FitVibe · Research &amp; Design Reference</div>
     <h1>Building <span class="om">Vaidya</span> — How Google/Fitbit's AI Coach Works, and How to Build Our Own</h1>
-    <p class="sub">A hand-off document for the coding agent that will build FitVibe's LLM coaching service. Synthesizes deep research into Google Health's <em>Ask Coach</em>, the PH-LLM &amp; PHIA papers, and competitor coaches (WHOOP, Oura, GPTCoach), mapped onto FitVibe's existing Go + SQLite schema.</p>
+    <p class="sub">A hand-off document for <strong>Pi</strong> — the coding agent that will <em>write</em> FitVibe's Vaidya insights &amp; chat service. Synthesizes deep research into Google Health's <em>Ask Coach</em>, the PH-LLM &amp; PHIA papers, and competitor coaches (WHOOP, Oura, GPTCoach), mapped onto FitVibe's existing Go + SQLite schema, plus how to drive Pi to build it (<a class="cite" href="#s9">§9</a>).</p>
     <div class="meta-strip">
       <span class="pill"><b>Source:</b> multi-agent research workflow · Jun 2026</span>
-      <span class="pill"><b>Default model:</b> claude-opus-4-8</span>
+      <span class="pill"><b>Runtime model:</b> OpenCode Zen · deepseek-v4-pro</span>
+      <span class="pill"><b>Built by:</b> Pi (OpenCode Go)</span>
       <span class="pill"><span class="tag doc" style="margin:0">DOCUMENTED</span> = cited source</span>
       <span class="pill"><span class="tag inf" style="margin:0">INFERRED</span> = our reasoning</span>
     </div>
@@ -121,6 +122,7 @@
       <a href="#s6"><span class="n">6</span>Vaidya architecture</a>
       <a href="#s7"><span class="n">7</span>Draft Vaidya prompt</a>
       <a href="#s8"><span class="n">8</span>Open questions</a>
+      <a href="#s9"><span class="n">9</span>Building with Pi</a>
     </nav>
 
     <main>
@@ -297,7 +299,7 @@ flowchart TD
         <h4>Anti-sycophancy — the failure mode that bites health LLMs hardest</h4>
         <p>Health models complied with up to <strong>100%</strong> of misinformation requests in testing. Bake in: <em>"Do not simply agree; flag implausible premises; present alternatives; quantify uncertainty."</em> Test explicitly against illogical requests.</p>
 
-        <div class="callout key"><span class="ico">🔑</span><div><span class="t">Claude-specific layering.</span> Opus 4.8 has strong built-in safety and the API can return <code>stop_reason: "refusal"</code> — the service <strong>must check <code>stop_reason</code> before reading <code>content[0]</code></strong>. For a health product, also run an external input/output scan (PII, injection, policy). Bias guardrail (PH-LLM Q8): no assumptions about demographics/race/lifestyle beyond provided data.</div></div>
+        <div class="callout inf"><span class="ico">🟠</span><div><span class="t">Personal-use note.</span> This section reflects the <em>commercial-product</em> guardrails Google/Fitbit ship. For FitVibe's <strong>personal, unrestricted</strong> build (see §6), you'll deliberately relax the refusal/disclaimer rules — open-weight Zen models won't hard-refuse anyway. Keep the parts that improve <em>accuracy</em> (anti-confabulation, cite-the-user's-numbers, bias guardrail: no demographic assumptions beyond provided data); drop the medical-refusal/emergency-redirect language if you don't want it. Whichever provider, still handle empty/blocked responses defensively in the service.</div></div>
       </section>
 
       <!-- ===== 5 ===== -->
@@ -341,14 +343,21 @@ flowchart TD
       <section id="s6">
         <h2><span class="num">6</span>Recommended architecture for Vaidya in FitVibe</h2>
 
-        <h3>Model</h3>
-        <p><strong>Default: <code>claude-opus-4-8</code></strong> (most capable Opus-tier; 1M context). Use <strong>adaptive thinking</strong> and <code>output_config.effort</code> to split two modes:</p>
+        <div class="callout key"><span class="ico">🛠</span><div><span class="t">Two different models — don't conflate them.</span> <strong>Build time:</strong> the <strong>Pi coding agent</strong> (<a class="cite" href="#s9">§9</a>), on the <strong>OpenCode Go</strong> subscription, writes the Go <code>vaidya.Service</code>, tools, migrations, and tests. <strong>Run time:</strong> that service calls a model over the <strong>OpenCode Zen</strong> API to actually coach the user. This section specs the <em>runtime</em> service; §9 specs how Pi <em>builds</em> it.</div></div>
+
+        <h3>Model <span style="font-size:13px;font-weight:400;color:var(--dim)">(runtime — OpenCode Zen, not Opus 4.8)</span></h3>
+        <div class="callout warn"><span class="ico">💸</span><div><span class="t">Go ≠ runtime billing.</span> The <strong>OpenCode Go</strong> $10/mo plan powers the <em>coding CLI</em> (Pi) — it does not bill the Vaidya <em>service's</em> live API calls. For a backend service, use <strong>OpenCode Zen</strong>: a pay-as-you-go inference API (per-1M-token), OpenAI- and Anthropic-compatible endpoints (<code>https://opencode.ai/zen/v1/chat/completions</code> or <code>/v1/messages</code>), model ids as <code>opencode/&lt;model-id&gt;</code>. Same open-weight models as Go, callable from Go with an API key. Source: <a class="cite" href="https://opencode.ai/docs/zen/">opencode.ai/docs/zen</a>.</div></div>
+        <p>Requirements for Vaidya's model: <strong>strong reasoning, low hallucination, unrestricted</strong> (personal use — all questions answered, no refusals), and <strong>cheap</strong>. Opus 4.8 is out (cost + heavy safety refusals conflict with "no restrictions"). Open-weight models on Zen fit far better — they reason well and don't carry the consumer-assistant refusal layer.</p>
         <table>
-          <tr><th>Mode</th><th>Config</th><th>Use</th></tr>
-          <tr><td><strong>Standard</strong></td><td><code>effort: "medium"</code>, low/no thinking</td><td>Daily Q&amp;A, proactive cards (fast)</td></tr>
-          <tr><td><strong>Deep</strong></td><td><code>effort: "high"</code> + adaptive thinking + tools</td><td>"Build me a plan", "why has my sleep degraded this month"</td></tr>
+          <tr><th>Mode</th><th>Recommended model</th><th>Why</th></tr>
+          <tr><td><strong>Standard</strong> (daily Q&amp;A, proactive cards)</td><td><code>opencode/deepseek-v4-flash</code> or <code>opencode/minimax-m2.7</code></td><td>Fast &amp; cheap; "M2.7 is the go-to for agentic tasks." Good enough for the summary-grounded common path.</td></tr>
+          <tr><td><strong>Deep</strong> (plans, "why has my sleep degraded", multi-step tool use)</td><td><code>opencode/deepseek-v4-pro</code> <span style="color:var(--green)">(default)</span>, or <code>opencode/qwen-3.7-max</code></td><td>DeepSeek V4 Pro = strong reasoning + long context (best for grounding over 30-day history). Qwen 3.7 Max = "high-end for complex tasks." GLM 5.1 = "solid reasoning" alternative.</td></tr>
         </table>
-        <p>Consider <code>claude-haiku-4-5</code> for cheap, high-volume <strong>proactive insight cards</strong>; <code>claude-opus-4-8</code> for interactive chat. <strong>Stream all responses.</strong> Avoid Fable 5 — its cost is above Opus-tier and it requires 30-day data retention (bad fit if you want ZDR for health data).</p>
+        <p><strong>Start with one model — <code>deepseek-v4-pro</code> — for everything</strong>, and only split into the fast/deep tiers if latency or cost demands it (keeps the service simple). <strong>Stream all responses</strong> via the OpenAI-compatible SSE endpoint.</p>
+
+        <div class="callout warn"><span class="ico">⚠️</span><div><span class="t">"No restrictions" cuts against the safety sections.</span> §3, §4, and §7 are written around medical-safety guardrails (no diagnosis, emergency redirects, disclaimers). For a <em>personal-use</em> Vaidya where you want every question answered, you can relax the model-level refusals — open-weight models won't hard-refuse — <strong>but keep the grounding rules</strong> (don't invent data, cite the user's own numbers, flag uncertainty): those are about <em>accuracy</em>, not censorship, and they're what make a low-hallucination coach. Drop the mandatory disclaimer/emergency-redirect language from the prompt only if you genuinely don't want it; it's safe to keep as soft guidance without making the model refuse.</div></div>
+
+        <div class="callout inf"><span class="ico">🟠</span><div><span class="t">Adaptive thinking / effort are Claude-specific.</span> The <code>effort</code> and <code>thinking</code> knobs referenced elsewhere are Anthropic features — they won't apply to Zen's open-weight models. Reasoning models like DeepSeek expose their own reasoning behavior; use standard OpenAI-style params (<code>temperature</code> low, e.g. 0.3, for low hallucination). Prompt caching also differs by provider — verify Zen's cache support before relying on the WHOOP-style stable-prefix savings (§5).</div></div>
 
         <h3>Grounding: hybrid (summarized-context + tools), not pure RAG</h3>
         <div class="callout key"><span class="ico">🔑</span><div><span class="t">The rule.</span> <strong>Personal metrics</strong> → in-context summary or tools. <strong>Clinical/Ayurvedic knowledge</strong> → RAG. <strong>Coaching style</strong> → the prompt. Do all three.</div></div>
@@ -376,7 +385,7 @@ flowchart LR
 
     SP --> LLM
     PROF --> LLM; MEM --> LLM; SUM --> LLM
-    LLM["claude-opus-4-8"] -->|on-demand| TOOLS
+    LLM["LLM via OpenCode Zen<br/>(deepseek-v4-pro)"] -->|on-demand| TOOLS
     TOOLS --> REPO
     SUM -.precomputed in Go.-> REPO
     LLM -->|domain claims| RAG
@@ -414,7 +423,7 @@ flowchart LR
 
         <h3>Conversation memory</h3>
         <ul>
-          <li><strong>Within a session:</strong> API is stateless — send full history each turn (or use compaction beta <code>compact-2026-01-12</code>; append <code>response.content</code>, not just text).</li>
+          <li><strong>Within a session:</strong> the API is stateless — send full history each turn; once it grows large, summarize older turns into a running recap (DeepSeek/Qwen on Zen have long context, but trimming keeps cost down).</li>
           <li><strong>Across sessions (Oura pattern):</strong> a <code>vaidya_memories</code> table (<code>user_id, key, value, source, updated_at</code>, user-editable/deletable) — goals, injuries, constraints, plan state — injected into the prefix. Respect deletion; store no PII you don't need.</li>
           <li>A <code>vaidya_conversations</code> / <code>vaidya_messages</code> table for chat history + proactive-card audit.</li>
         </ul>
@@ -428,7 +437,7 @@ sequenceDiagram
     participant API as POST /vaidya/chat (SSE)
     participant Svc as vaidya.Service
     participant Repo as repositories (read-only)
-    participant LLM as claude-opus-4-8
+    participant LLM as Zen · deepseek-v4-pro
     App->>API: question + conversation id
     API->>Svc: handle(userID, msg)
     Svc->>Repo: precompute summary + load memories
@@ -455,7 +464,7 @@ sequenceDiagram
       <!-- ===== 7 ===== -->
       <section id="s7">
         <h2><span class="num">7</span>Draft Vaidya system prompt</h2>
-        <p>Ready for <code>claude-opus-4-8</code>. Static parts (persona, rules, tool descriptions) → the <strong>cached prefix</strong>; inject the per-user DATA block and MEMORIES after, then the conversation. Keep the prefix <strong>byte-stable</strong> — never interpolate <code>now()</code>.</p>
+        <p>Provider-neutral — works with the recommended <code>opencode/deepseek-v4-pro</code> (or any Zen model). Static parts (persona, rules, tool descriptions) → a <strong>stable prefix</strong>; inject the per-user DATA block and MEMORIES after, then the conversation. Keep the prefix <strong>byte-stable</strong> (never interpolate <code>now()</code>) so prompt caching can help <em>if</em> the provider supports it. <strong>For personal unrestricted use,</strong> the Safety section below is optional — keep it as soft guidance or drop it; the Grounding rules are the ones that matter for low hallucination.</p>
         <pre class="prompt"><code>You are Vaidya, FitVibe's personal health and wellness coach. "Vaidya" means a
 practitioner of healing. You are calm, warm, knowledgeable, and culturally
 aware — comfortable with Indian dietary patterns, meal timing, fasting, and
@@ -551,6 +560,64 @@ USER DATA (auto-computed; today + 7-day + 30-day, with the user's own baselines)
           <li><strong>RAG sourcing:</strong> who curates/clinician-reviews the Ayurvedic/Indian-health corpus, and how do you stop Vaidya leaking ungrounded traditional-medicine claims?</li>
           <li><strong>Proactive cadence:</strong> per-user local-time triggering needs <code>users.time_zone</code>/<code>utc_offset</code> reliably populated by <code>ProfileSettingsSyncer</code> — confirm coverage before scheduling morning/evening cards.</li>
         </ol>
+      </section>
+
+      <!-- ===== 9 ===== -->
+      <section id="s9">
+        <h2><span class="num">9</span>Building Vaidya with the Pi coding agent</h2>
+        <p><strong>Pi</strong> (by Mario Zechner) is the agent that will <em>write</em> Vaidya's code. Understanding how it works changes <em>how this doc should be consumed</em> and how the work should be scoped.</p>
+
+        <div class="callout doc"><span class="ico">📘</span><div><span class="t">What Pi is.</span> An open-source, terminal-based, <strong>minimalist self-modifying</strong> coding agent. The <em>"shortest system prompt of any agent"</em> with only <strong>four base tools — Read, Write, Edit, Bash</strong>. Provider-neutral: drives Claude, GPT, Gemini, Groq, OpenRouter, and local Ollama through one core, deliberately avoiding provider-locked features. It is the foundation of OpenClaw. Sources: <a class="cite" href="https://lucumr.pocoo.org/2026/1/31/pi/">lucumr.pocoo.org/pi</a> · <a class="cite" href="https://pypi.org/project/pi-coding-agent/">pypi pi-coding-agent</a> · <a class="cite" href="https://dev.to/theoklitosbam7/pi-coding-agent-a-self-documenting-extensible-ai-partner-dn">dev.to</a>.</div></div>
+
+        <h3>How Pi works (and why it matters here)</h3>
+        <ul>
+          <li><strong>Self-extends by writing code, not installing extensions.</strong> "If you want the agent to do something it doesn't do yet… you ask the agent to extend itself." Extensions are TypeScript modules (in <code>~/.pi/agent/extensions/</code>) that register custom tools; Pi hot-reloads them in a loop without losing the session.</li>
+          <li><strong>Self-documenting.</strong> Pi reads its own codebase/README to answer questions about itself — so it can discover project conventions by reading files (e.g. our <code>CLAUDE.md</code>, existing <code>internal/today</code> handlers) rather than needing them spelled out.</li>
+          <li><strong>Tree-structured, branchable sessions.</strong> You can branch to fix a broken tool, then rewind without losing context — Pi summarizes the other branch. Good for iterating on the Vaidya service in isolation.</li>
+          <li><strong>Provider-neutral by design.</strong> Pi avoids provider-locked features in its <em>own</em> operation — which aligns nicely here, since Vaidya's runtime also targets a provider-neutral API (OpenCode Zen, OpenAI-compatible). Pi can run on whatever model your OpenCode Go plan gives it; the code it writes calls Zen.</li>
+        </ul>
+
+        <div class="callout warn"><span class="ico">⚠️</span><div><span class="t">The distinction that prevents the obvious mistake.</span> <strong>Build time:</strong> Pi runs on the OpenCode <strong>Go</strong> subscription (the coding CLI). <strong>Run time:</strong> the Go service Pi writes calls OpenCode <strong>Zen</strong> (the inference API, <code>deepseek-v4-pro</code>) per user request. Go and Zen are <em>different products with different billing</em> — Pi's seat does not pay for Vaidya's live calls. Pi (build-time) should produce a service that authenticates to Zen with its own API key.</div></div>
+
+        <div class="diagram">
+          <div class="mermaid">
+flowchart LR
+    subgraph BUILD["BUILD TIME — Pi coding agent"]
+      direction TB
+      DOC["📄 This doc + CLAUDE.md<br/>+ existing internal/today code"]
+      PI["🤖 Pi (4 tools: Read/Write/Edit/Bash)<br/>any model · self-extends in TS"]
+      DOC --> PI
+      PI -->|writes &amp; tests| CODE["Go: internal/vaidya/*<br/>tools · migrations · prompt files"]
+    end
+    subgraph RUN["RUN TIME — the shipped service"]
+      direction TB
+      SVC["vaidya.Service"]
+      ZEN["OpenCode Zen API<br/>deepseek-v4-pro"]
+      SVC --> ZEN
+      ZEN --> USER([User gets coached])
+    end
+    CODE -->|compiles into| SVC
+    style BUILD fill:#131a2b,stroke:#ffb020
+    style RUN fill:#0f1626,stroke:#8b7cf6
+    style PI fill:#1a2238,stroke:#ffb020
+    style ZEN fill:#1a2238,stroke:#8b7cf6
+          </div>
+          <div class="cap">Pi builds the service (any model, self-extending); the service runs on Claude. Two layers, two models.</div>
+        </div>
+
+        <h3>How to hand the work to Pi</h3>
+        <p>Because Pi reads files and self-extends, scope the work as a sequence of concrete, file-grounded tasks rather than one giant prompt. A workable order:</p>
+        <ol>
+          <li><strong>Orient.</strong> Point Pi at this doc + <code>backend/CLAUDE.md</code> + <code>internal/today/handler.go</code> and <code>internal/db/repositories/today.go</code> so it learns the repo's conventions (struct-based handlers with <code>Register(r)</code>, repos returning typed structs, <code>parseStoredTime</code> for COALESCE'd timestamps, gofmt, table tests against a DB copy).</li>
+          <li><strong>Migrations first.</strong> Have it write <code>internal/db/migrations/0NN_vaidya.sql</code> for <code>vaidya_memories</code>, <code>vaidya_conversations</code>, <code>vaidya_messages</code> (idempotent, <code>IF NOT EXISTS</code>, per the migration convention).</li>
+          <li><strong>The summary builder.</strong> A Go function that assembles the <code>{{data_summary_block}}</code> (§7) from <code>health_data_records</code> / <code>rollup_data_points</code> with the user's own baselines — pure, unit-tested, no LLM.</li>
+          <li><strong>The 5 read-only tools</strong> (§6) as thin wrappers over existing repos, each returning an NL summary.</li>
+          <li><strong>The Zen client + <code>vaidya.Service</code></strong>: an OpenAI-compatible client pointed at <code>https://opencode.ai/zen/v1</code> with the Zen API key and model <code>opencode/deepseek-v4-pro</code>; stable system-prompt prefix (§7), SSE streaming, the tool loop, and defensive handling of empty/blocked responses. Keep the prompt in a versioned file (WHOOP "prompts as code", §5).</li>
+          <li><strong>Endpoints &amp; cron</strong>: <code>POST /vaidya/chat</code> (SSE), <code>GET /vaidya/insights/today</code>, and the <code>VaidyaInsightJob</code> — wired in <code>cmd/server/main.go</code>.</li>
+          <li><strong>Eval harness</strong> for the open questions in §8 (anti-sycophancy, numeric accuracy, cache-hit verification).</li>
+        </ol>
+
+        <div class="callout key"><span class="ico">🔑</span><div><span class="t">For Pi, the most load-bearing parts of this doc are:</span> the §6 model choice (Zen <code>deepseek-v4-pro</code>, OpenAI-compatible endpoint), the §7 draft system prompt (use near-verbatim, minus the safety block if you want it unrestricted), the §6 tool table (the exact 5 tools + which tables they read), and the §6 grounding diagram (hybrid: summary + tools + RAG). The competitor and history sections (§1, §2, §5) are <em>rationale</em> — context for why, not code to write.</div></div>
       </section>
 
       <div class="footer">
