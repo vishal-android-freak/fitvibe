@@ -171,3 +171,115 @@ export function useLastNight(): LastNightState {
 
   return { data, loading, error, reload: load };
 }
+
+// --- Recent nights (Sleep tab: day scroller, vitals, weekly trend) --------
+
+/** Per-night vitals; any field may be null when that vital wasn't recorded. */
+export interface NightVitals {
+  rhr: number | null;
+  hrv: number | null;
+  spo2: number | null;
+  respiratoryRate: number | null;
+  skinTempDelta: number | null;
+}
+
+/** One night's summary (mirrors backend nightSummary). */
+export interface SleepNight {
+  date: string; // local civil date, "2006-01-02"
+  onsetClock: number; // minutes since local midnight
+  wakeClock: number;
+  durationMinutes: number; // asleep
+  efficiency: number;
+  awakenings: number;
+  stages: SleepStageTotal[];
+  vitals: NightVitals;
+}
+
+interface NightsWire {
+  nights: SleepNight[];
+}
+
+export async function fetchSleepNights(userId: number, limit = 14): Promise<SleepNight[]> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(`${config.apiBaseUrl}/me/sleep/nights?user_id=${userId}&limit=${limit}`, {
+      signal: controller.signal,
+    });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.name === 'AbortError') {
+      throw new Error('Request timed out — is the server reachable?');
+    }
+    throw e instanceof Error ? e : new Error('Network request failed');
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!res.ok) {
+    let detail = '';
+    try {
+      const body = (await res.json()) as { error?: string };
+      detail = body.error ?? '';
+    } catch {
+      // non-JSON error body
+    }
+    throw new Error(detail || `Failed to load sleep nights (HTTP ${res.status})`);
+  }
+  const w = (await res.json()) as NightsWire;
+  return w.nights ?? [];
+}
+
+export interface SleepNightsState {
+  nights: SleepNight[];
+  loading: boolean;
+  error: string | null;
+  reload: () => Promise<void>;
+}
+
+/** Loads the last N nights for the Sleep tab. Keeps old data on refresh. */
+export function useSleepNights(limit = 14): SleepNightsState {
+  const { session } = useAuth();
+  const userId = session?.userId;
+  const [nights, setNights] = useState<SleepNight[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const mounted = useRef(true);
+  const hasLoaded = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  const load = useCallback(async () => {
+    if (!userId) {
+      if (mounted.current) {
+        setNights([]);
+        setLoading(false);
+      }
+      return;
+    }
+    const isInitial = !hasLoaded.current;
+    if (mounted.current && isInitial) setLoading(true);
+    try {
+      const ns = await fetchSleepNights(userId, limit);
+      if (mounted.current) {
+        hasLoaded.current = true;
+        setNights(ns);
+        setError(null);
+      }
+    } catch (e: unknown) {
+      if (mounted.current && isInitial) setError(e instanceof Error ? e.message : 'Failed to load sleep');
+    } finally {
+      if (mounted.current) setLoading(false);
+    }
+  }, [userId, limit]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+  useRefreshRegister(load);
+
+  return { nights, loading, error, reload: load };
+}
