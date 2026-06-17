@@ -199,7 +199,7 @@ interface NightsWire {
   nights: SleepNight[];
 }
 
-export async function fetchSleepNights(userId: number, limit = 14): Promise<SleepNight[]> {
+export async function fetchSleepNights(userId: number, limit = 7): Promise<SleepNight[]> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   let res: Response;
@@ -237,7 +237,7 @@ export interface SleepNightsState {
 }
 
 /** Loads the last N nights for the Sleep tab. Keeps old data on refresh. */
-export function useSleepNights(limit = 14): SleepNightsState {
+export function useSleepNights(limit = 7): SleepNightsState {
   const { session } = useAuth();
   const userId = session?.userId;
   const [nights, setNights] = useState<SleepNight[]>([]);
