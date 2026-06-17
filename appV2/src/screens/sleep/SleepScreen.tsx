@@ -34,7 +34,7 @@ export function SleepScreen() {
  */
 function SleepBody() {
   const router = useRouter();
-  const { nights: raw, loading, error } = useSleepNights(14);
+  const { nights: raw, loading, error } = useSleepNights();
   const [idx, setIdx] = useState(0);
   const nights = toNightViews(raw);
   const safeIdx = Math.min(idx, Math.max(0, nights.length - 1));
