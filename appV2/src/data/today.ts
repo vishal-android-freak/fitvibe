@@ -61,8 +61,25 @@ export function fmtStampClock(s: Stamped): string {
   return fmtClock(local.getUTCHours() * 60 + local.getUTCMinutes());
 }
 
+/** How long a request may hang before we give up (server down / no network). */
+const REQUEST_TIMEOUT_MS = 12000;
+
 async function getJSON<T>(path: string): Promise<T> {
-  const res = await fetch(`${config.apiBaseUrl}${path}`);
+  // RN's fetch has no built-in timeout — without this, a dead server leaves the
+  // promise pending forever and the pull-to-refresh spinner never hides.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(`${config.apiBaseUrl}${path}`, { signal: controller.signal });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.name === 'AbortError') {
+      throw new Error('Request timed out — is the server reachable?');
+    }
+    throw e instanceof Error ? e : new Error('Network request failed');
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) {
     let detail = '';
     try {
@@ -104,6 +121,9 @@ function useUserResource<T>(fetcher: (userId: number) => Promise<T>): Resource<T
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const mounted = useRef(true);
+  // Mirror data in a ref so load() can tell an initial load (no data yet → show
+  // the loading state) from a refresh (data present → keep showing it).
+  const dataRef = useRef<T | null>(null);
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -114,20 +134,32 @@ function useUserResource<T>(fetcher: (userId: number) => Promise<T>): Resource<T
   const load = useCallback(async () => {
     if (!userId) {
       if (mounted.current) {
+        dataRef.current = null;
         setData(null);
         setLoading(false);
       }
       return;
     }
-    if (mounted.current) {
+    // Only show the loading state when we have nothing to show yet. On refresh
+    // (data already present) we keep the old data visible and let the
+    // pull-to-refresh spinner be the only indicator.
+    const isInitial = dataRef.current == null;
+    if (mounted.current && isInitial) {
       setLoading(true);
-      setError(null);
     }
     try {
       const d = await fetcher(userId);
-      if (mounted.current) setData(d);
+      if (mounted.current) {
+        dataRef.current = d;
+        setData(d);
+        setError(null);
+      }
     } catch (e: unknown) {
-      if (mounted.current) setError(e instanceof Error ? e.message : 'Failed to load');
+      // Keep the old data on a failed refresh — only surface the error when we
+      // have nothing else to show.
+      if (mounted.current && isInitial) {
+        setError(e instanceof Error ? e.message : 'Failed to load');
+      }
     } finally {
       if (mounted.current) setLoading(false);
     }

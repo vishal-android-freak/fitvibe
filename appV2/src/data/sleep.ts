@@ -65,9 +65,27 @@ function decode(r: WireResponse): LastNight {
   };
 }
 
+/** How long a request may hang before we give up (server down / no network). */
+const REQUEST_TIMEOUT_MS = 12000;
+
 /** Fetches the user's most recent sleep night. Returns null when there is none. */
 export async function fetchLastNight(userId: number): Promise<LastNight | null> {
-  const res = await fetch(`${config.apiBaseUrl}/me/sleep/last-night?user_id=${userId}`);
+  // RN fetch has no timeout; abort so a dead server doesn't hang forever.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(`${config.apiBaseUrl}/me/sleep/last-night?user_id=${userId}`, {
+      signal: controller.signal,
+    });
+  } catch (e: unknown) {
+    if (e instanceof Error && e.name === 'AbortError') {
+      throw new Error('Request timed out — is the server reachable?');
+    }
+    throw e instanceof Error ? e : new Error('Network request failed');
+  } finally {
+    clearTimeout(timer);
+  }
   if (res.status === 204) return null; // no sleep recorded yet
   if (!res.ok) {
     let detail = '';
@@ -98,6 +116,9 @@ export function useLastNight(): LastNightState {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const mounted = useRef(true);
+  // `null` data is a valid result (no sleep recorded), so track first-load
+  // separately rather than inferring it from data being null.
+  const hasLoaded = useRef(false);
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -113,15 +134,24 @@ export function useLastNight(): LastNightState {
       }
       return;
     }
-    if (mounted.current) {
+    // Show the loading state only on the first load; on refresh keep the old
+    // data visible (the pull-to-refresh spinner is the only indicator).
+    const isInitial = !hasLoaded.current;
+    if (mounted.current && isInitial) {
       setLoading(true);
-      setError(null);
     }
     try {
       const night = await fetchLastNight(userId);
-      if (mounted.current) setData(night);
+      if (mounted.current) {
+        hasLoaded.current = true;
+        setData(night);
+        setError(null);
+      }
     } catch (e: unknown) {
-      if (mounted.current) setError(e instanceof Error ? e.message : 'Failed to load sleep');
+      // Keep old data on a failed refresh; only surface the error initially.
+      if (mounted.current && isInitial) {
+        setError(e instanceof Error ? e.message : 'Failed to load sleep');
+      }
     } finally {
       if (mounted.current) setLoading(false);
     }
