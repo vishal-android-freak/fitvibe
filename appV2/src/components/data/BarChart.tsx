@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useReducedMotion,
@@ -16,10 +16,15 @@ export interface BarChartProps {
   height?: number;
   goal?: number;
   highlightMax?: boolean;
+  /** When set, this bar is highlighted (overrides highlightMax) — for selection. */
+  selectedIndex?: number;
+  /** Makes bars tappable; called with the bar's index. */
+  onBarPress?: (i: number) => void;
   style?: ViewStyle;
 }
 
-/** Vertical bars for daily/weekly trends. Tallest bar glows; bars grow from 0. */
+/** Vertical bars for daily/weekly trends. The highlighted bar glows; bars grow
+ *  from 0. Pass selectedIndex + onBarPress to make it an interactive selector. */
 export function BarChart({
   data,
   labels = [],
@@ -27,10 +32,15 @@ export function BarChart({
   height = 140,
   goal,
   highlightMax = true,
+  selectedIndex,
+  onBarPress,
   style,
 }: BarChartProps) {
   const max = Math.max(...data, goal || 0) || 1;
   const maxIdx = data.indexOf(Math.max(...data));
+  // A selection (if any) wins over the tallest-bar highlight.
+  const hasSelection = selectedIndex != null;
+  const litIdx = hasSelection ? selectedIndex : highlightMax ? maxIdx : -1;
 
   return (
     <View style={style}>
@@ -39,13 +49,14 @@ export function BarChart({
           <View style={[styles.goalLine, { bottom: `${(goal / max) * 100}%` }]} />
         )}
         {data.map((d, i) => {
-          const isMax = highlightMax && i === maxIdx;
+          const lit = i === litIdx;
           return (
             <Bar
               key={i}
               pct={Math.max(0.02, d / max)}
-              color={isMax ? hue : tint(hue, 0.3)}
-              glow={isMax}
+              color={lit ? hue : tint(hue, 0.3)}
+              glow={lit}
+              onPress={onBarPress ? () => onBarPress(i) : undefined}
             />
           );
         })}
@@ -57,7 +68,7 @@ export function BarChart({
               key={i}
               style={[
                 styles.label,
-                { color: i === maxIdx && highlightMax ? text.secondary : text.tertiary },
+                { color: i === litIdx && litIdx >= 0 ? text.secondary : text.tertiary },
               ]}
             >
               {l}
@@ -69,7 +80,17 @@ export function BarChart({
   );
 }
 
-function Bar({ pct, color, glow }: { pct: number; color: string; glow: boolean }) {
+function Bar({
+  pct,
+  color,
+  glow,
+  onPress,
+}: {
+  pct: number;
+  color: string;
+  glow: boolean;
+  onPress?: () => void;
+}) {
   const reduced = useReducedMotion();
   const h = useSharedValue(reduced ? pct : 0);
   useEffect(() => {
@@ -79,18 +100,27 @@ function Bar({ pct, color, glow }: { pct: number; color: string; glow: boolean }
 
   const animStyle = useAnimatedStyle(() => ({ height: `${h.value * 100}%` }));
 
-  return (
-    <View style={styles.barCol}>
-      <Animated.View
-        style={[
-          styles.bar,
-          { backgroundColor: color },
-          glow && { shadowColor: color, shadowOpacity: 0.5, shadowRadius: 14, elevation: 6 },
-          animStyle,
-        ]}
-      />
-    </View>
+  const bar = (
+    <Animated.View
+      style={[
+        styles.bar,
+        { backgroundColor: color },
+        glow && { shadowColor: color, shadowOpacity: 0.5, shadowRadius: 14, elevation: 6 },
+        animStyle,
+      ]}
+    />
   );
+
+  // The whole column is the touch target so the empty space above a short bar
+  // is tappable too — much easier to hit than the bar alone.
+  if (onPress) {
+    return (
+      <Pressable style={styles.barCol} onPress={onPress} hitSlop={6}>
+        {bar}
+      </Pressable>
+    );
+  }
+  return <View style={styles.barCol}>{bar}</View>;
 }
 
 const styles = StyleSheet.create({
