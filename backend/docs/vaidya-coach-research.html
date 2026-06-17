@@ -101,7 +101,7 @@
   <header class="hero">
     <div class="eyebrow">FitVibe · Research &amp; Design Reference</div>
     <h1>Building <span class="om">Vaidya</span> — How Google/Fitbit's AI Coach Works, and How to Build Our Own</h1>
-    <p class="sub">A hand-off document for <strong>Pi</strong> — the coding agent that will <em>write</em> FitVibe's Vaidya insights &amp; chat service. Synthesizes deep research into Google Health's <em>Ask Coach</em>, the PH-LLM &amp; PHIA papers, and competitor coaches (WHOOP, Oura, GPTCoach), mapped onto FitVibe's existing Go + SQLite schema, plus how to drive Pi to build it (<a class="cite" href="#s9">§9</a>).</p>
+    <p class="sub">A hand-off document for <strong>Pi</strong> — the coding agent that will <em>write</em> FitVibe's Vaidya insights &amp; chat service. Synthesizes deep research into Google Health's <em>Ask Coach</em>, the PH-LLM &amp; PHIA papers, and competitor coaches (WHOOP, Oura, GPTCoach), mapped onto FitVibe's existing Go + PostgreSQL schema, plus how to drive Pi to build it (<a class="cite" href="#s9">§9</a>).</p>
     <div class="meta-strip">
       <span class="pill"><b>Source:</b> multi-agent research workflow · Jun 2026</span>
       <span class="pill"><b>Runtime model:</b> OpenCode Zen · deepseek-v4-pro</span>
@@ -343,7 +343,7 @@ flowchart TD
       <section id="s6">
         <h2><span class="num">6</span>Recommended architecture for Vaidya in FitVibe</h2>
 
-        <div class="callout key"><span class="ico">🛠</span><div><span class="t">Two different models — don't conflate them.</span> <strong>Build time:</strong> the <strong>Pi coding agent</strong> (<a class="cite" href="#s9">§9</a>), on the <strong>OpenCode Go</strong> subscription, writes the standalone <strong>Node.js</strong> Vaidya service (tools, prompt, cron, tests). <strong>Run time:</strong> that Node service calls a model over the <strong>OpenCode Zen</strong> API to coach the user, with its SQL tools reading <code>fitvibe.db</code> directly. This section specs the <em>runtime</em> service; §9 specs how Pi <em>builds</em> it.</div></div>
+        <div class="callout key"><span class="ico">🛠</span><div><span class="t">Two different models — don't conflate them.</span> <strong>Build time:</strong> the <strong>Pi coding agent</strong> (<a class="cite" href="#s9">§9</a>), on the <strong>OpenCode Go</strong> subscription, writes the standalone <strong>Node.js</strong> Vaidya service (tools, prompt, cron, tests). <strong>Run time:</strong> that Node service calls a model over the <strong>OpenCode Zen</strong> API to coach the user, with its SQL tools reading the shared <strong>PostgreSQL</strong> database directly. This section specs the <em>runtime</em> service; §9 specs how Pi <em>builds</em> it.</div></div>
 
         <h3>Model <span style="font-size:13px;font-weight:400;color:var(--dim)">(runtime — OpenCode Zen, not Opus 4.8)</span></h3>
         <div class="callout warn"><span class="ico">💸</span><div><span class="t">Go ≠ runtime billing.</span> The <strong>OpenCode Go</strong> $10/mo plan powers the <em>coding CLI</em> (Pi) — it does not bill the Vaidya <em>service's</em> live API calls. For a backend service, use <strong>OpenCode Zen</strong>: a pay-as-you-go inference API (per-1M-token), OpenAI- and Anthropic-compatible endpoints (<code>https://opencode.ai/zen/v1/chat/completions</code> or <code>/v1/messages</code>), model ids as <code>opencode/&lt;model-id&gt;</code>. Same open-weight models as Go, callable from Go with an API key. Source: <a class="cite" href="https://opencode.ai/docs/zen/">opencode.ai/docs/zen</a>.</div></div>
@@ -380,7 +380,7 @@ flowchart LR
       T4[get_nutrition]
       T5[get_metric_trend]
     end
-    REPO[(FitVibe repos / SQLite<br/>rollup_data_points ·<br/>health_data_records ·<br/>sleep_stages · users)]
+    REPO[(PostgreSQL<br/>rollup_data_points ·<br/>health_data_records ·<br/>sleep_stages · users)]
     RAG[(Curated clinician-<br/>reviewed KB)]
 
     SP --> LLM
@@ -416,7 +416,7 @@ flowchart LR
           <tr><td><code>get_nutrition(date)</code></td><td><code>nutrition_log_nutrients</code> ⋈ <code>food_items</code></td><td>macro/calorie summary</td></tr>
           <tr><td><code>get_metric_trend(metric, window)</code></td><td><code>health_data_records</code> / rollups</td><td>delta + percentile vs own baseline + chart payload</td></tr>
         </table>
-        <p>In the Node.js service (see §9), each tool is a function that runs a parameterized <strong>read-only SQL query directly against <code>fitvibe.db</code></strong> (via <code>better-sqlite3</code>) and formats the rows into an NL summary — "Node computes the stats with SQL, the LLM narrates them." No Go layer is involved at runtime.</p>
+        <p>In the Node.js service (see §9), each tool is a function that runs a parameterized <strong>read-only SQL query directly against the shared PostgreSQL database</strong> (via the <code>pg</code> driver) and formats the rows into an NL summary — "Node computes the stats with SQL, the LLM narrates them." No Go layer is involved at runtime.</p>
 
         <h4>3 · RAG</h4>
         <p>Curated, clinician-reviewed KB for Ayurvedic/Indian-health &amp; wellness-science — never the open web, never the base model's untethered knowledge for health claims.</p>
@@ -427,10 +427,10 @@ flowchart LR
           <li><strong>Across sessions (Oura pattern):</strong> a <code>vaidya_memories</code> table (<code>user_id, key, value, source, updated_at</code>, user-editable/deletable) — goals, injuries, constraints, plan state — injected into the prefix. Respect deletion; store no PII you don't need.</li>
           <li>A <code>vaidya_conversations</code> / <code>vaidya_messages</code> table for chat history + proactive-card audit.</li>
         </ul>
-        <div class="callout inf"><span class="ico">🟠</span><div><span class="t">Where the Vaidya tables live.</span> Since Vaidya is a separate Node.js service (§9), its own tables (<code>vaidya_memories</code>, <code>vaidya_conversations</code>, <code>vaidya_messages</code>) are <strong>created and written by the Node service</strong>, not by the Go migration runner. Keep them in the <em>same</em> <code>fitvibe.db</code> (one SQLite file, WAL mode) so tools and the Go data coexist — Node owns the <code>vaidya_*</code> tables (read+write), and reads everything else (the ingested health data) <strong>read-only</strong>.</div></div>
+        <div class="callout inf"><span class="ico">🟠</span><div><span class="t">Where the Vaidya tables live.</span> Since Vaidya is a separate Node.js service (§9), its own tables (<code>vaidya_memories</code>, <code>vaidya_conversations</code>, <code>vaidya_messages</code>) are <strong>created and written by the Node service</strong>, not by the Go migration runner. Keep them in the <em>same</em> PostgreSQL database so tools and the Go data coexist — Node owns the <code>vaidya_*</code> tables (read+write), and reads everything else (the ingested health data) <strong>read-only</strong> (e.g. via a least-privilege role).</div></div>
 
         <h3>Deployment: a standalone Node.js service</h3>
-        <div class="callout key"><span class="ico">🟢</span><div><span class="t">Architecture decision.</span> Vaidya is an <strong>independent Node.js service</strong>, separate from the Go ingestion server. Its tools talk to <strong>SQLite directly</strong> (<code>better-sqlite3</code>) — there is no Go API or repo layer at runtime. The Go server keeps ingesting Health-API data into <code>fitvibe.db</code>; the Node service reads that same file.</div></div>
+        <div class="callout key"><span class="ico">🟢</span><div><span class="t">Architecture decision.</span> Vaidya is an <strong>independent Node.js service</strong>, separate from the Go ingestion server. Its tools talk to <strong>PostgreSQL directly</strong> (the <code>pg</code> driver, own connection pool) — there is no Go API or repo layer at runtime. The Go server keeps ingesting Health-API data into the same PostgreSQL database; the Node service reads it concurrently. (Postgres makes this multi-process access first-class — no shared-file/WAL caveats.)</div></div>
         <div class="diagram">
           <div class="mermaid">
 sequenceDiagram
@@ -438,7 +438,7 @@ sequenceDiagram
     participant App
     participant API as Node: POST /vaidya/chat (SSE)
     participant Svc as Vaidya service (Node)
-    participant DB as fitvibe.db (SQLite, WAL)
+    participant DB as PostgreSQL (shared)
     participant LLM as Zen · deepseek-v4-pro
     App->>API: question + conversation id
     API->>Svc: handle(userId, msg)
@@ -452,7 +452,7 @@ sequenceDiagram
     LLM-->>API: streamed answer (+ chart payload)
     API-->>App: SSE tokens
           </div>
-          <div class="cap">Runtime lifecycle. The Node service opens <code>fitvibe.db</code> directly; tools are SQL queries, no Go involved.</div>
+          <div class="cap">Runtime lifecycle. The Node service connects to PostgreSQL directly; tools are SQL queries, no Go involved.</div>
         </div>
         <div class="diagram">
           <div class="mermaid">
@@ -462,10 +462,10 @@ flowchart LR
     end
     subgraph NODE["Vaidya service (Node.js, new, separate process)"]
       VAPI["Express/Fastify:<br/>/vaidya/chat (SSE) ·<br/>/vaidya/insights/today ·<br/>/vaidya/memories CRUD"]
-      TOOLS2["Tools = direct SQL<br/>(better-sqlite3, read-only)"]
+      TOOLS2["Tools = direct SQL<br/>(pg pool, read-only role)"]
       CRON2["node-cron: morning/evening<br/>insight cards per user tz"]
     end
-    DB[("fitvibe.db<br/>SQLite · WAL")]
+    DB[("PostgreSQL<br/>shared")]
     ING -->|writes health data| DB
     VAPI --> TOOLS2 --> DB
     CRON2 --> TOOLS2
@@ -476,14 +476,14 @@ flowchart LR
     style NODE fill:#131a2b,stroke:#8b7cf6
     style DB fill:#1a2238,stroke:#60a5fa
           </div>
-          <div class="cap">Two processes, one database. Go writes health data; Node reads it (and owns the <code>vaidya_*</code> tables). WAL mode lets a writer and readers coexist.</div>
+          <div class="cap">Two processes, one database. Go writes health data; Node reads it (and owns the <code>vaidya_*</code> tables). PostgreSQL handles concurrent processes natively.</div>
         </div>
         <ul>
           <li><code>POST /vaidya/chat</code> (streamed SSE) — the Ask-Coach surface.</li>
           <li><code>GET /vaidya/insights/today</code> — proactive cards via <strong>node-cron</strong>, per-user at local morning/evening using <code>users.time_zone</code> read from the DB.</li>
           <li><code>GET/POST/DELETE /vaidya/memories</code> — user-editable memory CRUD.</li>
         </ul>
-        <div class="callout warn"><span class="ico">⚠️</span><div><span class="t">Two processes on one SQLite file — get this right.</span> The Go server is the writer; Node is a reader (plus writer of <code>vaidya_*</code>). This is safe <em>only</em> because the DB is in <strong>WAL mode</strong> (it already is — see <code>db.Open</code>). In the Node service: open with <code>better-sqlite3</code>, set <code>PRAGMA busy_timeout = 5000</code> and <code>PRAGMA foreign_keys = ON</code> on the connection, open the health tables <strong>read-only</strong>, and never run long write transactions that could block ingestion. If you'd rather avoid shared-file coupling entirely, the alternative is to have Node read via a thin read-only HTTP endpoint on the Go server — but direct SQLite is simpler and is the chosen path.</div></div>
+        <div class="callout good"><span class="ico">✅</span><div><span class="t">Concurrent access is first-class on Postgres.</span> The Go server writes health data; Node reads it (plus writes <code>vaidya_*</code>) — both connect their own pools to the same database with no contention (this was the whole point of moving off SQLite, which serialized writers behind a single lock). In the Node service: connect with the <code>pg</code> driver to <code>DATABASE_URL</code>, use a <strong>read-only role</strong> (or revoke write on the health tables) so a tool can never mutate ingested data, and keep the <code>vaidya_*</code> writes in short transactions. No WAL/busy_timeout tuning needed.</div></div>
 
         <h3>The Vaidya persona</h3>
         <div class="callout key"><span class="ico">🪷</span><div><span class="t">Vaidya</span> (Sanskrit: a practitioner of healing). Calm, knowledgeable, culturally aware — speaks to Indian dietary patterns, fasting, seasonal/lifestyle framing — <strong>but explicitly evidence-based, not pseudoscience.</strong> Hard rule: may <em>acknowledge</em> Ayurvedic framing the user raises and offer culturally relevant practical guidance (meal timing, hydration, routine), but grounds every health claim in modern evidence + the user's data, and <strong>never</strong> makes therapeutic Ayurvedic claims (no dosha causation, no herbal prescriptions).</div></div>
@@ -619,7 +619,7 @@ flowchart LR
     end
     subgraph RUN["RUN TIME — the shipped Node service"]
       direction TB
-      SVC["Vaidya service (Node)<br/>tools = direct SQLite"]
+      SVC["Vaidya service (Node)<br/>tools = direct SQL (pg)"]
       ZEN["OpenCode Zen API<br/>deepseek-v4-pro"]
       SVC --> ZEN
       ZEN --> USER([User gets coached])
@@ -634,19 +634,19 @@ flowchart LR
         </div>
 
         <h3>How to hand the work to Pi</h3>
-        <p>The Vaidya service is a <strong>standalone Node.js project</strong> (separate from the Go backend) whose tools query <code>fitvibe.db</code> directly. Because Pi reads files and self-extends, scope the work as a sequence of concrete, file-grounded tasks rather than one giant prompt. A workable order:</p>
+        <p>The Vaidya service is a <strong>standalone Node.js project</strong> (separate from the Go backend) whose tools query the shared <strong>PostgreSQL</strong> database directly. Because Pi reads files and self-extends, scope the work as a sequence of concrete, file-grounded tasks rather than one giant prompt. A workable order:</p>
         <ol>
-          <li><strong>Orient.</strong> Point Pi at this doc + <code>backend/CLAUDE.md</code> + the schema file <code>backend/internal/db/migrations/001_initial_schema.sql</code> (so it learns the exact table/column names its SQL will query) and <code>backend/internal/today/timeline.go</code> (as a worked example of how stored timestamps/offsets and meal grouping behave). It only needs to <em>read</em> the Go; it writes Node.</li>
-          <li><strong>Scaffold the Node service.</strong> A new dir (e.g. <code>vaidya/</code> at repo root), TypeScript, <code>better-sqlite3</code>, a web framework (Fastify or Express), <code>node-cron</code>, and an OpenAI-compatible client. A <code>db.ts</code> that opens <code>fitvibe.db</code> with <code>PRAGMA busy_timeout=5000</code> + <code>foreign_keys=ON</code> (health tables read-only).</li>
-          <li><strong>Vaidya tables.</strong> A one-time setup SQL (run by Node, <code>CREATE TABLE IF NOT EXISTS</code>) for <code>vaidya_memories</code>, <code>vaidya_conversations</code>, <code>vaidya_messages</code> in the same <code>fitvibe.db</code>.</li>
-          <li><strong>The summary builder.</strong> A pure function that assembles the <code>{{data_summary_block}}</code> (§7) via SQL over <code>health_data_records</code> / <code>rollup_data_points</code> with the user's own baselines — unit-tested against a copy of the real DB, no LLM.</li>
+          <li><strong>Orient.</strong> Point Pi at this doc + <code>backend/CLAUDE.md</code> + the schema file <code>backend/internal/db/migrations/001_initial_schema.sql</code> (PostgreSQL DDL — the exact table/column names + types its SQL will query) and <code>backend/internal/today/timeline.go</code> (a worked example of timestamp/offset handling and meal grouping). It only needs to <em>read</em> the Go; it writes Node + PostgreSQL SQL.</li>
+          <li><strong>Scaffold the Node service.</strong> A new dir (e.g. <code>vaidya/</code> at repo root), TypeScript, the <code>pg</code> driver, a web framework (Fastify or Express), <code>node-cron</code>, and an OpenAI-compatible client. A <code>db.ts</code> that creates a <code>pg</code> Pool against <code>DATABASE_URL</code> (the same DSN the Go server uses), ideally with a read-only role for the health tables.</li>
+          <li><strong>Vaidya tables.</strong> A one-time setup SQL (run by Node, <code>CREATE TABLE IF NOT EXISTS</code>) for <code>vaidya_memories</code>, <code>vaidya_conversations</code>, <code>vaidya_messages</code> in the same PostgreSQL database.</li>
+          <li><strong>The summary builder.</strong> A pure function that assembles the <code>{{data_summary_block}}</code> (§7) via SQL over <code>health_data_records</code> / <code>rollup_data_points</code> with the user's own baselines — unit-tested against a dev Postgres, no LLM.</li>
           <li><strong>The 5 read-only tools</strong> (§6) — each a parameterized SQL query → NL-summary formatter. Match the schema exactly (e.g. <code>civil_start_date</code> for local-day grouping, <code>value_avg</code>/<code>value_count</code>, <code>start_utc_offset_seconds</code> for wall-clock).</li>
           <li><strong>The Zen client + chat service</strong>: an OpenAI-compatible client (e.g. the <code>openai</code> npm SDK with <code>baseURL: "https://opencode.ai/zen/v1"</code>), model <code>opencode/deepseek-v4-pro</code>, the §7 system prompt as a stable prefix (kept in a versioned file — WHOOP "prompts as code", §5), SSE streaming, the tool-call loop, and defensive handling of empty responses.</li>
           <li><strong>Endpoints &amp; cron</strong>: <code>POST /vaidya/chat</code> (SSE), <code>GET /vaidya/insights/today</code>, <code>/vaidya/memories</code> CRUD, and a <strong>node-cron</strong> job that generates morning/evening cards per user using <code>users.time_zone</code>.</li>
           <li><strong>Eval harness</strong> for the open questions in §8 (anti-sycophancy, numeric accuracy of the SQL-tool path vs the standing summary).</li>
         </ol>
 
-        <div class="callout key"><span class="ico">🔑</span><div><span class="t">For Pi, the most load-bearing parts of this doc are:</span> the §6 deployment diagram (Node service + direct SQLite, two processes one DB), the §6 model choice (Zen <code>deepseek-v4-pro</code>, OpenAI-compatible endpoint), the §6 tool table (the exact 5 tools + which tables/columns they query), and the §7 draft system prompt (near-verbatim, minus the safety block if you want it unrestricted). The schema file is the source of truth for column names. §1, §2, §5 are <em>rationale</em> — context, not code.</div></div>
+        <div class="callout key"><span class="ico">🔑</span><div><span class="t">For Pi, the most load-bearing parts of this doc are:</span> the §6 deployment diagram (Node service + direct PostgreSQL, two processes one DB), the §6 model choice (Zen <code>deepseek-v4-pro</code>, OpenAI-compatible endpoint), the §6 tool table (the exact 5 tools + which tables/columns they query), and the §7 draft system prompt (near-verbatim, minus the safety block if you want it unrestricted). The schema file is the source of truth for column names. §1, §2, §5 are <em>rationale</em> — context, not code.</div></div>
       </section>
 
       <div class="footer">
@@ -654,7 +654,7 @@ flowchart LR
         <code>backend/internal/db/migrations/001_initial_schema.sql</code> — <strong>source of truth for column names</strong>; tables: <code>data_points</code>, <code>rollup_data_points</code>, <code>health_data_records</code>, <code>sleep_stages</code>, <code>sleep_summary_stages</code>, <code>nutrition_log_nutrients</code>, <code>users</code>.<br/>
         <code>backend/internal/today/timeline.go</code> — worked example of timestamp/offset handling &amp; meal grouping the SQL tools should mirror.<br/>
         <code>backend/internal/healthapi/types.go</code> — <code>Category()</code>, the canonical data-type list (the <code>data_type</code> values the SQL filters on).<br/>
-        The Node service lives in its own dir (e.g. <code>vaidya/</code>) and opens <code>fitvibe.db</code> directly — no Go wiring.</p>
+        The Node service lives in its own dir (e.g. <code>vaidya/</code>) and connects to the shared PostgreSQL database directly — no Go wiring.</p>
         <p style="margin-top:14px">Generated from a multi-agent research workflow, June 2026. <span class="tag doc" style="margin:0">DOCUMENTED</span> claims are cited; <span class="tag inf" style="margin:0">INFERRED</span> claims are our reasoning — verify cited facts still hold before relying on them.</p>
       </div>
     </main>
