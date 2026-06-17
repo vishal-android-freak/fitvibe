@@ -29,6 +29,54 @@ func NewHandler(sleepRepo *repositories.SleepRepo, users *repositories.UserRepo)
 func (h *Handler) Register(r chi.Router) {
 	r.Get("/me/sleep/last-night", h.lastNight)
 	r.Get("/me/sleep/nights", h.nights)
+	r.Get("/me/sleep/schedule", h.getSchedule)
+	r.Put("/me/sleep/schedule", h.putSchedule)
+}
+
+// scheduleBody is the user's target bed/wake (minutes since local midnight),
+// each null when unset. Google doesn't expose this; we store it ourselves.
+type scheduleBody struct {
+	TargetBedMinutes  *int `json:"targetBedMinutes"`
+	TargetWakeMinutes *int `json:"targetWakeMinutes"`
+}
+
+func (h *Handler) getSchedule(w http.ResponseWriter, r *http.Request) {
+	userID, err := strconv.ParseInt(r.URL.Query().Get("user_id"), 10, 64)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "valid user_id query parameter is required")
+		return
+	}
+	bed, wake, err := h.users.GetSleepSchedule(r.Context(), userID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "failed to load schedule")
+		return
+	}
+	writeJSON(w, http.StatusOK, scheduleBody{TargetBedMinutes: bed, TargetWakeMinutes: wake})
+}
+
+func (h *Handler) putSchedule(w http.ResponseWriter, r *http.Request) {
+	userID, err := strconv.ParseInt(r.URL.Query().Get("user_id"), 10, 64)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "valid user_id query parameter is required")
+		return
+	}
+	var body scheduleBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+	// Validate minutes-since-midnight range when provided.
+	for _, v := range []*int{body.TargetBedMinutes, body.TargetWakeMinutes} {
+		if v != nil && (*v < 0 || *v >= 1440) {
+			writeErr(w, http.StatusBadRequest, "target minutes must be 0–1439")
+			return
+		}
+	}
+	if err := h.users.SetSleepSchedule(r.Context(), userID, body.TargetBedMinutes, body.TargetWakeMinutes); err != nil {
+		writeErr(w, http.StatusInternalServerError, "failed to save schedule")
+		return
+	}
+	writeJSON(w, http.StatusOK, body)
 }
 
 // stageSegment is one [stage, minutes] block for the hypnogram.
