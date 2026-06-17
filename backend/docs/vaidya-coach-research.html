@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Vaidya — AI Health Coach: Research &amp; Design Reference</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #0b0f1a; --panel: #131a2b; --panel2: #0f1626; --ink: #e8edf7;
+    --muted: #9aa6bf; --dim: #6b7793; --line: #232c44;
+    --accent: #8b7cf6; --accent2: #60a5fa; --green: #4ade80; --amber: #ffb020;
+    --red: #ff5c7a; --teal: #38e0d8; --code-bg: #0a0e18;
+    --doc: #2bb673; --inf: #d99030;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px 120px; }
+  .layout { display: grid; grid-template-columns: 248px 1fr; gap: 40px; align-items: start; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } nav.toc { position: static !important; } }
+
+  header.hero {
+    padding: 56px 0 32px; border-bottom: 1px solid var(--line); margin-bottom: 40px;
+    background: radial-gradient(1200px 320px at 20% -40%, rgba(139,124,246,.18), transparent 70%);
+  }
+  .eyebrow { font-size: 12px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--accent); font-weight: 700; }
+  h1 { font-size: 38px; line-height: 1.15; margin: 10px 0 14px; letter-spacing: -.5px; }
+  h1 .om { color: var(--accent); }
+  .sub { color: var(--muted); font-size: 17px; max-width: 760px; }
+  .meta-strip { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+  .pill { font-size: 12.5px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); background: var(--panel2); }
+  .pill b { color: var(--ink); font-weight: 600; }
+
+  nav.toc { position: sticky; top: 24px; font-size: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel2); padding: 16px 14px; }
+  nav.toc .lbl { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--dim); margin: 0 0 10px 4px; }
+  nav.toc a { display: block; color: var(--muted); text-decoration: none; padding: 6px 10px; border-radius: 8px; line-height: 1.35; }
+  nav.toc a:hover { background: var(--panel); color: var(--ink); }
+  nav.toc a .n { color: var(--accent); font-weight: 700; margin-right: 7px; }
+
+  section { margin: 0 0 52px; scroll-margin-top: 20px; }
+  h2 { font-size: 26px; margin: 0 0 6px; letter-spacing: -.3px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+  h2 .num { color: var(--accent); font-weight: 800; margin-right: 10px; }
+  h3 { font-size: 18.5px; margin: 28px 0 8px; color: var(--ink); }
+  h4 { font-size: 15px; margin: 20px 0 6px; color: var(--accent2); text-transform: uppercase; letter-spacing: 1px; }
+  p { margin: 10px 0; color: #d5dcec; }
+  ul, ol { margin: 10px 0; padding-left: 22px; }
+  li { margin: 7px 0; color: #d5dcec; }
+  strong { color: #fff; }
+  em { color: var(--teal); font-style: italic; }
+  a.cite { color: var(--accent2); text-decoration: none; border-bottom: 1px dotted var(--accent2); word-break: break-word; }
+  a.cite:hover { color: #fff; }
+  code { font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 13.5px; background: rgba(139,124,246,.12); color: #c7d2fe; padding: 1.5px 6px; border-radius: 5px; }
+
+  pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; overflow-x: auto; margin: 16px 0; }
+  pre code { background: none; color: #cdd6f4; padding: 0; font-size: 13px; line-height: 1.6; }
+  pre.prompt { border-left: 3px solid var(--accent); }
+  pre .h { color: var(--accent); font-weight: 700; }
+  pre .c { color: #6b7793; }
+
+  .callout { border-radius: 12px; padding: 14px 18px; margin: 16px 0; border: 1px solid var(--line); display: flex; gap: 12px; }
+  .callout .ico { font-size: 18px; line-height: 1.4; }
+  .callout.doc { background: rgba(43,182,115,.08); border-color: rgba(43,182,115,.35); }
+  .callout.inf { background: rgba(217,144,48,.08); border-color: rgba(217,144,48,.35); }
+  .callout.key { background: rgba(139,124,246,.10); border-color: rgba(139,124,246,.4); }
+  .callout.warn { background: rgba(255,92,122,.08); border-color: rgba(255,92,122,.35); }
+  .callout .t { font-weight: 700; }
+  .callout.doc .t { color: var(--green); } .callout.inf .t { color: var(--amber); }
+  .callout.key .t { color: var(--accent); } .callout.warn .t { color: var(--red); }
+
+  .tag { font-size: 10.5px; font-weight: 700; letter-spacing: .5px; padding: 2px 8px; border-radius: 6px; vertical-align: middle; margin-left: 8px; text-transform: uppercase; }
+  .tag.doc { background: rgba(43,182,115,.18); color: var(--green); border: 1px solid rgba(43,182,115,.4); }
+  .tag.inf { background: rgba(217,144,48,.18); color: var(--amber); border: 1px solid rgba(217,144,48,.4); }
+
+  .diagram { background: var(--panel2); border: 1px solid var(--line); border-radius: 14px; padding: 22px; margin: 20px 0; text-align: center; }
+  .diagram .cap { color: var(--dim); font-size: 13px; margin-top: 10px; font-style: italic; }
+  .mermaid { display: flex; justify-content: center; }
+
+  table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: 14.5px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--accent2); font-size: 12px; letter-spacing: .5px; text-transform: uppercase; }
+  tr:hover td { background: rgba(139,124,246,.04); }
+  td code { font-size: 12.5px; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 18px 0; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .card h5 { margin: 0 0 6px; font-size: 14.5px; color: var(--accent); }
+  .card .steal { margin-top: 8px; font-size: 13.5px; color: var(--green); }
+  .card .steal b { color: var(--green); }
+
+  .footer { margin-top: 50px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--dim); font-size: 13.5px; }
+  .footer code { font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div class="eyebrow">FitVibe · Research &amp; Design Reference</div>
+    <h1>Building <span class="om">Vaidya</span> — How Google/Fitbit's AI Coach Works, and How to Build Our Own</h1>
+    <p class="sub">A hand-off document for the coding agent that will build FitVibe's LLM coaching service. Synthesizes deep research into Google Health's <em>Ask Coach</em>, the PH-LLM &amp; PHIA papers, and competitor coaches (WHOOP, Oura, GPTCoach), mapped onto FitVibe's existing Go + SQLite schema.</p>
+    <div class="meta-strip">
+      <span class="pill"><b>Source:</b> multi-agent research workflow · Jun 2026</span>
+      <span class="pill"><b>Default model:</b> claude-opus-4-8</span>
+      <span class="pill"><span class="tag doc" style="margin:0">DOCUMENTED</span> = cited source</span>
+      <span class="pill"><span class="tag inf" style="margin:0">INFERRED</span> = our reasoning</span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="toc">
+      <div class="lbl">Contents</div>
+      <a href="#s1"><span class="n">1</span>What Ask Coach does</a>
+      <a href="#s2"><span class="n">2</span>Model &amp; architecture</a>
+      <a href="#s3"><span class="n">3</span>Generic system prompt</a>
+      <a href="#s4"><span class="n">4</span>Safety &amp; guardrails</a>
+      <a href="#s5"><span class="n">5</span>Competitor patterns</a>
+      <a href="#s6"><span class="n">6</span>Vaidya architecture</a>
+      <a href="#s7"><span class="n">7</span>Draft Vaidya prompt</a>
+      <a href="#s8"><span class="n">8</span>Open questions</a>
+    </nav>
+
+    <main>
+      <!-- ===== 1 ===== -->
+      <section id="s1">
+        <h2><span class="num">1</span>What Ask Coach actually does</h2>
+        <div class="callout doc"><span class="ico">📘</span><div><span class="t">Documented one-liner.</span> "An AI-powered personal health coach <strong>built with Gemini</strong>," delivered in the redesigned Fitbit/Google Health app to Premium subscribers, playing three roles at once — <em>a fitness trainer, a sleep coach, and a health &amp; wellness advisor.</em></div></div>
+
+        <h3>Capabilities <span class="tag doc">documented</span></h3>
+        <ul>
+          <li><strong>Builds &amp; dynamically adjusts fitness plans</strong> — workout suggestions and weekly-progression metric targets; re-plans in real time off daily signals (low morning readiness → suggests recovery changes). Onboarding is a 5–10 min text-or-voice conversation about goals, equipment, injuries.</li>
+          <li><strong>Free-form Q&amp;A ("Ask Coach")</strong> grounded in the user's data, "backed by science." Three query buckets: <strong>data analysis</strong> (sleep/fitness/health trends), <strong>support/troubleshooting</strong> (device, syncing), <strong>app navigation</strong>.</li>
+          <li><strong>Multimodal logging</strong> — photo-based food logging ("log two servings of this" from a label), recall of prior logs by brand, photo-based exercise-form critique. Photos/docs/screenshots accepted; video not.</li>
+          <li><strong>Rich responses</strong> — not just prose: trend-line graphs, weekly bar charts, proactive insight cards ("Restless night, but good deep sleep"), editable auto-populated activity cards.</li>
+        </ul>
+
+        <h3>Proactive vs reactive <span class="tag doc">documented</span></h3>
+        <p>Primarily <strong>reactive</strong> (always-present "Ask Coach" FAB), layered with genuine <strong>proactive</strong> behavior — time-of-day messages (morning sleep/readiness, post-workout breakdown, evening recap/plan progress) and unprompted follow-ups days after a question.</p>
+
+        <h3>Metrics it reasons over <span class="tag doc">documented</span></h3>
+        <p>Activity/steps, cardio load, sleep duration/quality/consistency/stages, HRV, resting HR, SpO₂, breathing rate, skin-temperature variation, VO₂ max, weight, body fat, cycle health, nutrition logging, and <strong>readiness</strong> (HRV + recent sleep + RHR, scored /100). 2026 adds medical records, CGM glucose, and metabolic/insulin-resistance prediction.</p>
+
+        <h3>Persona &amp; response style <span class="tag doc">documented</span></h3>
+        <p>Warm, validating, addresses by first name, asks follow-ups — reviewers found it occasionally "repetitive"/"formulaic." Greeting-style proactivity ("Good morning, Matthew!"). A persistent chat disclaimer: <em>"Coach is AI and can make mistakes. Not for medical advice."</em></p>
+
+        <p style="font-size:13px;color:var(--dim)">Sources: <a class="cite" href="https://blog.google/products/fitbit/fitbit-ai-personal-health-coach-preview/">blog.google preview</a> · <a class="cite" href="https://support.google.com/googlehealth/answer/14237011">support.google.com 14237011</a> · <a class="cite" href="https://9to5google.com/2025/10/27/fitbit-coach-preview/">9to5google</a> · engadget Fitbit Air review.</p>
+      </section>
+
+      <!-- ===== 2 ===== -->
+      <section id="s2">
+        <h2><span class="num">2</span>The model &amp; architecture behind it</h2>
+        <div class="callout doc"><span class="ico">📘</span><div><span class="t">Shipping product.</span> "Built with Gemini" (variant never named publicly) — a <strong>multi-agent framework steered by system instructions</strong>, not described as fine-tuned.</div></div>
+
+        <div class="diagram">
+          <div class="mermaid">
+flowchart TB
+    U([User question / time-of-day trigger]) --> CA
+    subgraph G["Gemini multi-agent framework (system-instruction steered)"]
+      direction TB
+      CA["🗣 Conversational agent<br/>multi-turn dialogue · intent ·<br/>orchestration · response gen"]
+      DS["📊 Data science agent<br/>writes/runs CODE over<br/>physiological time-series"]
+      DE["🏋 Domain expert agent<br/>generates &amp; adapts<br/>fitness plans"]
+      CA -->|needs numbers| DS
+      CA -->|needs a plan| DE
+      DS -->|summarized stats| CA
+      DE -->|plan| CA
+    end
+    DS -.queries.-> DB[(Wearable time-series<br/>+ personal baselines<br/>+ population stats)]
+    CA --> R([Grounded answer + cards/charts])
+    style G fill:#131a2b,stroke:#8b7cf6
+    style CA fill:#1a2238,stroke:#60a5fa
+    style DS fill:#1a2238,stroke:#38e0d8
+    style DE fill:#1a2238,stroke:#4ade80
+          </div>
+          <div class="cap">Google Research's documented 3-agent design. The data-science agent <em>writes code</em> over time-series rather than ingesting raw numbers as tokens.</div>
+        </div>
+
+        <p>System instructions require it to: verify recent data availability, choose the right metrics, contrast relevant days, contextualize against <strong>personal baselines &amp; population statistics</strong>, and incorporate prior interactions. Grounded in "established coaching frameworks," validated with the <strong>SHARP</strong> rubric (Safety, Helpfulness, Accuracy, Relevance, Personalization) over 1M+ annotations / 100k+ expert hours.</p>
+
+        <h3>The research foundations <span class="tag inf">shipping link inferred</span></h3>
+        <table>
+          <tr><th>Paper</th><th>Architecture</th><th>How data is fed</th><th>Result</th></tr>
+          <tr>
+            <td><strong>PH-LLM</strong><br/><a class="cite" href="https://arxiv.org/abs/2406.06474">arXiv 2406.06474</a></td>
+            <td>Full fine-tune of Gemini Ultra 1.0 on 857 expert case studies (sleep + fitness)</td>
+            <td>Primarily <strong>text</strong>: per-day table + NL summary of aggregated stats (mean, percentile-vs-peers, min/max, std, weekday/weekend). A small MLP adapter (20×2 → 2 soft tokens) used <em>only</em> for numeric sleep-quality <em>prediction</em>.</td>
+            <td>Beat sampled human experts: sleep 79% vs 76%, fitness 88% vs 71%</td>
+          </tr>
+          <tr>
+            <td><strong>PHIA</strong><br/><a class="cite" href="https://arxiv.org/abs/2406.06464">arXiv 2406.06464</a></td>
+            <td><strong>ReAct agent</strong> on <em>frozen</em> Gemini Ultra 1.0 — no fine-tuning</td>
+            <td>Writes <strong>pandas code</strong> over two dataframes (daily-summary + activity-events) + Google Search</td>
+            <td>84% vs 74% (single-shot code-gen baseline) on 4,000 objective queries</td>
+          </tr>
+        </table>
+
+        <div class="callout inf"><span class="ico">🟠</span><div><span class="t">Inference boundary.</span> The production coach <em>blends</em> PHIA's tool-using numeric reasoning with PH-LLM-like coaching — but Google has <strong>not</strong> confirmed PH-LLM ships, named the Gemini variant, or disclosed the retrieval/weighting. No verbatim consumer system prompt is public; the only published verbatim prompts come from the PH-LLM paper (which §3 borrows).</div></div>
+
+        <div class="callout key"><span class="ico">🔑</span><div><span class="t">The single most important takeaway.</span> Every credible source — PH-LLM, PHIA, GPTCoach, Health-LLM — converges: <strong>do not dump raw API arrays into the prompt.</strong> Either (a) pre-aggregate into compact NL summaries with relative-change &amp; percentile/baseline context, or (b) expose data via tools/code queried on demand. FitVibe's <code>rollup_data_points</code> (<code>value_count/sum/avg/min/max</code>) is <em>exactly</em> the right granularity for (a), and the schema backs (b) directly.</div></div>
+      </section>
+
+      <!-- ===== 3 ===== -->
+      <section id="s3">
+        <h2><span class="num">3</span>Reverse-engineered system prompt <span style="font-size:14px;font-weight:400;color:var(--dim)">(generic wearable coach)</span></h2>
+        <p>Synthesizes the verbatim PH-LLM cues (second-person, RU-SATED, anti-confabulation, percentile grounding, refuse-on-missing-data), GPTCoach's MI/non-prescriptive stance, and documented Fitbit guardrails. Provider-neutral — <a class="cite" href="#s7">§7</a> specializes it for Vaidya.</p>
+        <pre class="prompt"><code>You are a personal health and wellness coach embedded in a wearable-data app.
+You act as three things at once: a fitness trainer, a sleep coach, and a
+general wellness advisor. You speak directly to the user in the second person.
+
+<span class="h">## Grounding (non-negotiable)</span>
+- Base EVERY data claim on the USER DATA block below. Do not invent, estimate,
+  or extrapolate numbers that are not present.
+- When you state whether a metric is normal or abnormal, give the reference
+  range or the user's own baseline/percentile that justifies it.
+- If the data needed to answer is missing or stale, say so explicitly and ask
+  for it — do not guess. "I don't have your HRV for last night" is a correct answer.
+- Refrain from any calculation you are not certain of. Do not compute
+  correlation coefficients or invent statistics.
+- Reference the user's own numbers in your answer (e.g. "your average sleep
+  duration this week was 6h 12m, below the 7-9h range").
+
+<span class="h">## Tone &amp; format</span>
+- Talk like you are speaking to one person. Never say "the user."
+- Be concise. Lead with the answer, then the supporting data, then one
+  actionable next step.
+- Avoid generic statements, contradictions, and filler.
+- Use the Observation -&gt; Insight pattern: state the factual observation from the
+  data, then its implication for this person.
+- Recommendations must be SMART (specific, measurable, achievable, relevant,
+  time-bound) and tied to the data you cited.
+- End data-analysis answers with at most one short follow-up question.
+
+<span class="h">## Coaching stance</span>
+- Prefer questions and "advise with permission" over unsolicited prescription.
+- Do not assume the user's lifestyle, demographics, race, or circumstances
+  beyond what the data and profile state.
+- Do NOT simply agree with the user. If a premise is implausible or unsafe,
+  say so and explain why. Acknowledge uncertainty honestly.
+
+<span class="h">## Safety (hard limits)</span>
+- You are NOT a medical device and NOT a medical provider. You provide general
+  wellness and fitness information, not medical advice, diagnosis, or treatment.
+- Do not diagnose conditions, interpret labs as diagnosis, or recommend
+  starting/stopping/changing medications or dosages.
+- For chest pain, fainting, severe shortness of breath, suicidal ideation, or
+  any emergency, stop coaching and direct the user to emergency services.
+- If the user is in pain, do not assert an exercise is safe — tell them to
+  consult a clinician.
+- For specific medical questions, give factual/informational explanations only
+  and recommend they consult a healthcare provider.
+
+Always append: "I'm an AI wellness coach, not a doctor — I can be wrong.
+Check with a healthcare professional before making health changes."</code></pre>
+      </section>
+
+      <!-- ===== 4 ===== -->
+      <section id="s4">
+        <h2><span class="num">4</span>Safety &amp; guardrails <span style="font-size:14px;font-weight:400;color:var(--dim)">(concrete rules)</span></h2>
+        <p>Synthesized from Fitbit's disclaimers, the PH-LLM rubric, the <a class="cite" href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12296254/">harm-reduction paper</a>, and the <a class="cite" href="https://www.nature.com/articles/s41746-025-02008-z">sycophancy research</a>.</p>
+
+        <div class="callout warn"><span class="ico">⚠️</span><div><span class="t">Render the disclaimer in the UI, not just the prompt.</span> A persistent "AI… not for medical advice" notice must be impossible to ignore. System-prompt rules alone are "a suggestion, not a security control."</div></div>
+
+        <div class="diagram">
+          <div class="mermaid">
+flowchart TD
+    Q([User message]) --> SCOPE{In scope?<br/>fitness · sleep · wellness ·<br/>own data · app nav}
+    SCOPE -->|no| RED[Redirect politely]
+    SCOPE -->|yes| EMG{Emergency?<br/>chest pain · fainting ·<br/>suicidal ideation}
+    EMG -->|yes| ER[/STOP coaching →<br/>direct to emergency services/]
+    EMG -->|no| MED{Medical?<br/>diagnosis · meds ·<br/>symptom · pain-safety}
+    MED -->|yes| INFO[Informational only +<br/>'see a clinician' · never prescribe]
+    MED -->|no| DATA{Have the data?}
+    DATA -->|no| ASK[Say so · call a tool ·<br/>or ask — never guess]
+    DATA -->|yes| ANS[Answer · grounded ·<br/>cite numbers · anti-sycophancy]
+    ANS --> DISC[Append disclaimer]
+    INFO --> DISC
+    style ER fill:#3a1420,stroke:#ff5c7a
+    style INFO fill:#3a2a14,stroke:#ffb020
+    style ANS fill:#14321f,stroke:#4ade80
+    style DISC fill:#1a2238,stroke:#8b7cf6
+          </div>
+          <div class="cap">Guardrail decision flow every turn passes through.</div>
+        </div>
+
+        <h4>Must refuse / redirect</h4>
+        <ul>
+          <li>No diagnosis. No medication start/stop/dose changes. No treatment plans.</li>
+          <li>Symptom assessment → redirect to a clinician.</li>
+          <li>Emergencies → direct to emergency services, stop coaching.</li>
+          <li>"Is this exercise safe given my pain?" → decline to assert safety (verbatim documented Fitbit guardrail).</li>
+          <li>Rare-condition / drug-interaction → informational only, no prescription.</li>
+        </ul>
+
+        <h4>Anti-sycophancy — the failure mode that bites health LLMs hardest</h4>
+        <p>Health models complied with up to <strong>100%</strong> of misinformation requests in testing. Bake in: <em>"Do not simply agree; flag implausible premises; present alternatives; quantify uncertainty."</em> Test explicitly against illogical requests.</p>
+
+        <div class="callout key"><span class="ico">🔑</span><div><span class="t">Claude-specific layering.</span> Opus 4.8 has strong built-in safety and the API can return <code>stop_reason: "refusal"</code> — the service <strong>must check <code>stop_reason</code> before reading <code>content[0]</code></strong>. For a health product, also run an external input/output scan (PII, injection, policy). Bias guardrail (PH-LLM Q8): no assumptions about demographics/race/lifestyle beyond provided data.</div></div>
+      </section>
+
+      <!-- ===== 5 ===== -->
+      <section id="s5">
+        <h2><span class="num">5</span>Competitor patterns worth stealing</h2>
+        <div class="cards">
+          <div class="card">
+            <h5>WHOOP — HPML</h5>
+            <p>"Hyper Prompt Markup Language" (Handlebars+): data resolved <em>before</em> the model sees tokens via inline tool refs, conditional on the user's current screen. ~80% fewer tokens, 3.5× cache hits, ~85% lower cost.</p>
+            <p class="steal"><b>Steal:</b> pre-fetch context metrics &amp; template into a <em>stable prompt prefix</em> for Claude prompt caching — not 20 tool functions.</p>
+          </div>
+          <div class="card">
+            <h5>WHOOP — prompts as code</h5>
+            <p>Agents = {system instructions, model, tools}, version-controlled with diff/approval/security gate; PII never sent to the model.</p>
+            <p class="steal"><b>Steal:</b> versioned prompt + guardrail files with evals &amp; review gate; pseudonymize before the call.</p>
+          </div>
+          <div class="card">
+            <h5>Oura — Memories + tone</h5>
+            <p>User-editable persistent "Memories" ("recovering from knee surgery") + two tones: conversational vs direct.</p>
+            <p class="steal"><b>Steal:</b> a user-editable memory store injected into context, plus a tone toggle.</p>
+          </div>
+          <div class="card">
+            <h5>Oura — curated RAG</h5>
+            <p>Women's-health questions route to a proprietary LLM grounded in vetted medical sources, not the open web.</p>
+            <p class="steal"><b>Steal:</b> ground Ayurvedic/Indian-health claims in a curated, clinician-reviewed KB — never open web.</p>
+          </div>
+          <div class="card">
+            <h5>GPTCoach — best blueprint</h5>
+            <p>Dialogue state-machine + pick 1-of-11 Motivational-Interviewing strategies + <code>describe()</code>/<code>visualize()</code> tools returning <strong>NL summaries</strong>. 93% MI-consistent, beating vanilla GPT-4.</p>
+            <p class="steal"><b>Steal:</b> two-tool NL-summary pattern maps 1:1 onto FitVibe rollups; MI stance keeps Vaidya facilitative.</p>
+          </div>
+          <div class="card">
+            <h5>Garmin / Ultrahuman</h5>
+            <p>Garmin surfaces ONE highest-value insight on open. Ultrahuman Jade ships fast "Standard" vs slow "Deep Research" modes.</p>
+            <p class="steal"><b>Steal:</b> an "insight of the moment" surface + a fast/deep mode split.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 6 ===== -->
+      <section id="s6">
+        <h2><span class="num">6</span>Recommended architecture for Vaidya in FitVibe</h2>
+
+        <h3>Model</h3>
+        <p><strong>Default: <code>claude-opus-4-8</code></strong> (most capable Opus-tier; 1M context). Use <strong>adaptive thinking</strong> and <code>output_config.effort</code> to split two modes:</p>
+        <table>
+          <tr><th>Mode</th><th>Config</th><th>Use</th></tr>
+          <tr><td><strong>Standard</strong></td><td><code>effort: "medium"</code>, low/no thinking</td><td>Daily Q&amp;A, proactive cards (fast)</td></tr>
+          <tr><td><strong>Deep</strong></td><td><code>effort: "high"</code> + adaptive thinking + tools</td><td>"Build me a plan", "why has my sleep degraded this month"</td></tr>
+        </table>
+        <p>Consider <code>claude-haiku-4-5</code> for cheap, high-volume <strong>proactive insight cards</strong>; <code>claude-opus-4-8</code> for interactive chat. <strong>Stream all responses.</strong> Avoid Fable 5 — its cost is above Opus-tier and it requires 30-day data retention (bad fit if you want ZDR for health data).</p>
+
+        <h3>Grounding: hybrid (summarized-context + tools), not pure RAG</h3>
+        <div class="callout key"><span class="ico">🔑</span><div><span class="t">The rule.</span> <strong>Personal metrics</strong> → in-context summary or tools. <strong>Clinical/Ayurvedic knowledge</strong> → RAG. <strong>Coaching style</strong> → the prompt. Do all three.</div></div>
+
+        <div class="diagram">
+          <div class="mermaid">
+flowchart LR
+    subgraph PRE["Stable cached prefix (byte-stable → prompt cache)"]
+      SP[System prompt<br/>persona · rules · tools]
+    end
+    subgraph INJ["Per-user injected context"]
+      PROF[User profile<br/>age · units · tz]
+      MEM[(vaidya_memories<br/>goals · injuries)]
+      SUM[Auto-computed summary<br/>today / 7d / 30d<br/>+ baselines &amp; percentiles]
+    end
+    subgraph TOOLS["Read-only tools (NL summaries, not raw arrays)"]
+      T1[get_today_summary]
+      T2[get_sleep]
+      T3[get_readiness]
+      T4[get_nutrition]
+      T5[get_metric_trend]
+    end
+    REPO[(FitVibe repos / SQLite<br/>rollup_data_points ·<br/>health_data_records ·<br/>sleep_stages · users)]
+    RAG[(Curated clinician-<br/>reviewed KB)]
+
+    SP --> LLM
+    PROF --> LLM; MEM --> LLM; SUM --> LLM
+    LLM["claude-opus-4-8"] -->|on-demand| TOOLS
+    TOOLS --> REPO
+    SUM -.precomputed in Go.-> REPO
+    LLM -->|domain claims| RAG
+    LLM --> OUT([Grounded answer + chart payload])
+    style PRE fill:#131a2b,stroke:#8b7cf6
+    style INJ fill:#0f1626,stroke:#60a5fa
+    style TOOLS fill:#0f1626,stroke:#38e0d8
+    style LLM fill:#1a2238,stroke:#8b7cf6
+          </div>
+          <div class="cap">Hybrid grounding. The common path is served by the precomputed summary in the cached prefix; tools handle drill-down; RAG backs domain knowledge.</div>
+        </div>
+
+        <h4>1 · Summarized-context (common path)</h4>
+        <p>Pre-compute a compact deterministic "today + 7-day + 30-day" summary in Go, templated into a <strong>stable system-prompt prefix</strong> for prompt-caching (<code>cache_read ≈ 0.1×</code> cost). Built from:</p>
+        <ul>
+          <li><code>rollup_data_points</code> — daily/intraday aggregates (<code>count_sum/avg/min/max</code>, <code>distance_meters_sum</code>, <code>energy_kcal_sum</code>, <code>duration_seconds_sum</code>).</li>
+          <li><code>health_data_records</code> — clean per-day metric surface (<code>metric_name</code>, <code>metric_value</code>, <code>metric_unit</code>); the single best table to serialize.</li>
+          <li><code>data_points</code> typed columns (<code>value_avg</code>, <code>enum_value</code>, civil dates) for last-night specifics.</li>
+          <li><code>users</code> profile (age, weight, height, time_zone, units, gender).</li>
+        </ul>
+
+        <h4>2 · Tools for on-demand drill-down</h4>
+        <table>
+          <tr><th>Tool</th><th>Reads</th><th>Returns (NL summary)</th></tr>
+          <tr><td><code>get_sleep(date|range)</code></td><td><code>sleep_stages</code>, <code>sleep_summary_stages</code></td><td>"Last night: 6h 41m, 1h 22m deep, 1h 05m REM, eff 88%, woke 3×"</td></tr>
+          <tr><td><code>get_today_summary()</code></td><td>interval/rollup tables</td><td>steps, active energy, distance, AZM</td></tr>
+          <tr><td><code>get_readiness(date)</code></td><td>RHR + HRV + recent sleep</td><td>composed /100 (mirror Google's definition)</td></tr>
+          <tr><td><code>get_nutrition(date)</code></td><td><code>nutrition_log_nutrients</code> ⋈ <code>food_items</code></td><td>macro/calorie summary</td></tr>
+          <tr><td><code>get_metric_trend(metric, window)</code></td><td><code>health_data_records</code> / rollups</td><td>delta + percentile vs own baseline + chart payload</td></tr>
+        </table>
+        <p>Thin wrappers over the same repos <code>cmd/server</code> already wires — "Go computes the stats, Claude narrates them."</p>
+
+        <h4>3 · RAG</h4>
+        <p>Curated, clinician-reviewed KB for Ayurvedic/Indian-health &amp; wellness-science — never the open web, never the base model's untethered knowledge for health claims.</p>
+
+        <h3>Conversation memory</h3>
+        <ul>
+          <li><strong>Within a session:</strong> API is stateless — send full history each turn (or use compaction beta <code>compact-2026-01-12</code>; append <code>response.content</code>, not just text).</li>
+          <li><strong>Across sessions (Oura pattern):</strong> a <code>vaidya_memories</code> table (<code>user_id, key, value, source, updated_at</code>, user-editable/deletable) — goals, injuries, constraints, plan state — injected into the prefix. Respect deletion; store no PII you don't need.</li>
+          <li>A <code>vaidya_conversations</code> / <code>vaidya_messages</code> table for chat history + proactive-card audit.</li>
+        </ul>
+
+        <h3>Wiring into FitVibe</h3>
+        <div class="diagram">
+          <div class="mermaid">
+sequenceDiagram
+    autonumber
+    participant App
+    participant API as POST /vaidya/chat (SSE)
+    participant Svc as vaidya.Service
+    participant Repo as repositories (read-only)
+    participant LLM as claude-opus-4-8
+    App->>API: question + conversation id
+    API->>Svc: handle(userID, msg)
+    Svc->>Repo: precompute summary + load memories
+    Repo-->>Svc: summary + memories
+    Svc->>LLM: cached prefix + profile + summary + history
+    LLM-->>Svc: tool_use? get_sleep(...)
+    Svc->>Repo: get_sleep(...)
+    Repo-->>Svc: NL summary
+    Svc->>LLM: tool_result
+    LLM-->>API: streamed grounded answer (+ chart payload)
+    API-->>App: SSE tokens + disclaimer
+          </div>
+          <div class="cap">Request lifecycle. <code>vaidya.Service</code> is wired in <code>cmd/server/main.go</code> beside existing repos; it is strictly a <em>reader</em> of already-ingested data.</div>
+        </div>
+        <ul>
+          <li><code>POST /vaidya/chat</code> (streamed SSE) — the Ask-Coach surface.</li>
+          <li><code>GET /vaidya/insights/today</code> — proactive cards via a cron <code>VaidyaInsightJob</code> running per-user at local morning/evening using <code>users.time_zone</code>.</li>
+        </ul>
+
+        <h3>The Vaidya persona</h3>
+        <div class="callout key"><span class="ico">🪷</span><div><span class="t">Vaidya</span> (Sanskrit: a practitioner of healing). Calm, knowledgeable, culturally aware — speaks to Indian dietary patterns, fasting, seasonal/lifestyle framing — <strong>but explicitly evidence-based, not pseudoscience.</strong> Hard rule: may <em>acknowledge</em> Ayurvedic framing the user raises and offer culturally relevant practical guidance (meal timing, hydration, routine), but grounds every health claim in modern evidence + the user's data, and <strong>never</strong> makes therapeutic Ayurvedic claims (no dosha causation, no herbal prescriptions).</div></div>
+      </section>
+
+      <!-- ===== 7 ===== -->
+      <section id="s7">
+        <h2><span class="num">7</span>Draft Vaidya system prompt</h2>
+        <p>Ready for <code>claude-opus-4-8</code>. Static parts (persona, rules, tool descriptions) → the <strong>cached prefix</strong>; inject the per-user DATA block and MEMORIES after, then the conversation. Keep the prefix <strong>byte-stable</strong> — never interpolate <code>now()</code>.</p>
+        <pre class="prompt"><code>You are Vaidya, FitVibe's personal health and wellness coach. "Vaidya" means a
+practitioner of healing. You are calm, warm, knowledgeable, and culturally
+aware — comfortable with Indian dietary patterns, meal timing, fasting, and
+seasonal/lifestyle routines — but you are firmly evidence-based. You are three
+things at once: a fitness trainer, a sleep coach, and a wellness advisor. You
+speak directly to the user, by name when you know it, in the second person.
+
+<span class="h">## What you do</span>
+- Analyze the user's own wearable and logged data (sleep, HRV, resting heart
+  rate, steps, heart rate, activity/cardio load, nutrition, hydration,
+  exercise, readiness) and explain what it means for them.
+- Help them set and adjust SMART fitness, sleep, and wellness goals.
+- Answer wellness questions, grounded in their data and in evidence.
+
+<span class="h">## Grounding rules (non-negotiable)</span>
+- Base EVERY data claim on the USER DATA block or on a tool result. Never
+  invent, estimate, or extrapolate a number that isn't there.
+- When you call a metric normal or abnormal, cite the reference range or the
+  user's own baseline/percentile that justifies it.
+- If you need data you don't have, either call a tool to fetch it or say you
+  don't have it and ask — never guess. "I don't have last night's HRV" is a
+  correct answer.
+- Do not perform calculations you're unsure of. No invented statistics or
+  correlation coefficients.
+- Reference the user's actual numbers in your answer.
+
+<span class="h">## Tools</span>
+You have read-only tools that summarize the user's stored data:
+get_today_summary, get_sleep, get_readiness, get_nutrition,
+get_metric_trend(metric, window). Call them when the USER DATA block doesn't
+already contain what you need. They return summaries, not raw readings — trust
+their numbers as factual.
+
+<span class="h">## Tone &amp; format</span>
+- Lead with the answer, then the supporting data, then one concrete next step.
+- Be concise and direct; no filler, no repeated validation, no emoji.
+- Use Observation -&gt; Insight: the factual observation, then what it means for
+  this person.
+- Goals/recommendations must be SMART and tied to the data you cited.
+- End data-analysis answers with at most one short, relevant follow-up question.
+- Do NOT simply agree with the user. If a premise is implausible or a plan is
+  unsafe, say so and explain why. State uncertainty honestly.
+- Never assume the user's lifestyle, demographics, or circumstances beyond the
+  profile and data provided.
+
+<span class="h">## Cultural framing (Vaidya's distinctive voice)</span>
+- You may use culturally relevant, practical framing the user is comfortable
+  with (e.g. lighter early dinners, morning routines, seasonal eating, fasting
+  the user already practices) and weave it into evidence-based advice.
+- You must NOT make therapeutic or diagnostic Ayurvedic/traditional-medicine
+  claims, prescribe herbs or remedies, or attribute symptoms to dosha
+  imbalances. Ground every health claim in modern evidence and their own data.
+
+<span class="h">## Safety (hard limits)</span>
+- You are NOT a medical device and NOT a doctor. You give general wellness and
+  fitness guidance — not medical advice, diagnosis, or treatment.
+- Never diagnose, never interpret results as a diagnosis, never recommend
+  starting, stopping, or changing any medication or dose.
+- For chest pain, fainting, severe breathlessness, suicidal ideation, pregnancy
+  emergencies, or anything urgent: stop coaching and tell the user to contact
+  emergency services immediately.
+- If the user reports pain, do not declare any exercise safe — tell them to
+  consult a clinician first.
+- For specific medical questions, give factual/informational explanations only
+  and recommend a healthcare provider.
+
+Append to every answer:
+"Vaidya is an AI wellness coach, not a doctor, and can be wrong. Talk to a
+healthcare professional before making changes to your health."
+
+<span class="c">---</span>
+USER PROFILE: {{name}}, {{age}}, {{gender}}, {{height}}, {{weight}},
+units: {{distance_unit}}/{{weight_unit}}, timezone: {{time_zone}}.
+
+VAIDYA MEMORIES (user-editable; goals, injuries, constraints, preferences):
+{{memories_block}}
+
+USER DATA (auto-computed; today + 7-day + 30-day, with the user's own baselines):
+{{data_summary_block}}</code></pre>
+        <div class="callout doc"><span class="ico">🧾</span><div><span class="t">Example <code>{{data_summary_block}}</code> (PH-LLM style).</span> <em>"Last 7 days: average sleep 6h 41m (your baseline 7h 20m, down 39m), average HRV 42ms (baseline 48ms, down 13%), resting HR 58bpm (baseline 56), steps 8,210/day (baseline 9,400), 2 workouts logged. Readiness today: 64/100."</em></div></div>
+      </section>
+
+      <!-- ===== 8 ===== -->
+      <section id="s8">
+        <h2><span class="num">8</span>Open questions / what to validate</h2>
+        <ol>
+          <li><strong>Encoding tradeoff for FitVibe:</strong> does summarized-context alone answer "what was my average X" accurately, or do you need the PHIA-style code/tool path? PH-LLM says text suffices for <em>advice</em>, a learned encoder for <em>prediction</em>; PHIA says generated code beats markdown tables for numeric questions. Validate by building both and grading on held-out objective questions.</li>
+          <li><strong>Readiness definition:</strong> Google's is HRV + recent sleep + RHR /100, weighting undocumented. Decide &amp; document FitVibe's own formula before Vaidya cites "readiness." <span class="tag inf">see readiness-score note</span></li>
+          <li><strong>Tool surface size:</strong> start with ~5 tools — too many degrade selection. Validate whether the standing data block makes some redundant.</li>
+          <li><strong>Prompt-caching stability:</strong> confirm the prefix is byte-stable (no <code>now()</code>, sorted JSON, fixed tool order) and <code>cache_read_input_tokens &gt; 0</code> on repeat turns.</li>
+          <li><strong>Anti-sycophancy + safety, empirically:</strong> test against illogical/unsafe premises &amp; medical-advice bait. Decide whether an external moderation layer is needed beyond Claude's built-in safety + the <code>refusal</code> stop reason.</li>
+          <li><strong>Memory privacy/retention:</strong> what goes in <code>vaidya_memories</code>, how is deletion honored, is PII pseudonymized before the call (WHOOP's "PII never sent" stance)? Intersects with whether you'd want ZDR.</li>
+          <li><strong>RAG sourcing:</strong> who curates/clinician-reviews the Ayurvedic/Indian-health corpus, and how do you stop Vaidya leaking ungrounded traditional-medicine claims?</li>
+          <li><strong>Proactive cadence:</strong> per-user local-time triggering needs <code>users.time_zone</code>/<code>utc_offset</code> reliably populated by <code>ProfileSettingsSyncer</code> — confirm coverage before scheduling morning/evening cards.</li>
+        </ol>
+      </section>
+
+      <div class="footer">
+        <p><strong>Key files to ground Vaidya:</strong><br/>
+        <code>backend/internal/db/migrations/001_initial_schema.sql</code> — tables: <code>data_points</code>, <code>rollup_data_points</code>, <code>health_data_records</code>, <code>sleep_stages</code>, <code>nutrition_log_nutrients</code>, <code>users</code>.<br/>
+        <code>backend/internal/healthapi/types.go</code> — <code>Category()</code>, the canonical data-type list to map tools onto.<br/>
+        <code>backend/cmd/server/main.go</code> — composition root where <code>vaidya.Service</code> would be wired.</p>
+        <p style="margin-top:14px">Generated from a multi-agent research workflow, June 2026. <span class="tag doc" style="margin:0">DOCUMENTED</span> claims are cited; <span class="tag inf" style="margin:0">INFERRED</span> claims are our reasoning — verify cited facts still hold before relying on them.</p>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      background: '#0f1626', primaryColor: '#1a2238', primaryTextColor: '#e8edf7',
+      primaryBorderColor: '#8b7cf6', lineColor: '#60a5fa', secondaryColor: '#131a2b',
+      tertiaryColor: '#0f1626', fontSize: '14px',
+      actorBkg: '#1a2238', actorBorder: '#8b7cf6', actorTextColor: '#e8edf7',
+      signalColor: '#9aa6bf', signalTextColor: '#d5dcec', noteBkgColor: '#131a2b', noteTextColor: '#e8edf7',
+    },
+    flowchart: { curve: 'basis', useMaxWidth: true },
+    securityLevel: 'loose',
+  });
+</script>
+</body>
+</html>
