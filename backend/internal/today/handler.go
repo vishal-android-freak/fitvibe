@@ -28,6 +28,7 @@ func NewHandler(repo *repositories.TodayRepo, db *sql.DB) *Handler {
 // Register mounts the today routes.
 func (h *Handler) Register(r chi.Router) {
 	r.Get("/me/today/summary", h.summary)
+	r.Get("/me/today/timeline", h.timeline)
 	r.Get("/me/nutrition/today", h.nutrition)
 }
 
@@ -108,6 +109,49 @@ func (h *Handler) nutrition(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusOK, resp)
+}
+
+type timelineEvent struct {
+	Kind          string   `json:"kind"`     // tracked | logged
+	Category      string   `json:"category"` // workout | wake | meal | water
+	At            string   `json:"at"`       // RFC3339 (UTC)
+	OffsetSeconds int      `json:"offsetSeconds"`
+	Title         string   `json:"title"`
+	Detail        string   `json:"detail"`
+	Items         []string `json:"items,omitempty"` // meal contents, when grouped
+}
+
+type timelineResponse struct {
+	Date   string          `json:"date"`
+	Events []timelineEvent `json:"events"`
+}
+
+func (h *Handler) timeline(w http.ResponseWriter, r *http.Request) {
+	userID, ok := parseUserID(w, r)
+	if !ok {
+		return
+	}
+	localDate := h.localDate(r.Context(), userID)
+
+	events, err := h.repo.Timeline(r.Context(), userID, localDate)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "failed to load timeline")
+		return
+	}
+
+	out := make([]timelineEvent, 0, len(events))
+	for _, e := range events {
+		out = append(out, timelineEvent{
+			Kind:          e.Kind,
+			Category:      e.Category,
+			At:            e.At.Format(time.RFC3339),
+			OffsetSeconds: e.OffsetSeconds,
+			Title:         e.Title,
+			Detail:        e.Detail,
+			Items:         e.Items,
+		})
+	}
+	writeJSON(w, http.StatusOK, timelineResponse{Date: localDate, Events: out})
 }
 
 // localDate computes the user's current local civil date. The server is UTC, so
