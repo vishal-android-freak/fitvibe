@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
 import { config, REDIRECT_PATH } from './config';
@@ -17,7 +17,10 @@ interface AuthContextValue {
   busy: boolean;
   /** last sign-in error message, if any */
   error: string | null;
+  /** opens the backend-brokered OAuth flow in the browser */
   signIn: () => Promise<void>;
+  /** completes sign-in from the deep-link redirect: redeem token, persist */
+  completeSignIn: (params: { token?: string; error?: string }) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -44,27 +47,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const signIn = useCallback(async () => {
-    if (busy) return;
-    setBusy(true);
+  // Redeem the one-time token for the identity and persist the session. Called
+  // either from the deep-link redirect route (the normal path on Android, where
+  // Expo Router handles the incoming link) or directly from signIn() if
+  // openAuthSessionAsync happens to resolve with the URL first.
+  const redeemingRef = useRef<string | null>(null);
+
+  const completeSignIn = useCallback(async (params: { token?: string; error?: string }) => {
+    // Guard against double redemption: the one-time token can arrive both via
+    // the deep-link route and openAuthSessionAsync's resolved URL. Whichever
+    // fires first wins; the second is a no-op.
+    if (params.token && redeemingRef.current === params.token) return;
+    if (params.token) redeemingRef.current = params.token;
+
     setError(null);
     try {
-      // The backend brokers the whole OAuth handshake. We open its /auth/start,
-      // it bounces through Google and its own /auth/callback, then deep-links
-      // back to us with a one-time token (no code/secret ever touches the app).
-      const startUrl = `${config.apiBaseUrl}/auth/start?redirect=${encodeURIComponent(redirectUri)}`;
-      const result = await WebBrowser.openAuthSessionAsync(startUrl, redirectUri);
-
-      if (result.type !== 'success') {
-        return; // cancel / dismiss — stay on welcome, no error
-      }
-
-      const params = parseQuery(result.url);
       if (params.error) throw new Error(humanizeError(params.error));
-      const token = params.token;
-      if (!token) throw new Error('No session token returned');
+      if (!params.token) throw new Error('No session token returned');
 
-      const data = await redeemSession(token);
+      const data = await redeemSession(params.token);
       const next: Session = {
         userId: data.user_id,
         healthUserId: data.health_user_id,
@@ -75,10 +76,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setStatus('signedIn');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Sign-in failed');
+      setStatus('signedOut');
+      throw e;
     } finally {
       setBusy(false);
     }
-  }, [busy, redirectUri]);
+  }, []);
+
+  const signIn = useCallback(async () => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      // The backend brokers the whole OAuth handshake. We open its /auth/start,
+      // it bounces through Google and its own /auth/callback, then deep-links
+      // back to us at fitvibe://oauthredirect with a one-time token (no code or
+      // secret ever touches the app).
+      const startUrl = `${config.apiBaseUrl}/auth/start?redirect=${encodeURIComponent(redirectUri)}`;
+      const result = await WebBrowser.openAuthSessionAsync(startUrl, redirectUri);
+
+      // On Android/Expo Router the deep link is usually consumed by the router
+      // (the /oauthredirect route finishes the flow), so a 'dismiss' here is
+      // normal — don't treat it as an error. Only complete inline if we got the
+      // URL back directly.
+      if (result.type === 'success') {
+        await completeSignIn(parseQuery(result.url));
+      } else {
+        setBusy(false);
+      }
+    } catch {
+      // completeSignIn already set the error/busy state.
+    }
+  }, [busy, redirectUri, completeSignIn]);
 
   const signOut = useCallback(async () => {
     await clearSession();
@@ -87,8 +116,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ status, session, busy, error, signIn, signOut }),
-    [status, session, busy, error, signIn, signOut],
+    () => ({ status, session, busy, error, signIn, completeSignIn, signOut }),
+    [status, session, busy, error, signIn, completeSignIn, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
