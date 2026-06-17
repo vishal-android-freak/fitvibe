@@ -115,7 +115,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, query url.V
 		}
 		req.Header.Set("Authorization", "Bearer "+token)
 
-			if c.limiter != nil {
+		if c.limiter != nil {
 			if err := c.limiter.Wait(ctx); err != nil {
 				return fmt.Errorf("rate limiter: %w", err)
 			}
@@ -248,6 +248,16 @@ func setFilterQuery(q url.Values, dataType, category string, start, end time.Tim
 
 	startStr := start.UTC().Format(format)
 	endStr := end.UTC().Format(format)
+
+	// For civil-date filters (daily summaries), both bounds collapse to a date
+	// with no time component. When start and end land on the same civil date —
+	// common when a frequent cron resumes from a recent last_end_time — the
+	// `>= D AND < D` window is empty and the API rejects it with
+	// INVALID_TIME_RANGE. Push the upper bound to the next day so the day that
+	// contains `end` is still included (the API needs end strictly > start).
+	if !geOnly && format == civilDateFormat && endStr <= startStr {
+		endStr = end.UTC().AddDate(0, 0, 1).Format(format)
+	}
 
 	var filter string
 	if geOnly {

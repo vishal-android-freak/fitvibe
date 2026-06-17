@@ -90,6 +90,11 @@ func (s *ListSyncer) syncDataType(ctx context.Context, user *repositories.User, 
 	}
 
 	start, end := s.syncWindow(state)
+	// Nothing new to fetch since the last run — and a non-positive window would
+	// be rejected by the API (INVALID_TIME_RANGE). Skip quietly.
+	if !start.Before(end) {
+		return nil
+	}
 	client := healthapi.NewClient(s.oauthService.TokenProvider(user.ID))
 
 	pageToken := ""

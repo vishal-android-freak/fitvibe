@@ -76,6 +76,36 @@ func TestSetFilterQueryECG(t *testing.T) {
 	}
 }
 
+func TestSetFilterQueryDaily(t *testing.T) {
+	q := url.Values{}
+	start := time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 6, 17, 0, 0, 0, 0, time.UTC)
+	setFilterQuery(q, "daily-vo2-max", "daily", start, end)
+
+	got := q.Get("filter")
+	want := `daily_vo2_max.date >= "2026-06-15" AND daily_vo2_max.date < "2026-06-17"`
+	if got != want {
+		t.Errorf("filter = %q, want %q", got, want)
+	}
+}
+
+// TestSetFilterQueryDailySameDay covers the INVALID_TIME_RANGE bug: when a
+// daily-category window's start and end land on the same civil date (a frequent
+// cron resuming from a recent last_end_time), the upper bound must be pushed to
+// the next day so `>= D AND < D` doesn't become an empty range.
+func TestSetFilterQueryDailySameDay(t *testing.T) {
+	q := url.Values{}
+	start := time.Date(2026, 6, 17, 6, 31, 0, 0, time.UTC)
+	end := time.Date(2026, 6, 17, 12, 44, 0, 0, time.UTC)
+	setFilterQuery(q, "daily-vo2-max", "daily", start, end)
+
+	got := q.Get("filter")
+	want := `daily_vo2_max.date >= "2026-06-17" AND daily_vo2_max.date < "2026-06-18"`
+	if got != want {
+		t.Errorf("filter = %q, want %q", got, want)
+	}
+}
+
 func TestKebabToSnake(t *testing.T) {
 	if got := kebabToSnake("heart-rate"); got != "heart_rate" {
 		t.Errorf("kebabToSnake = %q", got)
