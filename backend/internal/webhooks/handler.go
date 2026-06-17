@@ -95,6 +95,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// handleVerification answers Google's endpoint-ownership challenge. Google
+// sends TWO verification POSTs and both must pass for the subscriber to save:
+//   1. WITH the configured Authorization header  → must return 200/201
+//   2. WITHOUT any Authorization header           → must return 401/403
+// We must therefore reject the unauthorized challenge, not just accept the
+// authorized one. See https://developers.google.com/health/webhooks
 func (h *Handler) handleVerification(w http.ResponseWriter, r *http.Request) {
 	auth := r.Header.Get("Authorization")
 	expected := h.cfg.WebhookSecret
@@ -104,8 +110,15 @@ func (h *Handler) handleVerification(w http.ResponseWriter, r *http.Request) {
 		expected = "Bearer " + expected
 	}
 
+	// Step 2: the unauthorized challenge (no/blank auth) must be rejected.
+	if auth == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	// Step 1: the authorized request must present the configured secret.
 	if auth != expected {
-		h.logger.Warn("webhook verification unauthorized", "authorization", auth)
+		h.logger.Warn("webhook verification: wrong authorization")
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
