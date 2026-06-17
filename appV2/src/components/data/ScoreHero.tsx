@@ -42,7 +42,7 @@ const styles = StyleSheet.create({
   body: { flex: 1, minWidth: 0 },
   eyebrow: { fontFamily: font.sansBold, fontSize: fontSize['2xs'], letterSpacing: 1.6, color: text.tertiary, marginBottom: 6 },
   scoreRow: { flexDirection: 'row', alignItems: 'baseline', gap: 9 },
-  score: { fontFamily: font.display, fontSize: 46, lineHeight: 46, color: text.primary },
+  score: { fontFamily: font.display, fontSize: 46, lineHeight: 54, color: text.primary },
   rating: { fontFamily: font.sansBold, fontSize: fontSize.md },
   primaryRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap' },
   primary: { fontFamily: font.display, fontSize: fontSize.lg, color: text.primary },

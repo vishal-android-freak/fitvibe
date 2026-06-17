@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { BarChart } from '@/components/data/BarChart';
 import { accent, border, font, fontSize, radius, surface, text } from '@/theme';
@@ -44,5 +44,5 @@ const styles = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14 },
   right: { alignItems: 'flex-end' },
   statLabel: { fontFamily: font.sansRegular, fontSize: fontSize.xs, color: text.muted },
-  statValue: { fontFamily: font.display, fontSize: fontSize.xl, color: text.primary, marginTop: 2 },
+  statValue: { fontFamily: font.display, fontSize: fontSize.xl, color: text.primary, lineHeight: 28, marginTop: 2 },
 });
