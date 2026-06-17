@@ -75,7 +75,7 @@ function SleepBody() {
             <ScheduleCard night={night} />
 
             <SectionLabel action="Month">{`Last ${Math.min(nights.length, 7)} nights`}</SectionLabel>
-            <WeeklyTrend nights={nights} selectedIdx={safeIdx} onSelect={setIdx} />
+            <WeeklyTrend nights={nights} />
           </>
         )}
     </>
