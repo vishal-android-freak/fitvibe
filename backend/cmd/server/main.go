@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -22,6 +22,8 @@ import (
 	"github.com/vishal-android-freak/fitvibe/internal/db"
 	"github.com/vishal-android-freak/fitvibe/internal/db/repositories"
 	"github.com/vishal-android-freak/fitvibe/internal/oauth"
+	"github.com/vishal-android-freak/fitvibe/internal/sleep"
+	"github.com/vishal-android-freak/fitvibe/internal/today"
 	"github.com/vishal-android-freak/fitvibe/internal/webhooks"
 )
 
@@ -50,6 +52,10 @@ func main() {
 
 	dataPointRepo := repositories.NewDataPointRepo(database.DB)
 	rollupRepo := repositories.NewRollupDataPointRepo(database.DB)
+	sleepRepo := repositories.NewSleepRepo(database.DB)
+	sleepHandler := sleep.NewHandler(sleepRepo, userRepo)
+	todayRepo := repositories.NewTodayRepo(database.DB)
+	todayHandler := today.NewHandler(todayRepo, database.DB)
 
 	verifier := webhooks.NewVerifier(cfg.WebhookSignatureCacheTTL)
 	webhookHandler := webhooks.NewHandler(cfg, verifier, webhookNotificationRepo, logger)
@@ -100,6 +106,8 @@ func main() {
 	r.Post(cfg.WebhookPath, webhookHandler.ServeHTTP)
 
 	adminHandler.Register(r)
+	sleepHandler.Register(r)
+	todayHandler.Register(r)
 
 	// startBackfill kicks off the historical backfill for a freshly exchanged
 	// user in the background. Shared by the direct exchange and the brokered flow.

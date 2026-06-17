@@ -51,21 +51,21 @@ type ProfileResponse struct {
 
 // SettingsResponse is the response from /v4/users/me/settings.
 type SettingsResponse struct {
-	Name                     string `json:"name"`
-	AutoStrideEnabled        bool   `json:"autoStrideEnabled"`
-	DistanceUnit             string `json:"distanceUnit"`
-	GlucoseUnit              string `json:"glucoseUnit"`
-	HeightUnit               string `json:"heightUnit"`
-	LanguageLocale           string `json:"languageLocale"`
-	UTCOffset                string `json:"utcOffset"`
-	StrideLengthWalkingType  string `json:"strideLengthWalkingType"`
-	StrideLengthRunningType  string `json:"strideLengthRunningType"`
-	SwimUnit                 string `json:"swimUnit"`
-	TemperatureUnit          string `json:"temperatureUnit"`
-	TimeZone                 string `json:"timeZone"`
-	WeightUnit               string `json:"weightUnit"`
-	WaterUnit                string `json:"waterUnit"`
-	FoodLanguageCode         string `json:"foodLanguageCode"`
+	Name                    string `json:"name"`
+	AutoStrideEnabled       bool   `json:"autoStrideEnabled"`
+	DistanceUnit            string `json:"distanceUnit"`
+	GlucoseUnit             string `json:"glucoseUnit"`
+	HeightUnit              string `json:"heightUnit"`
+	LanguageLocale          string `json:"languageLocale"`
+	UTCOffset               string `json:"utcOffset"`
+	StrideLengthWalkingType string `json:"strideLengthWalkingType"`
+	StrideLengthRunningType string `json:"strideLengthRunningType"`
+	SwimUnit                string `json:"swimUnit"`
+	TemperatureUnit         string `json:"temperatureUnit"`
+	TimeZone                string `json:"timeZone"`
+	WeightUnit              string `json:"weightUnit"`
+	WaterUnit               string `json:"waterUnit"`
+	FoodLanguageCode        string `json:"foodLanguageCode"`
 }
 
 // DataSource represents the source of a data point.
@@ -82,11 +82,11 @@ type SettingsResponse struct {
 //
 // dataSourceFamily is only present on reconcile responses, not on list.
 type DataSource struct {
-	DataSourceFamily string             `json:"dataSourceFamily"`
-	RecordingMethod  string             `json:"recordingMethod"`
-	Platform         string             `json:"platform"`
-	Device           DataSourceDevice   `json:"device"`
-	Application      DataSourceApp      `json:"application"`
+	DataSourceFamily string           `json:"dataSourceFamily"`
+	RecordingMethod  string           `json:"recordingMethod"`
+	Platform         string           `json:"platform"`
+	Device           DataSourceDevice `json:"device"`
+	Application      DataSourceApp    `json:"application"`
 }
 
 // DataSourceDevice is the nested device object.
@@ -240,7 +240,13 @@ func (dp *DataPoint) DataPointTimeRange(category string) (start, end time.Time, 
 		}
 	case "sample":
 		if st, ok := dp.data["sampleTime"].(map[string]interface{}); ok {
-			start = parseTimeString(st["observationTime"])
+			// physicalTime is the true UTC instant; observationTime is an older
+			// alias kept as a fallback. civilTime is local wall-clock (no zone),
+			// used only as a last resort.
+			start = parseTimeString(st["physicalTime"])
+			if start.IsZero() {
+				start = parseTimeString(st["observationTime"])
+			}
 			if start.IsZero() {
 				start = parseCivilDateTime(st["civilTime"])
 			}
@@ -268,19 +274,17 @@ func (dp *DataPoint) UTCOffsets(category string) (startOff, endOff *int32) {
 	if dp.data == nil {
 		return nil, nil
 	}
-	var interval map[string]interface{}
 	switch category {
 	case "interval", "session":
-		interval, _ = dp.data["interval"].(map[string]interface{})
-	}
-	if interval == nil {
-		return nil, nil
-	}
-	if s := parseDurationSeconds(interval["startUtcOffset"]); s != nil {
-		startOff = s
-	}
-	if s := parseDurationSeconds(interval["endUtcOffset"]); s != nil {
-		endOff = s
+		if interval, _ := dp.data["interval"].(map[string]interface{}); interval != nil {
+			startOff = parseDurationSeconds(interval["startUtcOffset"])
+			endOff = parseDurationSeconds(interval["endUtcOffset"])
+		}
+	case "sample":
+		// Samples carry a single offset on sampleTime.utcOffset.
+		if st, _ := dp.data["sampleTime"].(map[string]interface{}); st != nil {
+			startOff = parseDurationSeconds(st["utcOffset"])
+		}
 	}
 	return startOff, endOff
 }
@@ -434,11 +438,11 @@ type RollupRequest struct {
 // "heartRate") that contains aggregated values. This wrapper keeps the raw
 // response and exposes helpers to extract common fields.
 type RollupDataPoint struct {
-	StartTime      *time.Time      `json:"startTime,omitempty"`
-	EndTime        *time.Time      `json:"endTime,omitempty"`
-	CivilStartDate *time.Time      `json:"civilStartDate,omitempty"`
-	CivilEndDate   *time.Time      `json:"civilEndDate,omitempty"`
-	RawJSON        []byte          `json:"-"`
+	StartTime      *time.Time `json:"startTime,omitempty"`
+	EndTime        *time.Time `json:"endTime,omitempty"`
+	CivilStartDate *time.Time `json:"civilStartDate,omitempty"`
+	CivilEndDate   *time.Time `json:"civilEndDate,omitempty"`
+	RawJSON        []byte     `json:"-"`
 	value          map[string]interface{}
 }
 
@@ -526,5 +530,3 @@ func parsePtrCivilDate(v interface{}) *time.Time {
 type RollupResponse struct {
 	RollupDataPoints []RollupDataPoint `json:"rollupDataPoints"`
 }
-
-
