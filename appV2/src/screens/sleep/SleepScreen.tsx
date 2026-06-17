@@ -18,6 +18,21 @@ import { toNightViews } from './data';
  * overnight vitals → schedule → weekly trend. Real data from /me/sleep/nights.
  */
 export function SleepScreen() {
+  return (
+    <ScreenContainer>
+      <Screen>
+        <SleepBody />
+      </Screen>
+    </ScreenContainer>
+  );
+}
+
+/**
+ * The Sleep content. Lives INSIDE <Screen> so its useSleepNights() registers
+ * with the screen's RefreshScope — otherwise pull-to-refresh wouldn't refetch
+ * the nights (the hook must be a descendant of the provider, not a sibling).
+ */
+function SleepBody() {
   const router = useRouter();
   const { nights: raw, loading, error } = useSleepNights(14);
   const [idx, setIdx] = useState(0);
@@ -26,9 +41,8 @@ export function SleepScreen() {
   const night = nights[safeIdx];
 
   return (
-    <ScreenContainer>
-      <Screen>
-        {!night ? (
+    <>
+      {!night ? (
           <View style={styles.placeholder}>
             {loading ? (
               <ActivityIndicator color={accent.base} />
@@ -64,8 +78,7 @@ export function SleepScreen() {
             <WeeklyTrend nights={nights} />
           </>
         )}
-      </Screen>
-    </ScreenContainer>
+    </>
   );
 }
 
