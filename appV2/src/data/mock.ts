@@ -101,3 +101,17 @@ export function fmtMin(min: number): string {
   const m = min % 60;
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
+
+/**
+ * Format minutes-since-local-midnight as a 12-hour clock with am/pm,
+ * e.g. 1390 → "11:10pm", 480 → "8am". Used everywhere a wall-clock time is shown.
+ */
+export function fmtClock(minutesSinceMidnight: number): string {
+  const c = ((Math.round(minutesSinceMidnight) % 1440) + 1440) % 1440;
+  const h24 = Math.floor(c / 60);
+  const m = c % 60;
+  const ap = h24 < 12 ? 'am' : 'pm';
+  let h = h24 % 12;
+  if (h === 0) h = 12;
+  return m === 0 ? `${h}${ap}` : `${h}:${String(m).padStart(2, '0')}${ap}`;
+}

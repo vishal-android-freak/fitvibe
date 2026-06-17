@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { type LayoutChangeEvent, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import Svg, { Line, Rect, Text as SvgText } from 'react-native-svg';
+import { fmtClock } from '@/data/mock';
 import { border, font, fontSize, hue, ringTrack, text } from '@/theme';
 
 export type SleepStage = 'Awake' | 'REM' | 'Light' | 'Deep';
@@ -8,11 +9,16 @@ export type SleepStage = 'Awake' | 'REM' | 'Light' | 'Deep';
 /** [stage, minutes] segments through the night, in chronological order. */
 export type SleepSegment = [SleepStage, number];
 
+/** Typical fraction (0–1) of the night spent in each stage, e.g. for the user's age. */
+export type TypicalByStage = Partial<Record<SleepStage, number>>;
+
 export interface HypnogramProps {
   /** Chronological [stage, minutes] segments. Defaults to a sample night. */
   segments?: SleepSegment[];
   /** Sleep onset in minutes since midnight (drives the hour axis). */
   onsetClock?: number;
+  /** Per-stage typical fractions for the breakdown markers; falls back to generic norms. */
+  typical?: TypicalByStage;
   /** Show the derived stage breakdown bars + typical-range legend below the chart. */
   showBreakdown?: boolean;
   style?: ViewStyle;
@@ -37,16 +43,6 @@ export const SAMPLE_SLEEP_SEGMENTS: SleepSegment[] = [
 ];
 
 export const SAMPLE_ONSET_CLOCK = 23 * 60 + 24; // 11:24 PM
-
-function fmtClock(c: number): string {
-  c = ((c % 1440) + 1440) % 1440;
-  const h = Math.floor(c / 60);
-  const m = c % 60;
-  const ap = h < 12 ? 'a' : 'p';
-  let hh = h % 12;
-  if (hh === 0) hh = 12;
-  return m === 0 ? `${hh}${ap}` : `${hh}:${String(m).padStart(2, '0')}${ap}`;
-}
 
 interface Derived {
   total: number;
@@ -139,6 +135,7 @@ function Chart({ width, d }: { width: number; d: Derived }) {
 export function Hypnogram({
   segments = SAMPLE_SLEEP_SEGMENTS,
   onsetClock = SAMPLE_ONSET_CLOCK,
+  typical,
   showBreakdown = true,
   style,
 }: HypnogramProps) {
@@ -157,6 +154,7 @@ export function Hypnogram({
               const m = STAGE_META[key];
               const min = d.totals[key] || 0;
               const pct = d.total > 0 ? Math.round((min / d.total) * 100) : 0;
+              const typicalPct = typical?.[key] ?? m.typical;
               return (
                 <View key={key} style={styles.stageRow}>
                   <View style={styles.stageLabel}>
@@ -165,7 +163,7 @@ export function Hypnogram({
                   </View>
                   <View style={styles.barTrack}>
                     <View style={[styles.barFill, { width: `${pct}%`, backgroundColor: m.hue }]} />
-                    <View style={[styles.typical, { left: `${Math.round(m.typical * 100)}%` }]} />
+                    <View style={[styles.typical, { left: `${Math.round(typicalPct * 100)}%` }]} />
                   </View>
                   <Text style={styles.stageStat}>
                     <Text style={styles.stageMin}>{fmtStageMin(min)}</Text> · {pct}%

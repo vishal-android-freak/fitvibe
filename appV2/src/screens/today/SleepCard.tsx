@@ -1,46 +1,68 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { Badge, Hypnogram, SAMPLE_ONSET_CLOCK, SAMPLE_SLEEP_SEGMENTS } from '@/components';
-import { fmtMin } from '@/data/mock';
-import { border, font, fontSize, radius, surface, text } from '@/theme';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { Badge, Hypnogram, type TypicalByStage } from '@/components';
+import { useLastNight } from '@/data/sleep';
+import { fmtClock, fmtMin } from '@/data/mock';
+import { accent, border, font, fontSize, radius, surface, text } from '@/theme';
 
-// Header stats derived once from the same segments the Hypnogram renders, so
-// the summary and the chart can never disagree.
-const ASLEEP = SAMPLE_SLEEP_SEGMENTS.reduce((a, [s, d]) => a + (s === 'Awake' ? 0 : d), 0);
-const TOTAL = SAMPLE_SLEEP_SEGMENTS.reduce((a, [, d]) => a + d, 0);
-const WAKE = SAMPLE_ONSET_CLOCK + TOTAL;
-const EFFICIENCY = Math.round((ASLEEP / TOTAL) * 100);
-
-function fmtClock(c: number): string {
-  c = ((c % 1440) + 1440) % 1440;
-  const h = Math.floor(c / 60);
-  const m = c % 60;
-  const ap = h < 12 ? 'a' : 'p';
-  let hh = h % 12;
-  if (hh === 0) hh = 12;
-  return m === 0 ? `${hh}${ap}` : `${hh}:${String(m).padStart(2, '0')}${ap}`;
-}
-
-/** Last night's sleep: a summary header over the shared Hypnogram component. */
+/** Last night's sleep: a summary header over the shared Hypnogram component,
+ *  driven by the user's most recent recorded night from the backend. */
 export function SleepCard() {
-  return (
-    <View style={styles.card}>
-      <View style={styles.header}>
-        <View>
-          <View style={styles.headRow}>
-            <Text style={styles.duration}>{fmtMin(ASLEEP)}</Text>
-            <Text style={styles.asleep}>asleep</Text>
-          </View>
-          <Text style={styles.times}>
-            {fmtClock(SAMPLE_ONSET_CLOCK)} – {fmtClock(WAKE)} · {EFFICIENCY}% efficiency
-          </Text>
-        </View>
-        <Badge tone="positive">Best this week</Badge>
-      </View>
+  const { data, loading, error } = useLastNight();
 
-      <Hypnogram style={styles.chart} />
-    </View>
-  );
+  let body: React.ReactNode;
+  if (loading) {
+    body = (
+      <View style={styles.placeholder}>
+        <ActivityIndicator color={accent.base} />
+      </View>
+    );
+  } else if (error) {
+    body = (
+      <View style={styles.placeholder}>
+        <Text style={styles.placeholderText}>Couldn't load last night's sleep.</Text>
+      </View>
+    );
+  } else if (!data) {
+    body = (
+      <View style={styles.placeholder}>
+        <Text style={styles.placeholderTitle}>No sleep recorded yet</Text>
+        <Text style={styles.placeholderText}>Wear your device to bed and it'll show up here.</Text>
+      </View>
+    );
+  } else {
+    // Age-banded typical fractions from the backend drive the breakdown markers.
+    const typical: TypicalByStage = {
+      Deep: data.typical.deep,
+      REM: data.typical.rem,
+      Light: data.typical.light,
+      Awake: data.typical.awake,
+    };
+    body = (
+      <>
+        <View style={styles.header}>
+          <View>
+            <View style={styles.headRow}>
+              <Text style={styles.duration}>{fmtMin(data.asleepMinutes)}</Text>
+              <Text style={styles.asleep}>asleep</Text>
+            </View>
+            <Text style={styles.times}>
+              {fmtClock(data.onsetClock)} – {fmtClock(data.wakeClock)} · {data.efficiency}% efficiency
+            </Text>
+            {data.awakenings > 0 && (
+              <Text style={styles.times}>
+                {data.awakenings} {data.awakenings === 1 ? 'awakening' : 'awakenings'}
+              </Text>
+            )}
+          </View>
+        </View>
+
+        <Hypnogram style={styles.chart} segments={data.segments} onsetClock={data.onsetClock} typical={typical} />
+      </>
+    );
+  }
+
+  return <View style={styles.card}>{body}</View>;
 }
 
 const styles = StyleSheet.create({
@@ -59,4 +81,7 @@ const styles = StyleSheet.create({
   asleep: { fontFamily: font.sansRegular, fontSize: fontSize.xs, color: text.muted },
   times: { fontFamily: font.mono, fontSize: fontSize.xs, color: text.muted, marginTop: 5 },
   chart: { marginTop: 6 },
+  placeholder: { minHeight: 120, alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 16 },
+  placeholderTitle: { fontFamily: font.sansSemibold, fontSize: fontSize.sm, color: text.secondary },
+  placeholderText: { fontFamily: font.sansRegular, fontSize: fontSize.xs, color: text.muted, textAlign: 'center' },
 });

@@ -17,7 +17,7 @@ export { StatTile } from './data/StatTile';
 export { BarChart } from './data/BarChart';
 export { GaugeArc } from './data/GaugeArc';
 export { Hypnogram, SAMPLE_SLEEP_SEGMENTS, SAMPLE_ONSET_CLOCK } from './data/Hypnogram';
-export type { SleepStage, SleepSegment, HypnogramProps } from './data/Hypnogram';
+export type { SleepStage, SleepSegment, HypnogramProps, TypicalByStage } from './data/Hypnogram';
 export { ActivityRings } from './data/ActivityRings';
 export type { ActivityRing, ActivityRingsProps } from './data/ActivityRings';
 export { ReadinessCard } from './data/ReadinessCard';

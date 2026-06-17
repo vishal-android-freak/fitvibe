@@ -7,14 +7,13 @@ import {
   View,
 } from 'react-native';
 import { ReadinessPage } from './hero/ReadinessPage';
-import { RingsPage } from './hero/RingsPage';
-import { HeartPage } from './hero/HeartPage';
+import { NutritionPage } from './hero/NutritionPage';
 import { PageDots } from './hero/PageDots';
 import { heroStyles } from './hero/styles';
 
-const PAGES = [ReadinessPage, RingsPage, HeartPage];
+const PAGES = [ReadinessPage, NutritionPage];
 
-/** Swipeable hero: Readiness · Activity rings · Heart, with dot indicators. */
+/** Swipeable hero: Readiness · Nutrition, with dot indicators. */
 export function HeroCarousel() {
   const [w, setW] = useState(0);
   const [idx, setIdx] = useState(0);
