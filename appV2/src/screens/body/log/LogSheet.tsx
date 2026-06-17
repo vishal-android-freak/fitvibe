@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
 import { Button, Icon } from '@/components';
+import { AnimatedPressable } from '@/components/core/AnimatedPressable';
 import { border, font, fontSize, hue, shadow, surface, text, tint } from '@/theme';
 import { FoodBody, WalkBody, WaterBody, WeightBody, WorkoutBody } from './bodies';
 import { LOG_ACTIONS, type LogKind } from './types';
@@ -50,8 +51,6 @@ export function LogSheet({ kind, onClose, onConfirm }: { kind: LogKind | null; o
     </>
   );
 }
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const styles = StyleSheet.create({
   scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 80, backgroundColor: 'rgba(3,5,9,0.6)' },

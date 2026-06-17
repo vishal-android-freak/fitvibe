@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, SlideInDown } from 'react-native-reanimated';
 import { Icon } from '@/components';
+import { AnimatedPressable } from '@/components/core/AnimatedPressable';
 import { border, font, fontSize, shadow, surface, text, tint } from '@/theme';
 import { LOG_ACTIONS, type LogKind } from './types';
 
@@ -31,8 +32,6 @@ export function LogMenu({ open, onClose, onPick, bottom }: { open: boolean; onCl
     </>
   );
 }
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const styles = StyleSheet.create({
   scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 46, backgroundColor: 'rgba(3,5,9,0.5)' },

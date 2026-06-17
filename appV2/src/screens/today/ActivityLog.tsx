@@ -46,7 +46,7 @@ export function ActivityLog() {
         const meta = CATEGORY_META[e.category];
         const tag = KIND_TAG[e.kind];
         return (
-          <View key={i} style={styles.row}>
+          <View key={`${e.at}-${e.category}-${e.title}`} style={styles.row}>
             <View style={styles.rail}>
               <View style={[styles.railIcon, { backgroundColor: mix(meta.hue, 0.18, surface.card) }]}>
                 <Icon name={meta.icon} size={15} color={meta.hue} />

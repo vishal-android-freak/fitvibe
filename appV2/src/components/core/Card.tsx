@@ -1,7 +1,8 @@
 import React from 'react';
-import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { StyleSheet, View, type ViewStyle } from 'react-native';
+import { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { AIGradient } from '@/components/ai/AIGradient';
+import { AnimatedPressable } from '@/components/core/AnimatedPressable';
 import { border, glow, motion, radius, shadow, space, surface } from '@/theme';
 
 type Tone = 'default' | 'raised' | 'inset' | 'ai';
@@ -86,8 +87,6 @@ function AnimatedWrap({
     </AnimatedPressable>
   );
 }
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const styles = StyleSheet.create({
   base: { borderRadius: radius.xl },

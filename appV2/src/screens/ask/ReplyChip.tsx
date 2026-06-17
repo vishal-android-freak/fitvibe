@@ -1,7 +1,8 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { StyleSheet, Text } from 'react-native';
+import { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Icon, type IconName } from '@/components';
+import { AnimatedPressable } from '@/components/core/AnimatedPressable';
 import { accent, border, font, fontSize, motion, text } from '@/theme';
 
 /** A pill that suggests a follow-up question; tinted on press. */
@@ -30,8 +31,6 @@ export function ReplyChip({ children, icon, onPress }: { children: React.ReactNo
     </AnimatedPressable>
   );
 }
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const styles = StyleSheet.create({
   chip: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 9, paddingHorizontal: 16, borderRadius: 999, borderWidth: 1, borderColor: border.strong },

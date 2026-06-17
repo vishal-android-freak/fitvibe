@@ -1,9 +1,9 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { StyleSheet, Text } from 'react-native';
 import { GoogleMark } from './GoogleMark';
+import { AnimatedPressable, usePressScale } from '@/components/core/AnimatedPressable';
 import { Spinner } from '@/components/Spinner';
-import { font, fontSize, motion, shadow } from '@/theme';
+import { font, fontSize, shadow } from '@/theme';
 
 export interface GoogleButtonProps {
   onPress?: () => void;
@@ -13,8 +13,7 @@ export interface GoogleButtonProps {
 
 /** The white "Continue with Google" trigger shown on the dark welcome. */
 export function GoogleButton({ onPress, label = 'Continue with Google', busy = false }: GoogleButtonProps) {
-  const scale = useSharedValue(1);
-  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const press = usePressScale();
 
   return (
     <AnimatedPressable
@@ -22,17 +21,15 @@ export function GoogleButton({ onPress, label = 'Continue with Google', busy = f
       accessibilityLabel={label}
       disabled={busy}
       onPress={onPress}
-      onPressIn={() => (scale.value = withTiming(0.97, { duration: motion.durFast }))}
-      onPressOut={() => (scale.value = withTiming(1, { duration: motion.durFast }))}
-      style={[styles.button, busy && { opacity: 0.7 }, animStyle]}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
+      style={[styles.button, busy && { opacity: 0.7 }, press.animStyle]}
     >
       {busy ? <Spinner size={20} color="#1F2024" /> : <GoogleMark size={22} />}
       <Text style={styles.label}>{busy ? 'Opening Google…' : label}</Text>
     </AnimatedPressable>
   );
 }
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const styles = StyleSheet.create({
   button: {

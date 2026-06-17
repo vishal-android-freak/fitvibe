@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { config } from '@/auth/config';
 import { useAuth } from '@/auth';
+import { apiGet } from '@/data/api';
 import { fmtClock } from '@/data/mock';
 import { useRefreshRegister } from '@/data/refresh';
+import { type Resource } from '@/data/useResource';
 import { decodeSleep, type LastNight, type SleepWire } from '@/data/sleep';
 
 /** A timestamped reading in its own local zone. `value` is optional (omitted
@@ -64,38 +65,6 @@ export function fmtStampClock(s: Stamped): string {
   return fmtClock(local.getUTCHours() * 60 + local.getUTCMinutes());
 }
 
-/** How long a request may hang before we give up (server down / no network). */
-const REQUEST_TIMEOUT_MS = 12000;
-
-async function getJSON<T>(path: string): Promise<T> {
-  // RN's fetch has no built-in timeout — without this, a dead server leaves the
-  // promise pending forever and the pull-to-refresh spinner never hides.
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  let res: Response;
-  try {
-    res = await fetch(`${config.apiBaseUrl}${path}`, { signal: controller.signal });
-  } catch (e: unknown) {
-    if (e instanceof Error && e.name === 'AbortError') {
-      throw new Error('Request timed out — is the server reachable?');
-    }
-    throw e instanceof Error ? e : new Error('Network request failed');
-  } finally {
-    clearTimeout(timer);
-  }
-  if (!res.ok) {
-    let detail = '';
-    try {
-      const body = (await res.json()) as { error?: string };
-      detail = body.error ?? '';
-    } catch {
-      // non-JSON error body
-    }
-    throw new Error(detail || `Request failed (HTTP ${res.status})`);
-  }
-  return (await res.json()) as T;
-}
-
 /** The Today aggregate's wire shape (sleep arrives in backend/wire form). */
 interface TodayWire extends Omit<Today, 'sleep'> {
   sleep: SleepWire | null;
@@ -103,16 +72,8 @@ interface TodayWire extends Omit<Today, 'sleep'> {
 
 /** Fetch the whole Today screen in one request. */
 export async function fetchToday(userId: number): Promise<Today> {
-  const w = await getJSON<TodayWire>(`/me/today?user_id=${userId}`);
+  const w = await apiGet<TodayWire>(`/me/today?user_id=${userId}`);
   return { ...w, sleep: decodeSleep(w.sleep) };
-}
-
-export interface Resource<T> {
-  data: T | null;
-  loading: boolean;
-  error: string | null;
-  /** Refetch; resolves when the request settles (for pull-to-refresh). */
-  reload: () => Promise<void>;
 }
 
 // --- Shared Today store ---------------------------------------------------

@@ -1,13 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { type DimensionValue, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
-import { accent, border, font, fontSize, motion, radius, surface, text, tint } from '@/theme';
-import { easeOut } from '@/theme/easing';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import { accent, border, font, fontSize, radius, surface, text, tint } from '@/theme';
+import { useAnimatedFraction } from './useAnimatedFraction';
 
 export interface BarChartProps {
   data: number[];
@@ -108,13 +103,7 @@ function Bar({
   glow: boolean;
   onPress?: () => void;
 }) {
-  const reduced = useReducedMotion();
-  const h = useSharedValue(reduced ? pct : 0);
-  useEffect(() => {
-    if (reduced) h.value = pct;
-    else h.value = withTiming(pct, { duration: motion.durSlow, easing: easeOut });
-  }, [pct, reduced, h]);
-
+  const h = useAnimatedFraction(pct);
   const animStyle = useAnimatedStyle(() => ({ height: `${h.value * 100}%` }));
 
   const bar = (
