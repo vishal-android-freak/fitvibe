@@ -2,10 +2,10 @@ import React from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { AIGradient } from '@/components/ai/AIGradient';
+import { AnimatedPressable, usePressScale } from '@/components/core/AnimatedPressable';
 import { Icon, type IconName } from '@/components/Icon';
-import { accent, glass, glow, motion, radius, text as textColor } from '@/theme';
+import { accent, glass, glow, radius, text as textColor } from '@/theme';
 
 export interface NavItem {
   key: string;
@@ -66,16 +66,15 @@ function NavTab({ item, active, onSelect }: { item: NavItem; active: boolean; on
 }
 
 function AskButton({ item, onSelect }: { item: NavItem; onSelect: (k: string) => void }) {
-  const scale = useSharedValue(1);
-  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const press = usePressScale(0.92);
   return (
     <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={item.label}
       onPress={() => onSelect(item.key)}
-      onPressIn={() => (scale.value = withTiming(0.92, { duration: motion.durFast }))}
-      onPressOut={() => (scale.value = withTiming(1, { duration: motion.durFast }))}
-      style={[styles.askWrap, animStyle]}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
+      style={[styles.askWrap, press.animStyle]}
     >
       <AIGradient style={[styles.ask, glow.ai]}>
         <Icon name={item.icon} size={24} strokeWidth={2.4} color="#05131F" />
@@ -83,8 +82,6 @@ function AskButton({ item, onSelect }: { item: NavItem; onSelect: (k: string) =>
     </AnimatedPressable>
   );
 }
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const styles = StyleSheet.create({
   wrap: { position: 'absolute', left: 14, right: 14, alignItems: 'center' },

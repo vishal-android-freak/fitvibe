@@ -1,4 +1,4 @@
-import { config } from './config';
+import { apiGet } from '@/data/api';
 import type { Session } from './storage';
 
 /** Identity + profile returned by the backend (mirrors oauth.ExchangeResponse). */
@@ -30,16 +30,5 @@ export function toSession(r: SessionResponse): Session {
  * user's identity. The token is single-use and short-lived server-side.
  */
 export async function redeemSession(token: string): Promise<SessionResponse> {
-  const res = await fetch(`${config.apiBaseUrl}/auth/session?token=${encodeURIComponent(token)}`);
-  if (!res.ok) {
-    let detail = '';
-    try {
-      const body = (await res.json()) as { error?: string };
-      detail = body.error ?? '';
-    } catch {
-      // non-JSON error body
-    }
-    throw new Error(detail || `Session redemption failed (HTTP ${res.status})`);
-  }
-  return (await res.json()) as SessionResponse;
+  return apiGet<SessionResponse>(`/auth/session?token=${encodeURIComponent(token)}`);
 }

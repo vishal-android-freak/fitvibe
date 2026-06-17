@@ -1,15 +1,10 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import Animated, {
-  useAnimatedProps,
-  useReducedMotion,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { useAnimatedProps } from 'react-native-reanimated';
 import { Icon, type IconName } from '@/components/Icon';
-import { accent, motion } from '@/theme';
-import { easeOut } from '@/theme/easing';
+import { accent } from '@/theme';
+import { useAnimatedFraction } from './useAnimatedFraction';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
@@ -43,13 +38,7 @@ export function GaugeArc({ value = 0.84, size = 84, hue = accent.base, icon = 'm
   const arcLen = (2 * Math.PI * r * SWEEP) / 360;
 
   const pct = Math.max(0, Math.min(1, value));
-  const reduced = useReducedMotion();
-  const progress = useSharedValue(reduced ? pct : 0);
-
-  useEffect(() => {
-    if (reduced) progress.value = pct;
-    else progress.value = withTiming(pct, { duration: motion.durSlow, easing: easeOut });
-  }, [pct, reduced, progress]);
+  const progress = useAnimatedFraction(pct);
 
   const animatedProps = useAnimatedProps(() => ({
     strokeDashoffset: arcLen * (1 - progress.value),

@@ -1,14 +1,9 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { StyleSheet, View, type ViewStyle } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import Animated, {
-  useAnimatedProps,
-  useSharedValue,
-  withTiming,
-  useReducedMotion,
-} from 'react-native-reanimated';
-import { accent, motion, tint } from '@/theme';
-import { easeOut } from '@/theme/easing';
+import Animated, { useAnimatedProps } from 'react-native-reanimated';
+import { accent, tint } from '@/theme';
+import { useAnimatedFraction } from './useAnimatedFraction';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -93,16 +88,7 @@ function RingArc({
 }) {
   const circ = 2 * Math.PI * r;
   const pct = Math.max(0, Math.min(1, value));
-  const reduced = useReducedMotion();
-  const progress = useSharedValue(reduced ? pct : 0);
-
-  useEffect(() => {
-    if (reduced) {
-      progress.value = pct;
-    } else {
-      progress.value = withTiming(pct, { duration: motion.durSlow, easing: easeOut });
-    }
-  }, [pct, reduced, progress]);
+  const progress = useAnimatedFraction(pct);
 
   const animatedProps = useAnimatedProps(() => ({
     strokeDashoffset: circ * (1 - progress.value),

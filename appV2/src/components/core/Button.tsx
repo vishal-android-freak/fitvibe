@@ -1,8 +1,8 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { AIGradient } from '@/components/ai/AIGradient';
-import { accent, ai, border, font, fontSize, glow, motion, radius, surface, text } from '@/theme';
+import { AnimatedPressable, usePressScale } from '@/components/core/AnimatedPressable';
+import { accent, ai, border, font, fontSize, glow, radius, surface, text } from '@/theme';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'ai';
 type Size = 'sm' | 'md' | 'lg';
@@ -37,8 +37,7 @@ export function Button({
   onPress,
   style,
 }: ButtonProps) {
-  const scale = useSharedValue(1);
-  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const press = usePressScale();
 
   const s = SIZES[size];
   const isAI = variant === 'ai';
@@ -84,9 +83,9 @@ export function Button({
     <AnimatedPressable
       disabled={disabled}
       onPress={onPress}
-      onPressIn={() => (scale.value = withTiming(0.97, { duration: motion.durFast }))}
-      onPressOut={() => (scale.value = withTiming(1, { duration: motion.durFast }))}
-      style={[animStyle, style]}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
+      style={[press.animStyle, style]}
     >
       {isAI ? (
         <AIGradient style={[styles.base, containerStyle]}>{inner}</AIGradient>
@@ -96,8 +95,6 @@ export function Button({
     </AnimatedPressable>
   );
 }
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const styles = StyleSheet.create({
   base: { alignItems: 'center', justifyContent: 'center' },
