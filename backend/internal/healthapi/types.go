@@ -10,8 +10,10 @@ import (
 // Category returns the record category for a data type based on the plan mapping.
 func Category(dataType string) string {
 	switch dataType {
-	case "active-energy-burned", "active-minutes", "active-zone-minutes", "altitude", "calories-in-heart-rate-zone",
+	case "active-energy-burned", "active-minutes", "active-zone-minutes", "activity-level", "altitude", "calories-in-heart-rate-zone",
 		"distance", "floors", "sedentary-period", "steps", "swim-lengths-data", "time-in-heart-rate-zone", "total-calories":
+		// activity-level has an interval field (per the v4 ref), not a date —
+		// it's an interval data type, not a daily summary.
 		return "interval"
 	case "blood-glucose", "body-fat", "heart-rate", "heart-rate-variability", "height", "weight",
 		"blood-pressure", "body-temperature", "core-body-temperature", "oxygen-saturation", "respiratory-rate-sleep-summary",
@@ -19,7 +21,7 @@ func Category(dataType string) string {
 		return "sample"
 	case "exercise", "hydration-log", "irregular-rhythm-notification", "nutrition-log", "sleep", "electrocardiogram":
 		return "session"
-	case "activity-level", "daily-heart-rate-variability", "daily-heart-rate-zones", "daily-oxygen-saturation",
+	case "daily-heart-rate-variability", "daily-heart-rate-zones", "daily-oxygen-saturation",
 		"daily-respiratory-rate", "daily-resting-heart-rate", "daily-sleep-temperature-derivations", "daily-vo2-max":
 		return "daily"
 	case "food", "food-measurement-unit":

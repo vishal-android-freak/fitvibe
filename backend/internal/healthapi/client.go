@@ -197,42 +197,60 @@ func setStringQuery(q url.Values, key, value string) {
 	}
 }
 
+// Time formats accepted by the dataPoints.list filter, per data-type category.
+const (
+	civilDateFormat     = "2006-01-02"          // daily summaries
+	civilDateTimeFormat = "2006-01-02T15:04:05" // ISO 8601 civil (no zone) for sessions
+)
+
+// setFilterQuery builds the dataPoints.list `filter` query param. The valid
+// filter MEMBER and time FORMAT differ per data-type category — using the wrong
+// one returns 400 INVALID_DATA_POINT_FILTER_DATA_TYPE_MEMBER. Per the API ref:
+// https://developers.google.com/health/reference/rest/v4/users.dataTypes.dataPoints/list
+//
+//	interval                         → <type>.interval.start_time        (RFC3339)
+//	sample                           → <type>.sample_time.physical_time  (RFC3339)
+//	daily                            → <type>.date                       (civil date)
+//	session (except sleep & ECG)     → <type>.interval.civil_start_time  (civil datetime)
+//	sleep                            → sleep.interval.end_time           (RFC3339)
+//	electrocardiogram                → electrocardiogram.interval.start_time (RFC3339, >= only)
 func setFilterQuery(q url.Values, dataType, category string, start, end time.Time) {
 	if start.IsZero() || end.IsZero() {
 		return
 	}
 	snake := kebabToSnake(dataType)
-	var field string
-	var useCivilDate bool
 
-	switch category {
-	case "session":
-		// Session types (sleep, exercise, nutrition-log, hydration-log, …) only
-		// support filtering on interval.end_time — the Health API rejects
-		// interval.start_time for them (INVALID_DATA_POINT_FILTER_DATA_TYPE_MEMBER).
-		// A session may also start the prior day, so end_time is the right anchor.
+	var (
+		field  string
+		format = time.RFC3339
+		geOnly bool // only the >= bound is supported (ECG)
+	)
+
+	switch {
+	case dataType == "sleep":
 		field = snake + ".interval.end_time"
-	case "interval":
+	case dataType == "electrocardiogram":
 		field = snake + ".interval.start_time"
-	case "sample":
+		geOnly = true
+	case category == "session":
+		// exercise, nutrition-log, hydration-log, irregular-rhythm-notification:
+		// only the civil_start_time member is filterable (RFC3339 interval.* is rejected).
+		field = snake + ".interval.civil_start_time"
+		format = civilDateTimeFormat
+	case category == "sample":
 		field = snake + ".sample_time.physical_time"
-	case "daily":
+	case category == "daily":
 		field = snake + ".date"
-		useCivilDate = true
-	default:
+		format = civilDateFormat
+	default: // interval
 		field = snake + ".interval.start_time"
 	}
 
-	startStr := start.UTC().Format(time.RFC3339)
-	endStr := end.UTC().Format(time.RFC3339)
-	if useCivilDate {
-		startStr = start.UTC().Format("2006-01-02")
-		endStr = end.UTC().Format("2006-01-02")
-	}
+	startStr := start.UTC().Format(format)
+	endStr := end.UTC().Format(format)
 
 	var filter string
-	if dataType == "electrocardiogram" {
-		// ECG only supports the >= operator on its (session) end_time field.
+	if geOnly {
 		filter = fmt.Sprintf(`%s >= "%s"`, field, startStr)
 	} else {
 		filter = fmt.Sprintf(`%s >= "%s" AND %s < "%s"`, field, startStr, field, endStr)
