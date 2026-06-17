@@ -161,7 +161,11 @@ func (r *SleepRepo) RecentNights(ctx context.Context, userID int64, limit int) (
 		                 - (v.payload_json->'dailySleepTemperatureDerivations'->>'baselineTemperatureCelsius')::float)
 		          FROM data_points v
 		          WHERE v.user_id = $1 AND v.data_type = 'daily-sleep-temperature-derivations'
-		            AND v.civil_start_date = n.civil_date) AS skin_temp_delta
+		            AND v.civil_start_date = n.civil_date
+		            -- The baseline is "NaN" before the 30-day baseline is set; a NaN
+		            -- delta otherwise renders as garbage. Exclude non-finite values.
+		            AND v.payload_json->'dailySleepTemperatureDerivations'->>'nightlyTemperatureCelsius' <> 'NaN'
+		            AND v.payload_json->'dailySleepTemperatureDerivations'->>'baselineTemperatureCelsius' <> 'NaN') AS skin_temp_delta
 		FROM nights n
 		ORDER BY n.civil_date DESC`, userID, limit)
 	if err != nil {

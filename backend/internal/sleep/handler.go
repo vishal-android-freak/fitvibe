@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"math"
 	"net/http"
 	"strconv"
 	"time"
@@ -176,15 +177,18 @@ func buildNight(n *repositories.SleepNightDetail) nightSummary {
 		total = int(n.MinutesInSleepPeriod.Int64)
 	}
 
+	// Treat invalid OR non-finite (NaN/Inf) as "no value" — a NaN skin-temp
+	// baseline (before the 30-day baseline is established) would otherwise turn
+	// into garbage like -15372 when rounded.
 	nullable := func(v sql.NullFloat64) *float64 {
-		if !v.Valid {
+		if !v.Valid || math.IsNaN(v.Float64) || math.IsInf(v.Float64, 0) {
 			return nil
 		}
 		f := v.Float64
 		return &f
 	}
 	round1 := func(v sql.NullFloat64) *float64 {
-		if !v.Valid {
+		if !v.Valid || math.IsNaN(v.Float64) || math.IsInf(v.Float64, 0) {
 			return nil
 		}
 		f := float64(int(v.Float64*10+0.5*sign(v.Float64))) / 10
