@@ -9,7 +9,8 @@
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0A0E1A",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.naarang.fitvibe"
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +20,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.naarang.appV2"
+      "package": "com.naarang.fitvibe"
     },
     "web": {
       "bundler": "metro",
