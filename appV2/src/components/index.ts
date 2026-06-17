@@ -22,11 +22,12 @@ export { InsightCard } from './ai/InsightCard';
 export { ChatMessage } from './ai/ChatMessage';
 export { AIGradient } from './ai/AIGradient';
 export { Sparkle } from './ai/Sparkle';
+export { TypeTag } from './ai/TypeTag';
+export { Feedback } from './ai/Feedback';
+export type { Vote } from './ai/Feedback';
 
 // Generative-UI blocks (rendered inline in analyses / chat replies)
-export { TrainingLoad } from './genui/TrainingLoad';
-export { RecoverySignals } from './genui/RecoverySignals';
-export { SleepDurationCard } from './genui/SleepDurationCard';
+export * from './genui';
 
 // Brand
 export { AppIcon } from './brand/AppIcon';

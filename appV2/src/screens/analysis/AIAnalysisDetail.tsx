@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { FieldGlow, Icon } from '@/components';
+import { Feedback, FieldGlow, Icon } from '@/components';
 import { accent, border, font, fontSize, glass, text } from '@/theme';
 import type { Seg } from '@/screens/insights/data';
 import { ChatTopBar } from '@/screens/ask/ChatTopBar';
@@ -18,29 +18,6 @@ function Rich({ segs, style }: { segs: Seg[]; style: any }) {
         </Text>
       ))}
     </Text>
-  );
-}
-
-function Feedback() {
-  const [vote, setVote] = useState<'up' | 'down' | null>(null);
-  const btn = (v: 'up' | 'down', icon: 'thumbs-up' | 'thumbs-down') => {
-    const on = vote === v;
-    return (
-      <Pressable onPress={() => setVote(on ? null : v)} accessibilityLabel={v} style={[styles.fbBtn, on && { backgroundColor: accent.soft }]}>
-        <Icon name={icon} size={18} color={on ? accent.base : text.muted} />
-      </Pressable>
-    );
-  };
-  return (
-    <View style={styles.feedback}>
-      <View style={styles.votes}>
-        {btn('up', 'thumbs-up')}
-        {btn('down', 'thumbs-down')}
-      </View>
-      <Pressable accessibilityLabel="More" style={styles.fbBtn}>
-        <Icon name="ellipsis-vertical" size={18} color={text.muted} />
-      </Pressable>
-    </View>
   );
 }
 
@@ -74,7 +51,9 @@ export function AIAnalysisDetail({ id, onClose, onContinue }: { id: AnalysisId; 
 
         <GenBlocks gen={a.gen} />
 
-        <Feedback />
+        <View style={styles.feedback}>
+          <Feedback size={38} showMore spread />
+        </View>
         <Text style={styles.disclaimer}>
           FitVibe can make mistakes and does not provide medical advice. Check important information with a clinician.
         </Text>
@@ -107,9 +86,7 @@ const styles = StyleSheet.create({
   bulletDot: { width: 6, height: 6, borderRadius: 999, backgroundColor: accent.base, marginTop: 9 },
   bulletText: { flex: 1, fontFamily: font.sansRegular, fontSize: fontSize.md, lineHeight: fontSize.md * 1.65, color: text.secondary },
   question: { fontFamily: font.sansSemibold, fontSize: fontSize.md, lineHeight: fontSize.md * 1.65, color: text.secondary, marginBottom: 4 },
-  feedback: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 22, paddingTop: 14, borderTopWidth: 1, borderTopColor: border.subtle },
-  votes: { flexDirection: 'row', gap: 4 },
-  fbBtn: { width: 38, height: 38, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  feedback: { flexDirection: 'row', alignItems: 'center', marginTop: 22, paddingTop: 14, borderTopWidth: 1, borderTopColor: border.subtle },
   disclaimer: { fontFamily: font.sansRegular, fontSize: fontSize.xs, lineHeight: fontSize.xs * 1.5, color: text.tertiary, marginTop: 14 },
   footer: { flexDirection: 'row', gap: 9, flexWrap: 'wrap', paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: border.subtle, backgroundColor: glass.bar },
 });
