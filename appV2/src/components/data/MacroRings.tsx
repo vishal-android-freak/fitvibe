@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { ProgressRing } from '@/components/data/ProgressRing';
 import { font, fontSize, text } from '@/theme';
@@ -37,7 +37,7 @@ export function MacroRings({ macros, style }: { macros: Macro[]; style?: ViewSty
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 10 },
   macro: { flex: 1, alignItems: 'center', gap: 8 },
-  value: { fontFamily: font.display, fontSize: fontSize.md, color: text.primary, lineHeight: fontSize.md },
+  value: { fontFamily: font.display, fontSize: fontSize.md, color: text.primary, lineHeight: 20 },
   goal: { fontFamily: font.sansSemibold, fontSize: 9.5, color: text.tertiary },
   label: { fontFamily: font.sansSemibold, fontSize: fontSize.xs, color: text.secondary },
 });

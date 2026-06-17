@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { Badge } from '@/components/core/Badge';
 import { Sparkline } from '@/components/data/Sparkline';
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
   card: { flex: 1, minWidth: 0, paddingHorizontal: 14, paddingTop: 14, paddingBottom: 13, borderRadius: radius.lg, backgroundColor: surface.raised, borderWidth: 1, borderColor: border.subtle, gap: 9 },
   label: { fontFamily: font.sansRegular, fontSize: fontSize.xs, lineHeight: fontSize.xs * 1.25, color: text.secondary, minHeight: 30 },
   valueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
-  value: { fontFamily: font.display, fontSize: fontSize['2xl'], color: text.primary, lineHeight: fontSize['2xl'] },
+  value: { fontFamily: font.display, fontSize: fontSize['2xl'], color: text.primary, lineHeight: 35 },
   unit: { fontFamily: font.sansSemibold, fontSize: fontSize.xs, color: text.muted },
   labels: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 1 },
   dayLabel: { fontFamily: font.sansSemibold, fontSize: 9.5 },

@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { ProgressRing } from '@/components/data/ProgressRing';
 import { font, fontSize, text } from '@/theme';
@@ -54,12 +54,12 @@ export function ActivityRings({ rings, center, centerLabel = 'ACTIVITY', size = 
 const styles = StyleSheet.create({
   wrap: { alignItems: 'center' },
   eyebrow: { fontFamily: font.sansBold, fontSize: fontSize['2xs'], letterSpacing: 1.6, color: text.tertiary, marginBottom: 2 },
-  center: { fontFamily: font.display, fontSize: 30, color: text.primary, lineHeight: 30 },
+  center: { fontFamily: font.display, fontSize: 30, color: text.primary, lineHeight: 35 },
   legend: { flexDirection: 'row', justifyContent: 'center', gap: 20, marginTop: 18 },
   item: { alignItems: 'center', minWidth: 52 },
   head: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 3 },
   dot: { width: 7, height: 7, borderRadius: 999, shadowOpacity: 0.8, shadowRadius: 8, elevation: 4 },
   label: { fontFamily: font.sansSemibold, fontSize: 10, color: text.tertiary },
-  val: { fontFamily: font.display, fontSize: 15, color: text.primary, lineHeight: 15 },
+  val: { fontFamily: font.display, fontSize: 15, color: text.primary, lineHeight: 18 },
   goal: { fontFamily: font.sansSemibold, fontSize: 10, color: text.muted },
 });

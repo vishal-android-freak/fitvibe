@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { AIGradient } from '@/components/ai/AIGradient';
 import { font, fontSize, ringTrack, text } from '@/theme';
@@ -43,7 +43,7 @@ export function CalorieBudget({ goal, food, exercise, style }: CalorieBudgetProp
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
-  big: { fontFamily: font.display, fontSize: fontSize['3xl'], color: text.primary },
+  big: { fontFamily: font.display, fontSize: fontSize['3xl'], color: text.primary, lineHeight: 44 },
   unit: { fontFamily: font.sansSemibold, fontSize: fontSize.md, color: text.muted },
   track: { height: 8, borderRadius: 999, backgroundColor: ringTrack, overflow: 'hidden', marginTop: 14, marginBottom: 12 },
   fill: { height: 8, borderRadius: 999 },

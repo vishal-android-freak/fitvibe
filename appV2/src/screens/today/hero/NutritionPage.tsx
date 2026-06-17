@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
   wrap: { width: '100%', gap: 12, paddingHorizontal: 4 },
   calRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
   calMain: {},
-  calValue: { fontFamily: font.display, fontSize: 52, color: text.primary, lineHeight: 54 },
+  calValue: { fontFamily: font.display, fontSize: 52, color: text.primary, lineHeight: 60 },
   calLabel: { fontFamily: font.sansBold, fontSize: 11, letterSpacing: 0.8, color: hue.nutrition, marginTop: 2 },
   asOf: { fontFamily: font.sansRegular, fontSize: 10, letterSpacing: 0, color: text.tertiary },
   calBurnt: { alignItems: 'flex-end', flexDirection: 'row', gap: 5, paddingBottom: 8 },

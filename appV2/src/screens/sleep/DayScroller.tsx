@@ -2,12 +2,12 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Icon } from '@/components';
 import { border, font, fontSize, surface, text } from '@/theme';
-import { NIGHTS, type Night } from './data';
+import { type NightView } from './data';
 
 interface DayScrollerProps {
   idx: number;
   setIdx: (i: number) => void;
-  night: Night;
+  nights: NightView[];
 }
 
 function Chevron({ dir, disabled, onPress }: { dir: 'left' | 'right'; disabled: boolean; onPress: () => void }) {
@@ -24,9 +24,10 @@ function Chevron({ dir, disabled, onPress }: { dir: 'left' | 'right'; disabled: 
 }
 
 /** Title + calendar button, and a ‹ › stepper through the last 7 nights. */
-export function DayScroller({ idx, setIdx, night }: DayScrollerProps) {
+export function DayScroller({ idx, setIdx, nights }: DayScrollerProps) {
+  const night = nights[idx];
   const atNewest = idx === 0;
-  const atOldest = idx === NIGHTS.length - 1;
+  const atOldest = idx === nights.length - 1;
   return (
     <View style={styles.root}>
       <View style={styles.titleRow}>
@@ -36,7 +37,7 @@ export function DayScroller({ idx, setIdx, night }: DayScrollerProps) {
         </Pressable>
       </View>
       <View style={styles.scroller}>
-        <Chevron dir="left" disabled={atOldest} onPress={() => setIdx(Math.min(NIGHTS.length - 1, idx + 1))} />
+        <Chevron dir="left" disabled={atOldest} onPress={() => setIdx(Math.min(nights.length - 1, idx + 1))} />
         <View style={styles.label}>
           <Text style={styles.rel}>{night.rel}</Text>
           <Text style={styles.date}>

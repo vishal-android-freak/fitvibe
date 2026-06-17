@@ -1,35 +1,7 @@
 import { accent, hue, status } from '@/theme';
+import type { SleepNight } from '@/data/sleep';
 
-/** Per-night sleep summaries, newest first; the day scroller indexes into this. */
-export interface Night {
-  rel: string;
-  day: string;
-  date: string;
-  score: number;
-  rating: 'Great' | 'Good' | 'Fair';
-  dur: number;
-  bed: number;
-  wake: number;
-  eff: number;
-  rhr: number;
-  hrv: number;
-  spo2: number;
-  resp: number;
-  skin: number;
-  moves: number;
-  hrvDelta: string;
-}
-
-export const NIGHTS: Night[] = [
-  { rel: 'Last night', day: 'Sun', date: 'Jun 15', score: 84, rating: 'Good', dur: 432, bed: 23 * 60 + 24, wake: 6 * 60 + 48, eff: 91, rhr: 48, hrv: 62, spo2: 97, resp: 14.2, skin: -0.3, moves: 14, hrvDelta: '4 ms' },
-  { rel: 'Sat night', day: 'Sat', date: 'Jun 14', score: 76, rating: 'Fair', dur: 388, bed: 23 * 60 + 58, wake: 6 * 60 + 42, eff: 87, rhr: 51, hrv: 55, spo2: 96, resp: 14.8, skin: 0.1, moves: 22, hrvDelta: '3 ms' },
-  { rel: 'Fri night', day: 'Fri', date: 'Jun 13', score: 81, rating: 'Good', dur: 441, bed: 23 * 60 + 36, wake: 6 * 60 + 55, eff: 89, rhr: 49, hrv: 59, spo2: 97, resp: 14.1, skin: -0.2, moves: 17, hrvDelta: '2 ms' },
-  { rel: 'Thu night', day: 'Thu', date: 'Jun 12', score: 69, rating: 'Fair', dur: 356, bed: 24 * 60 + 14, wake: 6 * 60 + 30, eff: 83, rhr: 53, hrv: 51, spo2: 95, resp: 15.2, skin: 0.3, moves: 28, hrvDelta: '6 ms' },
-  { rel: 'Wed night', day: 'Wed', date: 'Jun 11', score: 88, rating: 'Great', dur: 468, bed: 22 * 60 + 58, wake: 6 * 60 + 46, eff: 93, rhr: 47, hrv: 66, spo2: 98, resp: 13.8, skin: -0.4, moves: 11, hrvDelta: '5 ms' },
-  { rel: 'Tue night', day: 'Tue', date: 'Jun 10', score: 79, rating: 'Good', dur: 410, bed: 23 * 60 + 40, wake: 6 * 60 + 30, eff: 88, rhr: 50, hrv: 58, spo2: 97, resp: 14.4, skin: 0.0, moves: 19, hrvDelta: '1 ms' },
-  { rel: 'Mon night', day: 'Mon', date: 'Jun 9', score: 73, rating: 'Fair', dur: 372, bed: 24 * 60 + 6, wake: 6 * 60 + 18, eff: 85, rhr: 52, hrv: 54, spo2: 96, resp: 15.0, skin: 0.2, moves: 24, hrvDelta: '2 ms' },
-];
-
+/** Target schedule the ScheduleCard compares against. */
 export const TARGET_BED = 23 * 60; // 11:00 PM
 export const TARGET_WAKE = 6 * 60 + 45; // 6:45 AM
 
@@ -56,6 +28,60 @@ export function delta(actual: number, target: number): string {
   return `${sign}${Math.abs(d)}m`;
 }
 
-export function ratingHue(r: Night['rating']): string {
+export type Rating = 'Great' | 'Good' | 'Fair';
+
+export function ratingHue(r: Rating): string {
   return r === 'Great' ? hue.move : r === 'Good' ? accent.base : status.warning;
+}
+
+/**
+ * A night adapted for the Sleep-tab view, derived from the API SleepNight plus
+ * computed labels (rel/day/date) and a rating bucketed from efficiency. The raw
+ * API night is kept on `.raw` for components that need stages/vitals directly.
+ */
+export interface NightView {
+  raw: SleepNight;
+  rel: string; // "Last night", "Sat night", ...
+  day: string; // "Sun"
+  date: string; // "Jun 15"
+  rating: Rating;
+  dur: number;
+  bed: number;
+  wake: number;
+  eff: number;
+}
+
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** Parse the API "YYYY-MM-DD" as a local date (no timezone shift). */
+function parseDate(s: string): Date {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, (m ?? 1) - 1, d ?? 1);
+}
+
+/** Efficiency → coarse rating (we don't get a Google sleep score). */
+function ratingFor(eff: number): Rating {
+  if (eff >= 92) return 'Great';
+  if (eff >= 87) return 'Good';
+  return 'Fair';
+}
+
+/** Adapt API nights (newest first) into view models with relative labels. */
+export function toNightViews(nights: SleepNight[]): NightView[] {
+  return nights.map((n, i) => {
+    const d = parseDate(n.date);
+    const rel = i === 0 ? 'Last night' : `${DOW[d.getDay()]} night`;
+    return {
+      raw: n,
+      rel,
+      day: DOW[d.getDay()],
+      date: `${MON[d.getMonth()]} ${d.getDate()}`,
+      rating: ratingFor(n.efficiency),
+      dur: n.durationMinutes,
+      bed: n.onsetClock,
+      wake: n.wakeClock,
+      eff: n.efficiency,
+    };
+  });
 }

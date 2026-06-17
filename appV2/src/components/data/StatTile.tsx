@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
   iconBox: { width: 28, height: 28, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
   label: { flex: 1, fontFamily: font.sansSemibold, fontSize: fontSize.sm, color: text.muted },
   valueRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, flexWrap: 'wrap' },
-  value: { fontFamily: font.display, fontSize: fontSize['3xl'], color: text.primary, lineHeight: fontSize['3xl'] },
+  value: { fontFamily: font.display, fontSize: fontSize['3xl'], color: text.primary, lineHeight: Math.round(fontSize['3xl'] * 1.18) },
   unit: { fontFamily: font.sansSemibold, fontSize: fontSize.sm, color: text.muted, marginBottom: 4 },
   footer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   delta: { fontFamily: font.sansBold, fontSize: fontSize.xs },

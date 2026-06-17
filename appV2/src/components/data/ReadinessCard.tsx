@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
   // ring. Without an explicit width, the column collapses to the ring's width
   // and the factor tiles get squeezed into ~156px.
   wrap: { width: '100%', alignItems: 'center' },
-  score: { fontFamily: font.display, fontSize: 42, color: text.primary, lineHeight: 44 },
+  score: { fontFamily: font.display, fontSize: 42, color: text.primary, lineHeight: 50 },
   caption: { fontFamily: font.sansBold, fontSize: 9.5, marginTop: 3, letterSpacing: 0.7 },
   factors: { flexDirection: 'row', gap: 8, marginTop: 16, alignSelf: 'stretch' },
   factor: { flex: 1, gap: 6, paddingHorizontal: 11, paddingVertical: 13, minHeight: 78, justifyContent: 'space-between', borderRadius: radius.md, backgroundColor: surface.card, borderWidth: 1, borderColor: border.subtle },

@@ -1,25 +1,25 @@
 import React from 'react';
 import { TrendCard } from '@/components';
 import { hue } from '@/theme';
-import { NIGHTS, fmtH } from './data';
+import { fmtH, type NightView } from './data';
 
-// Oldest → newest, derived once.
-const CHRONO = [...NIGHTS].reverse();
-const DURATIONS = CHRONO.map((n) => n.dur);
-const LABELS = CHRONO.map((n) => n.day[0]);
-const AVG = Math.round(DURATIONS.reduce((a, b) => a + b, 0) / DURATIONS.length);
-const SPREAD = Math.round((Math.max(...DURATIONS) - Math.min(...DURATIONS)) / 2);
+/** Recent-nights duration bars (real data) with average + consistency spread. */
+export function WeeklyTrend({ nights }: { nights: NightView[] }) {
+  // Most-recent 7, oldest → newest for the bar order.
+  const chrono = nights.slice(0, 7).reverse();
+  const durations = chrono.map((n) => n.dur);
+  const labels = chrono.map((n) => n.day[0]);
+  const avg = durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : 0;
+  const spread = durations.length ? Math.round((Math.max(...durations) - Math.min(...durations)) / 2) : 0;
 
-/** Last-7-nights duration bars with average + consistency spread. */
-export function WeeklyTrend() {
   return (
     <TrendCard
-      data={DURATIONS}
-      labels={LABELS}
+      data={durations}
+      labels={labels}
       hue={hue.sleep}
       stats={[
-        { label: '7-night average', value: fmtH(AVG) },
-        { label: 'consistency', value: `±${SPREAD}m` },
+        { label: `${durations.length}-night average`, value: fmtH(avg) },
+        { label: 'consistency', value: `±${spread}m` },
       ]}
     />
   );

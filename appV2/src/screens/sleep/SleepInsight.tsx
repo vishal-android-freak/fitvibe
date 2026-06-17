@@ -2,20 +2,32 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Badge, InsightCard } from '@/components';
 import { font, fontSize, text } from '@/theme';
-import { fmtH, type Night } from './data';
+import { fmtH, type NightView } from './data';
 
-/** Per-night FitVibe sleep insight; taps through to the rich analysis. */
-export function SleepInsight({ night, onPress }: { night: Night; onPress?: () => void }) {
+/** Per-night sleep summary, derived from the night's real stage/vital data.
+ *  (A richer AI narrative will come from the Vaidya coach; this stays factual.) */
+export function SleepInsight({ night, onPress }: { night: NightView; onPress?: () => void }) {
+  const n = night.raw;
+  const deep = n.stages.find((s) => s.stage === 'Deep');
+  const rem = n.stages.find((s) => s.stage === 'REM');
+  const deepPct = deep?.percent ?? 0;
+  const remPct = rem?.percent ?? 0;
+
+  const title =
+    night.eff >= 92 ? 'Efficient, restful night' : n.awakenings >= 3 ? 'Restful overall, a few wake-ups' : 'A solid night';
+
   return (
     <Pressable onPress={onPress}>
-      <InsightCard eyebrow="FitVibe insight" title="Strong recovery, but a late bedtime">
+      <InsightCard eyebrow="FitVibe insight" title={title}>
         <Text style={styles.body}>
-          You slept {fmtH(night.dur)} with deep sleep up 18% and HRV at {night.hrv} ms. A late lights-out trimmed
-          your final REM cycle — aim for an earlier wind-down tonight.
+          You slept {fmtH(night.dur)} at {night.eff}% efficiency — {deepPct}% deep and {remPct}% REM, with{' '}
+          {n.awakenings} {n.awakenings === 1 ? 'awakening' : 'awakenings'}
+          {n.vitals.hrv != null ? `, and HRV at ${Math.round(n.vitals.hrv)} ms` : ''}.
         </Text>
         <View style={styles.badges}>
-          <Badge hue="sleep">Deep ▲ 18%</Badge>
-          <Badge hue="mind">HRV {night.hrv} ms</Badge>
+          <Badge hue="sleep">Deep {deepPct}%</Badge>
+          <Badge hue="mind">REM {remPct}%</Badge>
+          {n.vitals.hrv != null && <Badge hue="mind">HRV {Math.round(n.vitals.hrv)} ms</Badge>}
         </View>
       </InsightCard>
     </Pressable>
