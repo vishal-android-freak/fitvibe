@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { FieldGlow } from '@/components/FieldGlow';
+import { RefreshScope } from '@/data/refresh';
 import { useResponsive } from '@/theme';
 
 /**
@@ -14,7 +15,9 @@ export function ScreenContainer({ children }: { children: React.ReactNode }) {
   return (
     <FieldGlow>
       <View style={styles.center}>
-        <View style={[styles.column, { maxWidth: maxContent }]}>{children}</View>
+        <View style={[styles.column, { maxWidth: maxContent }]}>
+          <RefreshScope>{children}</RefreshScope>
+        </View>
       </View>
     </FieldGlow>
   );

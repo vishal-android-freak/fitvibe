@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { config } from '@/auth/config';
 import { useAuth } from '@/auth';
+import { useRefreshRegister } from '@/data/refresh';
 import type { SleepSegment, SleepStage } from '@/components';
 
 /** Per-stage roll-up for the breakdown bars. */
@@ -85,7 +86,8 @@ export interface LastNightState {
   data: LastNight | null;
   loading: boolean;
   error: string | null;
-  reload: () => void;
+  /** Refetch; resolves when the request settles (for pull-to-refresh). */
+  reload: () => Promise<void>;
 }
 
 /** Loads last night's sleep for the signed-in user, with loading/error/empty states. */
@@ -95,32 +97,40 @@ export function useLastNight(): LastNightState {
   const [data, setData] = useState<LastNight | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
     if (!userId) {
-      setData(null);
-      setLoading(false);
+      if (mounted.current) {
+        setData(null);
+        setLoading(false);
+      }
       return;
     }
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    fetchLastNight(userId)
-      .then((night) => {
-        if (!cancelled) setData(night);
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load sleep');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+    if (mounted.current) {
+      setLoading(true);
+      setError(null);
+    }
+    try {
+      const night = await fetchLastNight(userId);
+      if (mounted.current) setData(night);
+    } catch (e: unknown) {
+      if (mounted.current) setError(e instanceof Error ? e.message : 'Failed to load sleep');
+    } finally {
+      if (mounted.current) setLoading(false);
+    }
   }, [userId]);
 
-  useEffect(() => load(), [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  useRefreshRegister(load);
 
   return { data, loading, error, reload: load };
 }

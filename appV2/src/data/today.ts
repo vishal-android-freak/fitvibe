@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { config } from '@/auth/config';
 import { useAuth } from '@/auth';
 import { fmtClock } from '@/data/mock';
+import { useRefreshRegister } from '@/data/refresh';
 
 /** A timestamped reading in its own local zone. `value` is optional (omitted
  *  for timestamp-only stamps like nutrition "last updated"). */
@@ -31,6 +32,22 @@ export interface NutritionToday {
   proteinGrams: number;
   hydrationMl: number;
   lastUpdated: Stamped | null; // most recent contributing entry today
+}
+
+/** One entry in the Today activity feed. */
+export interface TimelineEvent {
+  kind: 'tracked' | 'logged';
+  category: 'workout' | 'wake' | 'meal' | 'water';
+  at: string; // RFC3339 (UTC)
+  offsetSeconds: number;
+  title: string;
+  detail: string;
+  items?: string[]; // meal contents, when grouped
+}
+
+export interface TodayTimeline {
+  date: string;
+  events: TimelineEvent[];
 }
 
 /**
@@ -67,11 +84,16 @@ export function fetchNutritionToday(userId: number): Promise<NutritionToday> {
   return getJSON<NutritionToday>(`/me/nutrition/today?user_id=${userId}`);
 }
 
+export function fetchTodayTimeline(userId: number): Promise<TodayTimeline> {
+  return getJSON<TodayTimeline>(`/me/today/timeline?user_id=${userId}`);
+}
+
 interface Resource<T> {
   data: T | null;
   loading: boolean;
   error: string | null;
-  reload: () => void;
+  /** Refetch; resolves when the request settles (for pull-to-refresh). */
+  reload: () => Promise<void>;
 }
 
 /** Shared loader: runs `fetcher(userId)` for the signed-in user with state. */
@@ -81,34 +103,42 @@ function useUserResource<T>(fetcher: (userId: number) => Promise<T>): Resource<T
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
     if (!userId) {
-      setData(null);
-      setLoading(false);
+      if (mounted.current) {
+        setData(null);
+        setLoading(false);
+      }
       return;
     }
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    fetcher(userId)
-      .then((d) => {
-        if (!cancelled) setData(d);
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+    if (mounted.current) {
+      setLoading(true);
+      setError(null);
+    }
+    try {
+      const d = await fetcher(userId);
+      if (mounted.current) setData(d);
+    } catch (e: unknown) {
+      if (mounted.current) setError(e instanceof Error ? e.message : 'Failed to load');
+    } finally {
+      if (mounted.current) setLoading(false);
+    }
     // fetcher is a stable module-level function; only userId varies.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
-  useEffect(() => load(), [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  useRefreshRegister(load);
 
   return { data, loading, error, reload: load };
 }
@@ -119,4 +149,8 @@ export function useTodaySummary(): Resource<TodaySummary> {
 
 export function useNutritionToday(): Resource<NutritionToday> {
   return useUserResource(fetchNutritionToday);
+}
+
+export function useTodayTimeline(): Resource<TodayTimeline> {
+  return useUserResource(fetchTodayTimeline);
 }

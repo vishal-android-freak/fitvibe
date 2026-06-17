@@ -1,98 +1,74 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Badge, Icon, type IconName } from '@/components';
-import { AIGradient } from '@/components/ai/AIGradient';
-import { accent, ai, border, font, fontSize, glow, hue, mix, radius, surface, text } from '@/theme';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { Icon, type IconName } from '@/components';
+import { fmtStampClock, useTodayTimeline, type TimelineEvent } from '@/data/today';
+import { accent, border, font, fontSize, hue, mix, radius, surface, text } from '@/theme';
 
-type Entry =
-  | { time: string; kind: 'logged' | 'tracked'; icon: IconName; hue: string; title: string; detail: string; badge?: string }
-  | { time: string; kind: 'ai'; id: string; title: string; body: string };
+/** Visuals per event category. */
+const CATEGORY_META: Record<TimelineEvent['category'], { icon: IconName; hue: string }> = {
+  workout: { icon: 'footprints', hue: hue.move },
+  wake: { icon: 'sunrise', hue: hue.energy },
+  meal: { icon: 'utensils', hue: hue.nutrition },
+  water: { icon: 'glass-water', hue: hue.hydration },
+};
 
-const ACTIVITY: Entry[] = [
-  { time: '12:05 PM', kind: 'logged', icon: 'brain', hue: hue.mind, title: 'Mindfulness', detail: '10 min · calm session' },
-  { time: '10:30 AM', kind: 'logged', icon: 'glass-water', hue: hue.hydration, title: 'Logged water', detail: '+250 ml · 1.6 L today' },
-  { time: '9:14 AM', kind: 'tracked', icon: 'route', hue: hue.move, title: 'Morning walk', detail: '1.1 km · 14 min · 78 kcal' },
-  {
-    time: '7:38 AM',
-    kind: 'ai',
-    id: 'run',
-    title: 'Run analysis',
-    body: 'That run sat in zone 2 almost the whole way — ideal aerobic work. Your heart rate drifted up only 4 bpm at a steady pace, a sign your base is improving. Keep tomorrow easy to lock in the gains.',
-  },
-  { time: '7:02 AM', kind: 'tracked', icon: 'footprints', hue: hue.move, title: 'Outdoor run', detail: '5.2 km · 27:41 · 384 kcal', badge: 'Workout' },
-  {
-    time: '6:52 AM',
-    kind: 'ai',
-    id: 'sleep',
-    title: 'Sleep analysis',
-    body: 'You slept 7h 12m with deep sleep up 18% vs last week. HRV came in at 62 ms — your highest in two weeks — so recovery looks strong. A good day to push.',
-  },
-  { time: '6:48 AM', kind: 'tracked', icon: 'sunrise', hue: hue.energy, title: 'Woke up', detail: '7h 12m · best sleep this week' },
-];
-
-const KIND_TAG: Record<'logged' | 'tracked', { label: string; icon: IconName }> = {
+const KIND_TAG: Record<TimelineEvent['kind'], { label: string; icon: IconName }> = {
   logged: { label: 'Logged', icon: 'pencil' },
   tracked: { label: 'Tracked', icon: 'watch' },
 };
 
-/** A unified timeline feed: logged items, tracked workouts, and inline AI cards. */
-export function ActivityLog({ onOpen }: { onOpen?: (id: string) => void }) {
-  const last = ACTIVITY.length - 1;
+/** A unified timeline of today's logged items and tracked activity. */
+export function ActivityLog() {
+  const { data, loading } = useTodayTimeline();
+  const events = data?.events ?? [];
+
+  if (loading && !data) {
+    return (
+      <View style={[styles.card, styles.placeholder]}>
+        <ActivityIndicator color={accent.base} />
+      </View>
+    );
+  }
+
+  if (events.length === 0) {
+    return (
+      <View style={[styles.card, styles.placeholder]}>
+        <Text style={styles.emptyTitle}>Nothing logged yet today</Text>
+        <Text style={styles.emptyBody}>Workouts, meals, and water you log will show up here.</Text>
+      </View>
+    );
+  }
+
+  const last = events.length - 1;
   return (
     <View style={styles.card}>
-      {ACTIVITY.map((a, i) => {
-        const notLast = i < last;
+      {events.map((e, i) => {
+        const meta = CATEGORY_META[e.category];
+        const tag = KIND_TAG[e.kind];
         return (
           <View key={i} style={styles.row}>
-            {/* left rail: just the icon (no connector line) */}
             <View style={styles.rail}>
-              {a.kind === 'ai' ? (
-                <AIGradient style={[styles.railIcon, glow.ai]}>
-                  <Icon name="sparkles" size={15} color={ai.onGradient} />
-                </AIGradient>
-              ) : (
-                <View style={[styles.railIcon, { backgroundColor: mix(a.hue, 0.18, surface.card) }]}>
-                  <Icon name={a.icon} size={15} color={a.hue} />
-                </View>
-              )}
+              <View style={[styles.railIcon, { backgroundColor: mix(meta.hue, 0.18, surface.card) }]}>
+                <Icon name={meta.icon} size={15} color={meta.hue} />
+              </View>
             </View>
 
-            {a.kind === 'ai' ? (
-              <View style={styles.aiCol}>
-                {/* time beside the icon */}
-                <Text style={styles.time}>{a.time}</Text>
-                <Pressable onPress={() => onOpen?.(a.id)} style={styles.aiBorder}>
-                  <AIGradient style={styles.aiBorderGradient}>
-                    <View style={styles.aiInner}>
-                      <View style={styles.aiHead}>
-                        <Icon name="sparkles" size={12} color={accent.base} />
-                        <Text style={styles.aiHeadText}>FitVibe · {a.title}</Text>
-                        <Icon name="chevron-right" size={14} color={text.muted} />
-                      </View>
-                      <Text style={styles.aiBody}>{a.body}</Text>
-                      <Text style={styles.aiCta}>View full analysis</Text>
-                    </View>
-                  </AIGradient>
-                </Pressable>
-              </View>
-            ) : (
-              <View style={[styles.itemCol, notLast && styles.itemDivider]}>
-                {/* time beside the icon, kind-tag on the right */}
-                <View style={styles.metaRow}>
-                  <Text style={styles.time}>{a.time}</Text>
-                  <View style={styles.kindTag}>
-                    <Icon name={KIND_TAG[a.kind].icon} size={11} color={text.tertiary} />
-                    <Text style={styles.kindTagText}>{KIND_TAG[a.kind].label}</Text>
-                  </View>
+            <View style={[styles.itemCol, i < last && styles.itemDivider]}>
+              <View style={styles.metaRow}>
+                <Text style={styles.time}>{fmtStampClock(e)}</Text>
+                <View style={styles.kindTag}>
+                  <Icon name={tag.icon} size={11} color={text.tertiary} />
+                  <Text style={styles.kindTagText}>{tag.label}</Text>
                 </View>
-                {/* then the details below */}
-                <View style={styles.itemTitleRow}>
-                  <Text style={styles.itemTitle}>{a.title}</Text>
-                  {a.badge && <Badge hue="move">{a.badge}</Badge>}
-                </View>
-                <Text style={styles.itemDetail}>{a.detail}</Text>
               </View>
-            )}
+              <Text style={styles.itemTitle}>{e.title}</Text>
+              <Text style={styles.itemDetail}>{e.detail}</Text>
+              {e.items && e.items.length > 0 && (
+                <Text style={styles.itemContents} numberOfLines={2}>
+                  {e.items.join(', ')}
+                </Text>
+              )}
+            </View>
           </View>
         );
       })}
@@ -110,26 +86,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: border.subtle,
   },
+  placeholder: { minHeight: 96, alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 20 },
+  emptyTitle: { fontFamily: font.sansSemibold, fontSize: fontSize.sm, color: text.secondary },
+  emptyBody: { fontFamily: font.sansRegular, fontSize: fontSize.xs, color: text.muted, textAlign: 'center' },
   row: { flexDirection: 'row', alignItems: 'flex-start', columnGap: 12, minHeight: 54 },
   rail: { width: 34, alignItems: 'center', paddingTop: 13 },
   railIcon: { width: 28, height: 28, borderRadius: 999, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   time: { fontFamily: font.mono, fontSize: 10, color: text.tertiary, letterSpacing: -0.2 },
-  // item rows — time/tag, then title, then detail (stacked)
   itemCol: { flex: 1, paddingVertical: 11 },
   itemDivider: { borderBottomWidth: 1, borderBottomColor: border.subtle },
   metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  itemTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   itemTitle: { fontFamily: font.sansBold, fontSize: fontSize.sm, color: text.primary },
   itemDetail: { fontFamily: font.sansRegular, fontSize: fontSize.xs, color: text.muted, marginTop: 2 },
+  itemContents: { fontFamily: font.sansRegular, fontSize: fontSize.xs, color: text.tertiary, marginTop: 3, fontStyle: 'italic' },
   kindTag: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   kindTagText: { fontFamily: font.sansSemibold, fontSize: 10, color: text.tertiary, letterSpacing: 0.3 },
-  // ai cards
-  aiCol: { flex: 1, paddingTop: 11, paddingBottom: 12, gap: 6 },
-  aiBorder: { borderRadius: radius.md },
-  aiBorderGradient: { borderRadius: radius.md, padding: 1 },
-  aiInner: { borderRadius: radius.md - 1, padding: 13, backgroundColor: mix(accent.base, 0.1, surface.card) },
-  aiHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
-  aiHeadText: { flex: 1, fontFamily: font.sansBold, fontSize: fontSize['2xs'], letterSpacing: 1.2, color: text.primary, textTransform: 'uppercase' },
-  aiBody: { fontFamily: font.sansRegular, fontSize: fontSize.sm, lineHeight: fontSize.sm * 1.5, color: text.secondary, fontWeight: '500' },
-  aiCta: { fontFamily: font.sansSemibold, fontSize: fontSize.xs, color: accent.base, marginTop: 8 },
 });

@@ -30,7 +30,7 @@ export function TodayScreen() {
         </View>
 
         <SectionLabel action="All">Today's activity</SectionLabel>
-        <ActivityLog onOpen={openAnalysis} />
+        <ActivityLog />
 
         <SectionLabel>Last night</SectionLabel>
         <SleepCard />
