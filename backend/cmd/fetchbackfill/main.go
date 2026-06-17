@@ -3,7 +3,8 @@
 // Unlike cmd/backfill (which only re-parses stored payloads), this re-fetches
 // WebhookListDataTypes from the Google Health API over DEFAULT_BACKFILL_DAYS.
 //
-// The server must NOT be running (it holds the SQLite lock).
+// Safe to run while the server is running — Postgres handles the concurrent
+// writers (no single-writer lock).
 //
 // Usage:
 //
