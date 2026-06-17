@@ -25,6 +25,17 @@ type BackfillJob struct {
 	dataPointRepo *repositories.DataPointRepo
 	logger        *slog.Logger
 	userID        int64
+
+	// startOverride, when non-zero, replaces the default
+	// (now - DefaultBackfillDays) window start — e.g. to backfill just today.
+	startOverride time.Time
+}
+
+// WithStart overrides the backfill window start (default is
+// now - DefaultBackfillDays). Returns the job for chaining.
+func (b *BackfillJob) WithStart(start time.Time) *BackfillJob {
+	b.startOverride = start
+	return b
 }
 
 // NewBackfillJob creates a backfill job for a user.
@@ -65,8 +76,11 @@ func (b *BackfillJob) Run(ctx context.Context) error {
 
 	dataTypes := backfillDataTypes()
 
-	start := time.Now().UTC().Add(-time.Duration(b.cfg.DefaultBackfillDays) * 24 * time.Hour)
 	end := time.Now().UTC()
+	start := end.Add(-time.Duration(b.cfg.DefaultBackfillDays) * 24 * time.Hour)
+	if !b.startOverride.IsZero() {
+		start = b.startOverride.UTC()
+	}
 
 	// Process data types concurrently to speed up backfill.
 	// Use a shared rate-limited client so all workers stay under the Google
