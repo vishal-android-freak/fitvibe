@@ -10,7 +10,10 @@
     "backgroundColor": "#0A0E1A",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.naarang.fitvibe"
+      "bundleIdentifier": "com.naarang.fitvibe",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
