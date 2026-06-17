@@ -165,9 +165,10 @@ export function Hypnogram({
                     <View style={[styles.barFill, { width: `${pct}%`, backgroundColor: m.hue }]} />
                     <View style={[styles.typical, { left: `${Math.round(typicalPct * 100)}%` }]} />
                   </View>
-                  <Text style={styles.stageStat}>
-                    <Text style={styles.stageMin}>{fmtStageMin(min)}</Text> · {pct}%
-                  </Text>
+                  <View style={styles.stageStat}>
+                    <Text style={styles.stageMin}>{fmtStageMin(min)}</Text>
+                    <Text style={styles.stagePct}>{pct}%</Text>
+                  </View>
                 </View>
               );
             })}
@@ -198,8 +199,9 @@ const styles = StyleSheet.create({
   barTrack: { flex: 1, height: 6, borderRadius: 999, backgroundColor: ringTrack, justifyContent: 'center' },
   barFill: { height: 6, borderRadius: 999, opacity: 0.9 },
   typical: { position: 'absolute', top: -2, bottom: -2, width: 2, borderRadius: 2, backgroundColor: text.secondary, opacity: 0.75 },
-  stageStat: { width: 64, textAlign: 'right', fontFamily: font.mono, fontSize: fontSize.xs, color: text.muted },
-  stageMin: { fontFamily: font.mono, color: text.primary },
+  stageStat: { width: 64, alignItems: 'flex-end' },
+  stageMin: { fontFamily: font.mono, fontSize: fontSize.xs, color: text.primary },
+  stagePct: { fontFamily: font.mono, fontSize: fontSize['2xs'], color: text.muted, marginTop: 1 },
   legend: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 12 },
   legendMark: { width: 2, height: 11, borderRadius: 2, backgroundColor: text.secondary },
   legendText: { fontFamily: font.sansRegular, fontSize: fontSize['2xs'], color: text.tertiary, lineHeight: fontSize['2xs'] * 1.3 },
