@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Feedback, Icon, TypeTag } from '@/components';
+import { Feedback, Icon, RichText, TypeTag } from '@/components';
 import { accent, border, font, fontSize, radius, surface, text } from '@/theme';
 import { CAT_HUE, TYPE_META, type Insight } from './data';
 import { Viz } from './Viz';
@@ -18,13 +18,7 @@ export function InsightFeedCard({ insight, onAsk }: { insight: Insight; onAsk: (
       </View>
 
       <Text style={styles.headline}>{insight.headline}</Text>
-      <Text style={styles.body}>
-        {insight.body.map((s, i) => (
-          <Text key={i} style={s.b ? styles.bodyBold : undefined}>
-            {s.t}
-          </Text>
-        ))}
-      </Text>
+      <RichText segs={insight.body} style={styles.body} />
 
       <Viz viz={insight.viz} />
       <Provenance items={insight.prov} />
@@ -47,7 +41,6 @@ const styles = StyleSheet.create({
   time: { marginLeft: 'auto', fontFamily: font.mono, fontSize: fontSize['2xs'], color: text.tertiary },
   headline: { fontFamily: font.display, fontSize: fontSize.lg, lineHeight: fontSize.lg * 1.25, letterSpacing: -0.3, color: text.primary, marginBottom: 8 },
   body: { fontFamily: font.sansRegular, fontSize: fontSize.sm, lineHeight: fontSize.sm * 1.5, color: text.secondary },
-  bodyBold: { fontFamily: font.sansBold, color: text.primary },
   footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 },
   ask: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   askText: { fontFamily: font.sansBold, fontSize: fontSize.sm, color: accent.base },

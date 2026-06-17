@@ -1,25 +1,12 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Feedback, FieldGlow, Icon } from '@/components';
+import { Feedback, FieldGlow, Icon, RichText } from '@/components';
 import { accent, border, font, fontSize, glass, text } from '@/theme';
-import type { Seg } from '@/screens/insights/data';
 import { ChatTopBar } from '@/screens/ask/ChatTopBar';
 import { ReplyChip } from '@/screens/ask/ReplyChip';
 import { GenBlocks } from './GenBlocks';
 import { ANALYSES, type AnalysisId } from './data';
-
-function Rich({ segs, style }: { segs: Seg[]; style: any }) {
-  return (
-    <Text style={style}>
-      {segs.map((s, i) => (
-        <Text key={i} style={s.b ? styles.bold : undefined}>
-          {s.t}
-        </Text>
-      ))}
-    </Text>
-  );
-}
 
 /** Rich AI analysis view opened from an AI card; smart replies continue into chat. */
 export function AIAnalysisDetail({ id, onClose, onContinue }: { id: AnalysisId; onClose: () => void; onContinue: (seed: string) => void }) {
@@ -36,13 +23,13 @@ export function AIAnalysisDetail({ id, onClose, onContinue }: { id: AnalysisId; 
         </View>
 
         <Text style={styles.headline}>{a.headline}</Text>
-        <Rich segs={a.body} style={styles.body} />
+        <RichText segs={a.body} style={styles.body} />
 
         <View style={styles.bullets}>
           {a.bullets.map((b, i) => (
             <View key={i} style={styles.bulletRow}>
               <View style={styles.bulletDot} />
-              <Rich segs={b} style={styles.bulletText} />
+              <RichText segs={b} style={styles.bulletText} />
             </View>
           ))}
         </View>
@@ -80,7 +67,6 @@ const styles = StyleSheet.create({
   eyebrow: { fontFamily: font.sansBold, fontSize: fontSize['2xs'], letterSpacing: 1.6, color: text.muted },
   headline: { fontFamily: font.display, fontSize: fontSize['2xl'], lineHeight: fontSize['2xl'] * 1.2, letterSpacing: -0.4, color: text.primary, marginBottom: 12 },
   body: { fontFamily: font.sansRegular, fontSize: fontSize.md, lineHeight: fontSize.md * 1.65, color: text.secondary, marginBottom: 14 },
-  bold: { fontFamily: font.sansBold, color: text.primary },
   bullets: { gap: 12, marginBottom: 16 },
   bulletRow: { flexDirection: 'row', gap: 11, alignItems: 'flex-start' },
   bulletDot: { width: 6, height: 6, borderRadius: 999, backgroundColor: accent.base, marginTop: 9 },

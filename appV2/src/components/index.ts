@@ -25,6 +25,8 @@ export { Sparkle } from './ai/Sparkle';
 export { TypeTag } from './ai/TypeTag';
 export { Feedback } from './ai/Feedback';
 export type { Vote } from './ai/Feedback';
+export { RichText } from './ai/RichText';
+export type { Seg } from './ai/RichText';
 
 // Generative-UI blocks (rendered inline in analyses / chat replies)
 export * from './genui';

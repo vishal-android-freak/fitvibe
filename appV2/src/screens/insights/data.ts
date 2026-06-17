@@ -1,11 +1,9 @@
 import { accent, hue } from '@/theme';
-import type { IconName } from '@/components';
+import type { IconName, Seg } from '@/components';
 
-/** A body text segment; `bold` marks a metric to emphasize. */
-export interface Seg {
-  t: string;
-  b?: boolean;
-}
+// Re-export so existing imports (`from './data'`) keep working; the canonical
+// definition lives with the RichText component that renders it.
+export type { Seg };
 
 export type CatId = 'all' | 'recovery' | 'sleep' | 'heart' | 'activity' | 'nutrition';
 export type TypeId = 'trend' | 'correlation' | 'flag' | 'achievement' | 'tip' | 'comparison';
