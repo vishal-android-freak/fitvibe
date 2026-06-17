@@ -1,29 +1,28 @@
 import React from 'react';
-import { StatTileGrid, type StatTileSpec } from '@/components';
-import { hue } from '@/theme';
+import { StyleSheet, Text, View } from 'react-native';
+import { Icon, Sparkline, type IconName } from '@/components';
+import { border, font, fontSize, hue, mix, radius, status, surface, text, tint } from '@/theme';
 import type { NightVitals } from '@/data/sleep';
 import type { NightView } from './data';
 
-/** A vital we render as a tile: how to read it off NightVitals + display config. */
+/** A vital we render as a row: how to read it off NightVitals + display config. */
 interface VitalDef {
   key: keyof NightVitals;
   label: string;
   unit: string;
   hue: string;
-  icon: StatTileSpec['icon'];
-  /** Whether a HIGHER value is the "good" direction (drives delta arrow color). */
+  icon: IconName;
+  /** Whether a HIGHER value is the "good" direction (drives delta color). */
   higherIsBetter: boolean;
-  /** Decimal places for the displayed value. */
   digits?: number;
-  /** Show an explicit +/- sign (for skin-temp delta). */
-  signed?: boolean;
+  signed?: boolean; // explicit +/- (skin-temp delta)
 }
 
 const VITALS: VitalDef[] = [
   { key: 'rhr', label: 'Resting HR', unit: 'bpm', hue: hue.heart, icon: 'heart', higherIsBetter: false },
   { key: 'hrv', label: 'HRV', unit: 'ms', hue: hue.mind, icon: 'activity', higherIsBetter: true, digits: 0 },
   { key: 'spo2', label: 'SpO₂', unit: '%', hue: hue.oxygen, icon: 'wind', higherIsBetter: true, digits: 0 },
-  { key: 'respiratoryRate', label: 'Respiratory rate', unit: 'br/min', hue: hue.sky, icon: 'wind', higherIsBetter: false, digits: 1 },
+  { key: 'respiratoryRate', label: 'Breathing', unit: 'br/min', hue: hue.sky, icon: 'wind', higherIsBetter: false, digits: 1 },
   { key: 'skinTempDelta', label: 'Skin temp', unit: '°C', hue: hue.energy, icon: 'thermometer', higherIsBetter: false, digits: 1, signed: true },
 ];
 
@@ -32,36 +31,69 @@ function fmtVal(v: number, def: VitalDef): string {
   return def.signed && v > 0 ? `+${s}` : s;
 }
 
+interface RowModel {
+  def: VitalDef;
+  value: string | null;
+  series: number[];
+  delta: string | null;
+  deltaGood: boolean;
+}
+
+/** One full-width vital row: icon + label, trend sparkline, value + delta. */
+function VitalRow({ row }: { row: RowModel }) {
+  const { def, value, series, delta, deltaGood } = row;
+  const has = value !== null;
+  return (
+    <View style={styles.row}>
+      <View style={[styles.iconBox, { backgroundColor: tint(def.hue, 0.16) }]}>
+        <Icon name={def.icon} size={16} color={has ? def.hue : text.tertiary} />
+      </View>
+      <Text style={styles.label} numberOfLines={1}>
+        {def.label}
+      </Text>
+
+      {series.length >= 2 ? (
+        <Sparkline data={series} hue={def.hue} width={84} height={28} style={styles.spark} />
+      ) : (
+        <View style={styles.spark} />
+      )}
+
+      <View style={styles.valueCol}>
+        <Text style={[styles.value, !has && styles.dim]} numberOfLines={1}>
+          {has ? value : '—'}
+          {has ? <Text style={styles.unit}> {def.unit}</Text> : null}
+        </Text>
+        {delta && (
+          <Text style={[styles.delta, { color: deltaGood ? status.positive : status.danger }]} numberOfLines={1}>
+            {delta}
+          </Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
 /**
- * Six overnight-vitals tiles for the selected night. Each sparkline is the REAL
- * last-N-nights series for that vital (chronological, ending at the selected
- * night), and the delta compares the selected night to the baseline (mean of
- * the other nights in view) — so the tiles signify an actual trend, not a
- * fabricated one.
+ * Overnight vitals as a full-width COLUMN of rows for the selected night. Each
+ * row's sparkline is the REAL last-N-nights series for that vital; the delta
+ * compares the selected night to the baseline (mean of the prior nights),
+ * colored by whether the move is favorable.
  */
 export function VitalsGrid({ nights, idx }: { nights: NightView[]; idx: number }) {
-  // Chronological window up to & including the selected night (oldest → newest).
-  const window = nights.slice(idx).reverse(); // nights is newest-first
+  // Trailing 7 nights ending at the selected one (oldest → newest), so the
+  // sparkline + baseline reflect a consistent recent window like WeeklyTrend.
+  const window = nights.slice(idx, idx + 7).reverse();
   const selected = nights[idx];
 
-  const tiles: StatTileSpec[] = VITALS.map((def) => {
+  const rows: RowModel[] = VITALS.map((def) => {
     const series = window.map((n) => n.raw.vitals[def.key]).filter((x): x is number => x != null);
     const current = selected.raw.vitals[def.key];
-
     if (current == null) {
-      return { label: def.label, value: '—', unit: def.unit, hue: def.hue, icon: def.icon };
+      return { def, value: null, series, delta: null, deltaGood: false };
     }
 
-    const tile: StatTileSpec = {
-      label: def.label,
-      value: fmtVal(current, def),
-      unit: def.unit,
-      hue: def.hue,
-      icon: def.icon,
-    };
-    if (series.length >= 2) tile.spark = series;
-
-    // Delta vs baseline = mean of the prior nights (everything before current).
+    let delta: string | null = null;
+    let deltaGood = false;
     const prior = series.slice(0, -1);
     if (prior.length > 0) {
       const baseline = prior.reduce((a, b) => a + b, 0) / prior.length;
@@ -69,14 +101,40 @@ export function VitalsGrid({ nights, idx }: { nights: NightView[]; idx: number }
       if (Math.abs(diff) >= (def.digits ? 0.05 : 0.5)) {
         const up = diff > 0;
         const mag = def.digits != null ? Math.abs(diff).toFixed(def.digits) : String(Math.round(Math.abs(diff)));
-        // Sign in the text shows actual direction; color (deltaDir up=good/green,
-        // down=bad/red) shows whether that move is favorable for this vital.
-        tile.delta = `${up ? '+' : '−'}${mag} vs avg`;
-        tile.deltaDir = up === def.higherIsBetter ? 'up' : 'down';
+        delta = `${up ? '▲' : '▼'} ${mag} vs avg`;
+        deltaGood = up === def.higherIsBetter;
       }
     }
-    return tile;
+    return { def, value: fmtVal(current, def), series, delta, deltaGood };
   });
 
-  return <StatTileGrid tiles={tiles} />;
+  return (
+    <View style={styles.card}>
+      {rows.map((row, i) => (
+        <View key={row.def.key} style={i > 0 && styles.divider}>
+          <VitalRow row={row} />
+        </View>
+      ))}
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+  card: {
+    paddingHorizontal: 14,
+    borderRadius: radius.xl,
+    backgroundColor: surface.card,
+    borderWidth: 1,
+    borderColor: border.subtle,
+  },
+  divider: { borderTopWidth: 1, borderTopColor: mix(border.subtle, 0.5, surface.card) },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 13 },
+  iconBox: { width: 30, height: 30, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
+  label: { width: 96, fontFamily: font.sansSemibold, fontSize: fontSize.sm, color: text.secondary },
+  spark: { flex: 1, height: 28, justifyContent: 'center' },
+  valueCol: { width: 96, alignItems: 'flex-end' },
+  value: { fontFamily: font.display, fontSize: fontSize.lg, color: text.primary, lineHeight: Math.round(fontSize.lg * 1.18) },
+  unit: { fontFamily: font.sansSemibold, fontSize: fontSize.xs, color: text.muted },
+  dim: { color: text.muted },
+  delta: { fontFamily: font.sansBold, fontSize: fontSize['2xs'], marginTop: 1 },
+});
