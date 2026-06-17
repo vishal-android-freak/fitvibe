@@ -34,14 +34,15 @@ function fmtVal(v: number, def: VitalDef): string {
 interface RowModel {
   def: VitalDef;
   value: string | null;
+  qualifier: string | null; // e.g. "avg" when the selected night has no reading
   series: number[];
   delta: string | null;
   deltaGood: boolean;
 }
 
-/** One full-width vital row: icon + label, trend sparkline, value + delta. */
+/** One full-width vital row: icon + label, trend sparkline, value + delta/avg. */
 function VitalRow({ row }: { row: RowModel }) {
-  const { def, value, series, delta, deltaGood } = row;
+  const { def, value, qualifier, series, delta, deltaGood } = row;
   const has = value !== null;
   return (
     <View style={styles.row}>
@@ -63,11 +64,15 @@ function VitalRow({ row }: { row: RowModel }) {
           {has ? value : '—'}
           {has ? <Text style={styles.unit}> {def.unit}</Text> : null}
         </Text>
-        {delta && (
+        {qualifier ? (
+          <Text style={styles.qualifier} numberOfLines={1}>
+            {qualifier}
+          </Text>
+        ) : delta ? (
           <Text style={[styles.delta, { color: deltaGood ? status.positive : status.danger }]} numberOfLines={1}>
             {delta}
           </Text>
-        )}
+        ) : null}
       </View>
     </View>
   );
@@ -88,8 +93,16 @@ export function VitalsGrid({ nights, idx }: { nights: NightView[]; idx: number }
   const rows: RowModel[] = VITALS.map((def) => {
     const series = window.map((n) => n.raw.vitals[def.key]).filter((x): x is number => x != null);
     const current = selected.raw.vitals[def.key];
+
+    // The selected night's reading isn't in yet (daily vitals publish later in
+    // the day) but we have recent history: show the window average, like the
+    // Health app, rather than a bare "—".
     if (current == null) {
-      return { def, value: null, series, delta: null, deltaGood: false };
+      if (series.length === 0) {
+        return { def, value: null, qualifier: null, series, delta: null, deltaGood: false };
+      }
+      const avg = series.reduce((a, b) => a + b, 0) / series.length;
+      return { def, value: fmtVal(avg, def), qualifier: 'avg', series, delta: null, deltaGood: false };
     }
 
     let delta: string | null = null;
@@ -105,7 +118,7 @@ export function VitalsGrid({ nights, idx }: { nights: NightView[]; idx: number }
         deltaGood = up === def.higherIsBetter;
       }
     }
-    return { def, value: fmtVal(current, def), series, delta, deltaGood };
+    return { def, value: fmtVal(current, def), qualifier: null, series, delta, deltaGood };
   });
 
   return (
@@ -137,4 +150,5 @@ const styles = StyleSheet.create({
   unit: { fontFamily: font.sansSemibold, fontSize: fontSize.xs, color: text.muted },
   dim: { color: text.muted },
   delta: { fontFamily: font.sansBold, fontSize: fontSize['2xs'], marginTop: 1 },
+  qualifier: { fontFamily: font.sansSemibold, fontSize: fontSize['2xs'], color: text.tertiary, marginTop: 1 },
 });
