@@ -7,8 +7,8 @@ import (
 	"github.com/vishal-android-freak/fitvibe/internal/db/repositories"
 )
 
-// TestBuildLastNight mirrors the real stored shape inspected from fitvibe.db: a
-// night with clean AWAKE/DEEP/LIGHT/REM stages, a per-stage summary (minutes +
+// TestBuildLastNight mirrors the real stored shape inspected from the database:
+// a night with clean AWAKE/DEEP/LIGHT/REM stages, a per-stage summary (minutes +
 // count), and a +05:30 (19800s) offset. It asserts the derived payload the app
 // renders: chronological segments, totals/percent, efficiency, awakenings, and
 // local wall-clock onset/wake.
