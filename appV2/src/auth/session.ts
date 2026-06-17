@@ -1,0 +1,28 @@
+import { config } from './config';
+
+/** Identity returned by the backend (mirrors oauth.ExchangeResponse). */
+export interface SessionResponse {
+  user_id: number;
+  health_user_id: string;
+  google_user_id: string;
+  legacy_user_id: string;
+}
+
+/**
+ * Redeems the one-time token the backend deep-linked back to the app for the
+ * user's identity. The token is single-use and short-lived server-side.
+ */
+export async function redeemSession(token: string): Promise<SessionResponse> {
+  const res = await fetch(`${config.apiBaseUrl}/auth/session?token=${encodeURIComponent(token)}`);
+  if (!res.ok) {
+    let detail = '';
+    try {
+      const body = (await res.json()) as { error?: string };
+      detail = body.error ?? '';
+    } catch {
+      // non-JSON error body
+    }
+    throw new Error(detail || `Session redemption failed (HTTP ${res.status})`);
+  }
+  return (await res.json()) as SessionResponse;
+}

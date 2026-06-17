@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
+	"strings"
 	"os/signal"
 	"syscall"
 	"time"
@@ -44,6 +46,7 @@ func main() {
 	webhookNotificationRepo := repositories.NewWebhookNotificationRepo(database.DB)
 
 	oauthService := oauth.NewService(cfg, userRepo)
+	authBroker := oauth.NewBroker(10 * time.Minute)
 
 	dataPointRepo := repositories.NewDataPointRepo(database.DB)
 	rollupRepo := repositories.NewRollupDataPointRepo(database.DB)
@@ -98,6 +101,19 @@ func main() {
 
 	adminHandler.Register(r)
 
+	// startBackfill kicks off the historical backfill for a freshly exchanged
+	// user in the background. Shared by the direct exchange and the brokered flow.
+	startBackfill := func(userID int64) {
+		bf := cron.NewBackfillJob(cfg, oauthService, userRepo, syncStateRepo, dataPointRepo, logger, userID)
+		go func() {
+			ctx := context.Background()
+			if err := bf.Run(ctx); err != nil {
+				logger.Error("backfill failed", "user_id", userID, "error", err)
+			}
+		}()
+	}
+
+	// Direct exchange: the app obtained the code itself and posts it here.
 	r.Post("/auth/exchange", func(w http.ResponseWriter, r *http.Request) {
 		var req oauth.ExchangeRequest
 		if err := decodeJSON(r, &req); err != nil {
@@ -112,15 +128,79 @@ func main() {
 			return
 		}
 
-		// Trigger historical backfill in the background.
-		bf := cron.NewBackfillJob(cfg, oauthService, userRepo, syncStateRepo, dataPointRepo, logger, resp.UserID)
-		go func() {
-			ctx := context.Background()
-			if err := bf.Run(ctx); err != nil {
-				logger.Error("backfill failed", "user_id", resp.UserID, "error", err)
-			}
-		}()
+		startBackfill(resp.UserID)
+		respondJSON(w, http.StatusOK, resp)
+	})
 
+	// Brokered flow — the backend is the OAuth redirect target:
+	//   app → GET /auth/start → Google → GET /auth/callback → app deep link
+	//       → GET /auth/session (redeem one-time token for identity)
+
+	// /auth/start?redirect=fitvibe://oauthredirect
+	// Records the app's deep link, then redirects the browser to Google consent
+	// (using the backend's own GOOGLE_REDIRECT_URI as the OAuth redirect_uri).
+	r.Get("/auth/start", func(w http.ResponseWriter, r *http.Request) {
+		appRedirect := r.URL.Query().Get("redirect")
+		if !isAllowedAppRedirect(appRedirect) {
+			respondError(w, http.StatusBadRequest, "invalid or missing redirect")
+			return
+		}
+		state, err := authBroker.StartAuth(appRedirect)
+		if err != nil {
+			logger.Error("auth start failed", "error", err)
+			respondError(w, http.StatusInternalServerError, "failed to start auth")
+			return
+		}
+		http.Redirect(w, r, oauthService.AuthURL(state), http.StatusFound)
+	})
+
+	// /auth/callback?code=&state=  — Google redirects here.
+	// Exchanges the code, parks the result behind a one-time token, and deep-links
+	// the browser back to the app.
+	r.Get("/auth/callback", func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		state := q.Get("state")
+		appRedirect, ok := authBroker.ResolveState(state)
+		if !ok {
+			respondError(w, http.StatusBadRequest, "unknown or expired state")
+			return
+		}
+		if oauthErr := q.Get("error"); oauthErr != "" {
+			http.Redirect(w, r, appRedirect+"?error="+url.QueryEscape(oauthErr)+"&state="+url.QueryEscape(state), http.StatusFound)
+			return
+		}
+		code := q.Get("code")
+		if code == "" {
+			http.Redirect(w, r, appRedirect+"?error=missing_code&state="+url.QueryEscape(state), http.StatusFound)
+			return
+		}
+
+		resp, err := oauthService.Exchange(r.Context(), oauth.ExchangeRequest{Code: code, RedirectURI: cfg.GoogleRedirectURI})
+		if err != nil {
+			logger.Error("brokered exchange failed", "error", err)
+			http.Redirect(w, r, appRedirect+"?error=exchange_failed&state="+url.QueryEscape(state), http.StatusFound)
+			return
+		}
+
+		token, err := authBroker.StashSession(resp)
+		if err != nil {
+			logger.Error("stash session failed", "error", err)
+			http.Redirect(w, r, appRedirect+"?error=server_error&state="+url.QueryEscape(state), http.StatusFound)
+			return
+		}
+
+		startBackfill(resp.UserID)
+		http.Redirect(w, r, appRedirect+"?token="+url.QueryEscape(token)+"&state="+url.QueryEscape(state), http.StatusFound)
+	})
+
+	// /auth/session?token=  — the app redeems the one-time token for its identity.
+	r.Get("/auth/session", func(w http.ResponseWriter, r *http.Request) {
+		token := r.URL.Query().Get("token")
+		resp, ok := authBroker.RedeemSession(token)
+		if !ok {
+			respondError(w, http.StatusUnauthorized, "invalid or expired token")
+			return
+		}
 		respondJSON(w, http.StatusOK, resp)
 	})
 
@@ -176,4 +256,10 @@ func respondJSON(w http.ResponseWriter, status int, v any) {
 
 func respondError(w http.ResponseWriter, status int, msg string) {
 	respondJSON(w, status, map[string]string{"error": msg})
+}
+
+// isAllowedAppRedirect guards the brokered flow against open-redirect abuse:
+// the backend will only deep-link back into the FitVibe app's own scheme.
+func isAllowedAppRedirect(redirect string) bool {
+	return strings.HasPrefix(redirect, "fitvibe://")
 }

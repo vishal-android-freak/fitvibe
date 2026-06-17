@@ -1,16 +1,11 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import * as WebBrowser from 'expo-web-browser';
-import {
-  makeRedirectUri,
-  ResponseType,
-  useAuthRequest,
-  type AuthRequestPromptOptions,
-} from 'expo-auth-session';
-import { config, GOOGLE_AUTH_ENDPOINT, REDIRECT_PATH, SCOPES } from './config';
-import { exchangeCode } from './exchange';
+import { makeRedirectUri } from 'expo-auth-session';
+import { config, REDIRECT_PATH } from './config';
+import { redeemSession } from './session';
 import { clearSession, loadSession, saveSession, type Session } from './storage';
 
-// Required for the auth browser to dismiss correctly when control returns.
+// Ensures any lingering auth browser session is completed on cold start.
 WebBrowser.maybeCompleteAuthSession();
 
 export type AuthStatus = 'loading' | 'signedOut' | 'signedIn';
@@ -18,7 +13,7 @@ export type AuthStatus = 'loading' | 'signedOut' | 'signedIn';
 interface AuthContextValue {
   status: AuthStatus;
   session: Session | null;
-  /** in-flight sign-in (browser open or code exchange) */
+  /** in-flight sign-in (browser open or token redemption) */
   busy: boolean;
   /** last sign-in error message, if any */
   error: string | null;
@@ -28,8 +23,6 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const discovery = { authorizationEndpoint: GOOGLE_AUTH_ENDPOINT };
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [session, setSession] = useState<Session | null>(null);
@@ -37,19 +30,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   const redirectUri = useMemo(() => makeRedirectUri({ scheme: 'fitvibe', path: REDIRECT_PATH }), []);
-
-  const [request, , promptAsync] = useAuthRequest(
-    {
-      clientId: config.googleClientId,
-      responseType: ResponseType.Code,
-      scopes: SCOPES,
-      redirectUri,
-      // Offline access + forced consent so Google returns a refresh token,
-      // which the backend requires.
-      extraParams: { access_type: 'offline', prompt: 'consent' },
-    },
-    discovery,
-  );
 
   // Restore any persisted session on boot.
   useEffect(() => {
@@ -65,19 +45,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = useCallback(async () => {
-    if (!request || busy) return;
+    if (busy) return;
     setBusy(true);
     setError(null);
     try {
-      const result = await promptAsync({ showInRecents: true } as AuthRequestPromptOptions);
-      if (result.type === 'cancel' || result.type === 'dismiss') {
-        return; // user backed out — stay on welcome, no error
-      }
-      if (result.type !== 'success' || !result.params.code) {
-        throw new Error(result.type === 'error' ? result.params.error_description || 'Authorization failed' : 'Authorization failed');
+      // The backend brokers the whole OAuth handshake. We open its /auth/start,
+      // it bounces through Google and its own /auth/callback, then deep-links
+      // back to us with a one-time token (no code/secret ever touches the app).
+      const startUrl = `${config.apiBaseUrl}/auth/start?redirect=${encodeURIComponent(redirectUri)}`;
+      const result = await WebBrowser.openAuthSessionAsync(startUrl, redirectUri);
+
+      if (result.type !== 'success') {
+        return; // cancel / dismiss — stay on welcome, no error
       }
 
-      const data = await exchangeCode(result.params.code, redirectUri);
+      const params = parseQuery(result.url);
+      if (params.error) throw new Error(humanizeError(params.error));
+      const token = params.token;
+      if (!token) throw new Error('No session token returned');
+
+      const data = await redeemSession(token);
       const next: Session = {
         userId: data.user_id,
         healthUserId: data.health_user_id,
@@ -91,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setBusy(false);
     }
-  }, [request, busy, promptAsync, redirectUri]);
+  }, [busy, redirectUri]);
 
   const signOut = useCallback(async () => {
     await clearSession();
@@ -105,6 +92,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+/** Parse the query string off a returned deep link (e.g. fitvibe://oauthredirect?token=…&error=…). */
+function parseQuery(returnUrl: string): { token?: string; error?: string; state?: string } {
+  const q = returnUrl.split('?')[1];
+  if (!q) return {};
+  const out: Record<string, string> = {};
+  for (const pair of q.split('&')) {
+    const [k, v = ''] = pair.split('=');
+    if (k) out[decodeURIComponent(k)] = decodeURIComponent(v);
+  }
+  return out;
+}
+
+function humanizeError(code: string): string {
+  switch (code) {
+    case 'access_denied':
+      return 'Sign-in was cancelled';
+    case 'missing_code':
+    case 'exchange_failed':
+      return "Couldn't complete sign-in with Google";
+    default:
+      return 'Sign-in failed';
+  }
 }
 
 export function useAuth(): AuthContextValue {
