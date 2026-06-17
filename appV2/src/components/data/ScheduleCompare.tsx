@@ -20,7 +20,7 @@ export function ScheduleCompare({ items, style }: { items: ScheduleItem[]; style
   return (
     <View style={[styles.card, style]}>
       {items.map((it, i) => {
-        const off = it.delta !== '+0m' && it.delta !== '−0m' && it.delta !== '0m';
+        const off = it.delta !== '' && it.delta !== 'on time';
         return (
           <React.Fragment key={it.label}>
             {i > 0 && <View style={styles.divider} />}
@@ -34,7 +34,9 @@ export function ScheduleCompare({ items, style }: { items: ScheduleItem[]; style
               </View>
               <View style={styles.right}>
                 <Text style={styles.actual}>{it.actual}</Text>
-                <Text style={[styles.delta, { color: off ? status.warning : status.positive }]}>{it.delta}</Text>
+                {it.delta !== '' && (
+                  <Text style={[styles.delta, { color: off ? status.warning : status.positive }]}>{it.delta}</Text>
+                )}
               </View>
             </View>
           </React.Fragment>
