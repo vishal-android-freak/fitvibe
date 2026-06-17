@@ -37,19 +37,17 @@ type WebhookNotificationRecord struct {
 // Insert stores a new webhook notification and returns its ID.
 func (r *WebhookNotificationRepo) Insert(ctx context.Context, rec *WebhookNotificationRecord) (int64, error) {
 	now := time.Now().UTC()
-	res, err := r.db.ExecContext(ctx, `
+	var id int64
+	err := r.db.QueryRowContext(ctx, `
 		INSERT INTO webhook_notifications (
 			health_user_id, data_type, operation, client_provided_subscription_name,
 			notification_json, signature_header, received_at, processing_status, retry_count
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		RETURNING id
 	`, rec.HealthUserID, rec.DataType, rec.Operation, rec.ClientProvidedSubscriptionName,
-		rec.NotificationJSON, rec.SignatureHeader, now, rec.ProcessingStatus, rec.RetryCount)
+		rec.NotificationJSON, rec.SignatureHeader, now, rec.ProcessingStatus, rec.RetryCount).Scan(&id)
 	if err != nil {
 		return 0, fmt.Errorf("insert webhook notification: %w", err)
-	}
-	id, err := res.LastInsertId()
-	if err != nil {
-		return 0, fmt.Errorf("last insert id: %w", err)
 	}
 	return id, nil
 }
@@ -62,9 +60,9 @@ func (r *WebhookNotificationRepo) GetPending(ctx context.Context, limit int) ([]
 		       processing_status, processing_error, retry_count, next_retry_at
 		FROM webhook_notifications
 		WHERE processing_status = 'pending'
-		  AND (next_retry_at IS NULL OR next_retry_at <= ?)
+		  AND (next_retry_at IS NULL OR next_retry_at <= $1)
 		ORDER BY received_at
-		LIMIT ?
+		LIMIT $2
 	`, time.Now().UTC(), limit)
 	if err != nil {
 		return nil, fmt.Errorf("query pending notifications: %w", err)
@@ -81,7 +79,7 @@ func (r *WebhookNotificationRepo) GetByID(ctx context.Context, id int64) (*Webho
 		       notification_json, signature_header, received_at, processed_at,
 		       processing_status, processing_error, retry_count, next_retry_at
 		FROM webhook_notifications
-		WHERE id = ?
+		WHERE id = $1
 	`, id)
 
 	rec := &WebhookNotificationRecord{}
@@ -98,8 +96,8 @@ func (r *WebhookNotificationRepo) GetByID(ctx context.Context, id int64) (*Webho
 func (r *WebhookNotificationRepo) MarkProcessed(ctx context.Context, id int64) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE webhook_notifications
-		SET processing_status = 'processed', processed_at = ?, processing_error = NULL, next_retry_at = NULL
-		WHERE id = ?
+		SET processing_status = 'processed', processed_at = $1, processing_error = NULL, next_retry_at = NULL
+		WHERE id = $2
 	`, time.Now().UTC(), id)
 	if err != nil {
 		return fmt.Errorf("mark processed: %w", err)
@@ -111,8 +109,8 @@ func (r *WebhookNotificationRepo) MarkProcessed(ctx context.Context, id int64) e
 func (r *WebhookNotificationRepo) MarkFailed(ctx context.Context, id int64, errMsg string, nextRetryAt time.Time) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE webhook_notifications
-		SET processing_status = 'failed', processing_error = ?, retry_count = retry_count + 1, next_retry_at = ?
-		WHERE id = ?
+		SET processing_status = 'failed', processing_error = $1, retry_count = retry_count + 1, next_retry_at = $2
+		WHERE id = $3
 	`, errMsg, sql.NullTime{Time: nextRetryAt, Valid: !nextRetryAt.IsZero()}, id)
 	if err != nil {
 		return fmt.Errorf("mark failed: %w", err)
@@ -124,8 +122,8 @@ func (r *WebhookNotificationRepo) MarkFailed(ctx context.Context, id int64, errM
 func (r *WebhookNotificationRepo) MarkIgnored(ctx context.Context, id int64) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE webhook_notifications
-		SET processing_status = 'ignored', processed_at = ?
-		WHERE id = ?
+		SET processing_status = 'ignored', processed_at = $1
+		WHERE id = $2
 	`, time.Now().UTC(), id)
 	if err != nil {
 		return fmt.Errorf("mark ignored: %w", err)

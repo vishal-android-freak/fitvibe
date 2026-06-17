@@ -35,7 +35,7 @@ func (r *SyncStateRepo) Get(ctx context.Context, userID int64, dataType, source 
 	row := r.db.QueryRowContext(ctx, `
 		SELECT id, user_id, data_type, source, last_start_time, last_end_time, last_civil_date, cursor, updated_at
 		FROM sync_state
-		WHERE user_id = ? AND data_type = ? AND source = ?
+		WHERE user_id = $1 AND data_type = $2 AND source = $3
 	`, userID, dataType, source)
 
 	s := &SyncStateRecord{}
@@ -54,7 +54,7 @@ func (r *SyncStateRepo) Upsert(ctx context.Context, rec *SyncStateRecord) error 
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO sync_state (
 			user_id, data_type, source, last_start_time, last_end_time, last_civil_date, cursor, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		ON CONFLICT(user_id, data_type, source) DO UPDATE SET
 			last_start_time = excluded.last_start_time,
 			last_end_time = excluded.last_end_time,
@@ -71,7 +71,7 @@ func (r *SyncStateRepo) Upsert(ctx context.Context, rec *SyncStateRecord) error 
 // UpdateCursor updates just the cursor for an existing record.
 func (r *SyncStateRepo) UpdateCursor(ctx context.Context, id int64, cursor string) error {
 	_, err := r.db.ExecContext(ctx, `
-		UPDATE sync_state SET cursor = ?, updated_at = ? WHERE id = ?
+		UPDATE sync_state SET cursor = $1, updated_at = $2 WHERE id = $3
 	`, sql.NullString{String: cursor, Valid: cursor != ""}, time.Now().UTC(), id)
 	if err != nil {
 		return fmt.Errorf("update cursor: %w", err)
@@ -81,7 +81,7 @@ func (r *SyncStateRepo) UpdateCursor(ctx context.Context, id int64, cursor strin
 
 // Delete removes a sync state record.
 func (r *SyncStateRepo) Delete(ctx context.Context, id int64) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM sync_state WHERE id = ?`, id)
+	_, err := r.db.ExecContext(ctx, `DELETE FROM sync_state WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("delete sync state: %w", err)
 	}

@@ -51,7 +51,7 @@ func (r *SleepRepo) LatestNight(ctx context.Context, userID int64) (*SleepNight,
 	err := r.db.QueryRowContext(ctx, `
 		SELECT id, start_time, end_time, COALESCE(start_utc_offset_seconds, end_utc_offset_seconds, 0)
 		FROM data_points
-		WHERE user_id = ? AND data_type = 'sleep' AND start_time IS NOT NULL AND end_time IS NOT NULL
+		WHERE user_id = $1 AND data_type = 'sleep' AND start_time IS NOT NULL AND end_time IS NOT NULL
 		ORDER BY end_time DESC
 		LIMIT 1`, userID).Scan(&night.DataPointID, &night.Start, &night.End, &offset)
 	if err == sql.ErrNoRows {
@@ -81,7 +81,7 @@ func (r *SleepRepo) stages(ctx context.Context, dpID int64) ([]SleepStageSegment
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT stage_type, start_time, end_time, COALESCE(start_utc_offset_seconds, 0)
 		FROM sleep_stages
-		WHERE data_point_id = ?
+		WHERE data_point_id = $1
 		ORDER BY start_time`, dpID)
 	if err != nil {
 		return nil, fmt.Errorf("query sleep stages: %w", err)
@@ -105,7 +105,7 @@ func (r *SleepRepo) summary(ctx context.Context, dpID int64) ([]SleepStageSummar
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT stage_type, COALESCE(minutes, 0), COALESCE(count, 0)
 		FROM sleep_summary_stages
-		WHERE data_point_id = ?`, dpID)
+		WHERE data_point_id = $1`, dpID)
 	if err != nil {
 		return nil, fmt.Errorf("query sleep summary: %w", err)
 	}

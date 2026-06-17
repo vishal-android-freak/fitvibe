@@ -61,7 +61,7 @@ func (r *UserRepo) StoreTokens(ctx context.Context, googleUserID, healthUserID, 
 			height_meters, weight_kg,
 			access_token, refresh_token, token_expiry, scopes,
 			updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 		ON CONFLICT(google_user_id) DO UPDATE SET
 			health_user_id = excluded.health_user_id,
 			legacy_user_id = excluded.legacy_user_id,
@@ -145,7 +145,7 @@ type scanner interface {
 
 // GetByID looks up a user by id.
 func (r *UserRepo) GetByID(ctx context.Context, id int64) (*User, error) {
-	row := r.db.QueryRowContext(ctx, "SELECT "+userColumns()+" FROM users WHERE id = ?", id)
+	row := r.db.QueryRowContext(ctx, "SELECT "+userColumns()+" FROM users WHERE id = $1", id)
 	u, err := scanUser(row)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -158,7 +158,7 @@ func (r *UserRepo) GetByID(ctx context.Context, id int64) (*User, error) {
 
 // GetByHealthUserID looks up a user by health_user_id.
 func (r *UserRepo) GetByHealthUserID(ctx context.Context, healthUserID string) (*User, error) {
-	row := r.db.QueryRowContext(ctx, "SELECT "+userColumns()+" FROM users WHERE health_user_id = ?", healthUserID)
+	row := r.db.QueryRowContext(ctx, "SELECT "+userColumns()+" FROM users WHERE health_user_id = $1", healthUserID)
 	u, err := scanUser(row)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -196,13 +196,13 @@ func (r *UserRepo) UpdateProfileSettings(ctx context.Context, id int64, age int,
 	now := time.Now().UTC()
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE users
-		SET age = ?, membership_start_date = ?,
-		    stride_length_walking_mm = ?, stride_length_running_mm = ?,
-		    distance_unit = ?, weight_unit = ?, height_unit = ?, temperature_unit = ?,
-		    time_zone = ?, language_locale = ?, utc_offset = ?,
-		    profile_json = ?, profile_updated_at = ?,
-		    settings_json = ?, settings_updated_at = ?, updated_at = ?
-		WHERE id = ?
+		SET age = $1, membership_start_date = $2,
+		    stride_length_walking_mm = $3, stride_length_running_mm = $4,
+		    distance_unit = $5, weight_unit = $6, height_unit = $7, temperature_unit = $8,
+		    time_zone = $9, language_locale = $10, utc_offset = $11,
+		    profile_json = $12, profile_updated_at = $13,
+		    settings_json = $14, settings_updated_at = $15, updated_at = $16
+		WHERE id = $17
 	`,
 		sql.NullInt32{Int32: int32(age), Valid: age > 0},
 		sql.NullTime{Time: membershipStartDate, Valid: !membershipStartDate.IsZero()},
@@ -230,8 +230,8 @@ func (r *UserRepo) UpdateProfileSettings(ctx context.Context, id int64, age int,
 func (r *UserRepo) UpdateBodyMetrics(ctx context.Context, id int64, heightMeters, weightKg float64) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE users
-		SET height_meters = ?, weight_kg = ?, updated_at = ?
-		WHERE id = ?
+		SET height_meters = $1, weight_kg = $2, updated_at = $3
+		WHERE id = $4
 	`,
 		sql.NullFloat64{Float64: heightMeters, Valid: heightMeters > 0},
 		sql.NullFloat64{Float64: weightKg, Valid: weightKg > 0},
@@ -246,8 +246,8 @@ func (r *UserRepo) UpdateBodyMetrics(ctx context.Context, id int64, heightMeters
 func (r *UserRepo) UpdateIdentity(ctx context.Context, id int64, googleUserID, healthUserID, legacyUserID string) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE users
-		SET google_user_id = ?, health_user_id = ?, legacy_user_id = ?, updated_at = ?
-		WHERE id = ?
+		SET google_user_id = $1, health_user_id = $2, legacy_user_id = $3, updated_at = $4
+		WHERE id = $5
 	`, sql.NullString{String: googleUserID, Valid: googleUserID != ""},
 		sql.NullString{String: healthUserID, Valid: healthUserID != ""},
 		sql.NullString{String: legacyUserID, Valid: legacyUserID != ""},
@@ -262,8 +262,8 @@ func (r *UserRepo) UpdateIdentity(ctx context.Context, id int64, googleUserID, h
 func (r *UserRepo) UpdateTokensByID(ctx context.Context, id int64, accessToken, refreshToken string, expiry time.Time, scopes string) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE users
-		SET access_token = ?, refresh_token = ?, token_expiry = ?, scopes = ?, updated_at = ?
-		WHERE id = ?
+		SET access_token = $1, refresh_token = $2, token_expiry = $3, scopes = $4, updated_at = $5
+		WHERE id = $6
 	`, accessToken, refreshToken, expiry, scopes, time.Now().UTC(), id)
 	if err != nil {
 		return fmt.Errorf("update tokens: %w", err)

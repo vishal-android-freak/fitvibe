@@ -48,9 +48,16 @@ type DataPointRecord struct {
 	ValueMax               sql.NullFloat64
 	EnumValue              sql.NullString
 	EnumValueSecondary     sql.NullString
-	PayloadJSON            string
-	FetchedVia             string
-	WebhookNotificationID  sql.NullInt64
+
+	// Promoted from payload_json at ingestion so queries read columns, not JSON.
+	NutritionCarbsGrams sql.NullFloat64
+	NutritionFatGrams   sql.NullFloat64
+	MealType            sql.NullString
+	FoodDisplayName     sql.NullString
+
+	PayloadJSON           string
+	FetchedVia            string
+	WebhookNotificationID sql.NullInt64
 
 	// Children are normalized child-table rows derived from this data point.
 	// They are inserted transactionally after the parent row, keyed on its id.
@@ -152,7 +159,8 @@ type HealthDataRow struct {
 
 // Insert stores a single data point and returns its ID.
 func (r *DataPointRepo) Insert(ctx context.Context, rec *DataPointRecord) (int64, error) {
-	res, err := r.db.ExecContext(ctx, `
+	var id int64
+	err := r.db.QueryRowContext(ctx, `
 		INSERT INTO data_points (
 			user_id, data_type, data_point_category,
 			data_source_family, recording_method, platform, device_name, device_form_factor, application_package_name,
@@ -161,10 +169,12 @@ func (r *DataPointRepo) Insert(ctx context.Context, rec *DataPointRecord) (int64
 			start_utc_offset_seconds, end_utc_offset_seconds,
 			value_count, value_sum, value_avg, value_min, value_max,
 			enum_value, enum_value_secondary,
+			nutrition_carbs_grams, nutrition_fat_grams, meal_type, food_display_name,
 			payload_json, fetched_via, webhook_notification_id
 		) VALUES (
-			?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35
 		)
+		RETURNING id
 	`, rec.UserID, rec.DataType, rec.DataPointCategory,
 		rec.DataSourceFamily, rec.RecordingMethod, rec.Platform, rec.DeviceName, rec.DeviceFormFactor, rec.ApplicationPackageName,
 		rec.DataSourceJSON, rec.GoogleDataPointName, rec.ResourceID,
@@ -172,13 +182,10 @@ func (r *DataPointRepo) Insert(ctx context.Context, rec *DataPointRecord) (int64
 		rec.StartUTCOffsetSeconds, rec.EndUTCOffsetSeconds,
 		rec.ValueCount, rec.ValueSum, rec.ValueAvg, rec.ValueMin, rec.ValueMax,
 		rec.EnumValue, rec.EnumValueSecondary,
-		rec.PayloadJSON, rec.FetchedVia, rec.WebhookNotificationID)
+		rec.NutritionCarbsGrams, rec.NutritionFatGrams, rec.MealType, rec.FoodDisplayName,
+		rec.PayloadJSON, rec.FetchedVia, rec.WebhookNotificationID).Scan(&id)
 	if err != nil {
 		return 0, fmt.Errorf("insert data point: %w", err)
-	}
-	id, err := res.LastInsertId()
-	if err != nil {
-		return 0, fmt.Errorf("last insert id: %w", err)
 	}
 	return id, nil
 }
@@ -187,13 +194,13 @@ func (r *DataPointRepo) Insert(ctx context.Context, rec *DataPointRecord) (int64
 // single transaction.
 //
 // The parent row is upserted with INSERT ... ON CONFLICT DO UPDATE keyed on the
-// COALESCE unique index (user_id, data_type, sample_time, start_time, end_time).
-// Unlike INSERT OR REPLACE, ON CONFLICT DO UPDATE keeps the SAME rowid, so the
-// data point's id is stable across re-ingestion and backfills. Child rows are
-// then cleared by that stable id and re-inserted, which makes the whole
-// operation idempotent — running it repeatedly never produces duplicate parent
-// or child rows, and does not depend on ON DELETE CASCADE / foreign_keys being
-// enabled on the connection.
+// NULLS NOT DISTINCT unique index (user_id, data_type, sample_time, start_time,
+// end_time). ON CONFLICT DO UPDATE keeps the SAME row, and RETURNING id yields
+// its stable id whether the statement inserted or updated — so the data point's
+// id is stable across re-ingestion and backfills. Child rows are then cleared by
+// that stable id and re-inserted, which makes the whole operation idempotent —
+// running it repeatedly never produces duplicate parent or child rows, and does
+// not depend on ON DELETE CASCADE / foreign_keys being enabled on the connection.
 func (r *DataPointRepo) InsertMany(ctx context.Context, recs []*DataPointRecord) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -210,56 +217,54 @@ func (r *DataPointRepo) InsertMany(ctx context.Context, recs []*DataPointRecord)
 			start_utc_offset_seconds, end_utc_offset_seconds,
 			value_count, value_sum, value_avg, value_min, value_max,
 			enum_value, enum_value_secondary,
+			nutrition_carbs_grams, nutrition_fat_grams, meal_type, food_display_name,
 			payload_json, fetched_via, webhook_notification_id
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT (user_id, data_type, COALESCE(sample_time, ''), COALESCE(start_time, ''), COALESCE(end_time, ''))
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35)
+		ON CONFLICT (user_id, data_type, sample_time, start_time, end_time)
 		DO UPDATE SET
-			data_point_category = excluded.data_point_category,
-			data_source_family = excluded.data_source_family,
-			recording_method = excluded.recording_method,
-			platform = excluded.platform,
-			device_name = excluded.device_name,
-			device_form_factor = excluded.device_form_factor,
-			application_package_name = excluded.application_package_name,
-			data_source_json = excluded.data_source_json,
-			google_data_point_name = excluded.google_data_point_name,
-			resource_id = excluded.resource_id,
-			civil_start_time = excluded.civil_start_time,
-			civil_end_time = excluded.civil_end_time,
-			civil_start_date = excluded.civil_start_date,
-			civil_end_date = excluded.civil_end_date,
-			start_utc_offset_seconds = excluded.start_utc_offset_seconds,
-			end_utc_offset_seconds = excluded.end_utc_offset_seconds,
-			value_count = excluded.value_count,
-			value_sum = excluded.value_sum,
-			value_avg = excluded.value_avg,
-			value_min = excluded.value_min,
-			value_max = excluded.value_max,
-			enum_value = excluded.enum_value,
-			enum_value_secondary = excluded.enum_value_secondary,
-			payload_json = excluded.payload_json,
-			fetched_via = excluded.fetched_via,
-			webhook_notification_id = excluded.webhook_notification_id
+			data_point_category = EXCLUDED.data_point_category,
+			data_source_family = EXCLUDED.data_source_family,
+			recording_method = EXCLUDED.recording_method,
+			platform = EXCLUDED.platform,
+			device_name = EXCLUDED.device_name,
+			device_form_factor = EXCLUDED.device_form_factor,
+			application_package_name = EXCLUDED.application_package_name,
+			data_source_json = EXCLUDED.data_source_json,
+			google_data_point_name = EXCLUDED.google_data_point_name,
+			resource_id = EXCLUDED.resource_id,
+			civil_start_time = EXCLUDED.civil_start_time,
+			civil_end_time = EXCLUDED.civil_end_time,
+			civil_start_date = EXCLUDED.civil_start_date,
+			civil_end_date = EXCLUDED.civil_end_date,
+			start_utc_offset_seconds = EXCLUDED.start_utc_offset_seconds,
+			end_utc_offset_seconds = EXCLUDED.end_utc_offset_seconds,
+			value_count = EXCLUDED.value_count,
+			value_sum = EXCLUDED.value_sum,
+			value_avg = EXCLUDED.value_avg,
+			value_min = EXCLUDED.value_min,
+			value_max = EXCLUDED.value_max,
+			enum_value = EXCLUDED.enum_value,
+			enum_value_secondary = EXCLUDED.enum_value_secondary,
+			nutrition_carbs_grams = EXCLUDED.nutrition_carbs_grams,
+			nutrition_fat_grams = EXCLUDED.nutrition_fat_grams,
+			meal_type = EXCLUDED.meal_type,
+			food_display_name = EXCLUDED.food_display_name,
+			payload_json = EXCLUDED.payload_json,
+			fetched_via = EXCLUDED.fetched_via,
+			webhook_notification_id = EXCLUDED.webhook_notification_id
+		RETURNING id
 	`)
 	if err != nil {
 		return fmt.Errorf("prepare stmt: %w", err)
 	}
 	defer stmt.Close()
 
-	idStmt, err := tx.PrepareContext(ctx, `
-		SELECT id FROM data_points
-		WHERE user_id = ? AND data_type = ?
-		  AND COALESCE(sample_time, '') = COALESCE(?, '')
-		  AND COALESCE(start_time, '') = COALESCE(?, '')
-		  AND COALESCE(end_time, '') = COALESCE(?, '')
-	`)
-	if err != nil {
-		return fmt.Errorf("prepare id stmt: %w", err)
-	}
-	defer idStmt.Close()
-
 	for _, rec := range recs {
-		if _, err := stmt.ExecContext(ctx,
+		// ON CONFLICT DO UPDATE reuses the same row, so RETURNING id yields the
+		// stable id whether this was an insert or an update — preserving the
+		// idempotency / stable-id behavior child rows depend on.
+		var dpID int64
+		if err := stmt.QueryRowContext(ctx,
 			rec.UserID, rec.DataType, rec.DataPointCategory,
 			rec.DataSourceFamily, rec.RecordingMethod, rec.Platform, rec.DeviceName, rec.DeviceFormFactor, rec.ApplicationPackageName,
 			rec.DataSourceJSON, rec.GoogleDataPointName, rec.ResourceID,
@@ -267,22 +272,17 @@ func (r *DataPointRepo) InsertMany(ctx context.Context, recs []*DataPointRecord)
 			rec.StartUTCOffsetSeconds, rec.EndUTCOffsetSeconds,
 			rec.ValueCount, rec.ValueSum, rec.ValueAvg, rec.ValueMin, rec.ValueMax,
 			rec.EnumValue, rec.EnumValueSecondary,
-			rec.PayloadJSON, rec.FetchedVia, rec.WebhookNotificationID); err != nil {
+			rec.NutritionCarbsGrams, rec.NutritionFatGrams, rec.MealType, rec.FoodDisplayName,
+			rec.PayloadJSON, rec.FetchedVia, rec.WebhookNotificationID).Scan(&dpID); err != nil {
 			return fmt.Errorf("upsert data point: %w", err)
 		}
 
 		// The vast majority of points (e.g. heart-rate samples) have no child
-		// rows. Skip the id-resolution query and child handling entirely for
-		// them. This is safe for re-parse backfills: the same immutable payload
-		// always yields the same children, so a point that produces none now
-		// never had any to clear.
+		// rows. Skip child handling entirely for them. This is safe for re-parse
+		// backfills: the same immutable payload always yields the same children,
+		// so a point that produces none now never had any to clear.
 		if rec.Children.IsEmpty() {
 			continue
-		}
-
-		var dpID int64
-		if err := idStmt.QueryRowContext(ctx, rec.UserID, rec.DataType, rec.SampleTime, rec.StartTime, rec.EndTime).Scan(&dpID); err != nil {
-			return fmt.Errorf("resolve data point id: %w", err)
 		}
 
 		if err := insertChildren(ctx, tx, rec.UserID, dpID, &rec.Children); err != nil {
@@ -315,7 +315,7 @@ func insertChildren(ctx context.Context, tx *sql.Tx, userID, dpID int64, c *Data
 	}
 
 	for _, t := range childTables {
-		if _, err := tx.ExecContext(ctx, "DELETE FROM "+t+" WHERE data_point_id = ?", dpID); err != nil {
+		if _, err := tx.ExecContext(ctx, "DELETE FROM "+t+" WHERE data_point_id = $1", dpID); err != nil {
 			return fmt.Errorf("clear %s: %w", t, err)
 		}
 	}
@@ -323,7 +323,7 @@ func insertChildren(ctx context.Context, tx *sql.Tx, userID, dpID int64, c *Data
 	for _, s := range c.SleepStages {
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO sleep_stages (data_point_id, start_time, end_time, start_utc_offset_seconds, end_utc_offset_seconds, stage_type, create_time, update_time)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
 			dpID, s.StartTime, s.EndTime, s.StartUTCOffsetSeconds, s.EndUTCOffsetSeconds, s.StageType, s.CreateTime, s.UpdateTime); err != nil {
 			return fmt.Errorf("insert sleep_stage: %w", err)
 		}
@@ -331,7 +331,7 @@ func insertChildren(ctx context.Context, tx *sql.Tx, userID, dpID int64, c *Data
 	for _, s := range c.SleepSummary {
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO sleep_summary_stages (data_point_id, stage_type, minutes, count)
-			VALUES (?, ?, ?, ?)`,
+			VALUES ($1, $2, $3, $4)`,
 			dpID, s.StageType, s.Minutes, s.Count); err != nil {
 			return fmt.Errorf("insert sleep_summary_stage: %w", err)
 		}
@@ -339,7 +339,7 @@ func insertChildren(ctx context.Context, tx *sql.Tx, userID, dpID int64, c *Data
 	for _, s := range c.SleepOutOfBed {
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO sleep_out_of_bed_segments (data_point_id, start_time, end_time, start_utc_offset_seconds, end_utc_offset_seconds)
-			VALUES (?, ?, ?, ?, ?)`,
+			VALUES ($1, $2, $3, $4, $5)`,
 			dpID, s.StartTime, s.EndTime, s.StartUTCOffsetSeconds, s.EndUTCOffsetSeconds); err != nil {
 			return fmt.Errorf("insert sleep_out_of_bed: %w", err)
 		}
@@ -347,7 +347,7 @@ func insertChildren(ctx context.Context, tx *sql.Tx, userID, dpID int64, c *Data
 	for _, e := range c.ExerciseEvents {
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO exercise_events (data_point_id, event_time, event_utc_offset_seconds, event_type)
-			VALUES (?, ?, ?, ?)`,
+			VALUES ($1, $2, $3, $4)`,
 			dpID, e.EventTime, e.EventUTCOffsetSeconds, e.EventType); err != nil {
 			return fmt.Errorf("insert exercise_event: %w", err)
 		}
@@ -355,7 +355,7 @@ func insertChildren(ctx context.Context, tx *sql.Tx, userID, dpID int64, c *Data
 	for _, s := range c.ExerciseSplits {
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO exercise_splits (data_point_id, start_time, end_time, active_duration_seconds, split_type, metrics_summary_json)
-			VALUES (?, ?, ?, ?, ?, ?)`,
+			VALUES ($1, $2, $3, $4, $5, $6)`,
 			dpID, s.StartTime, s.EndTime, s.ActiveDurationSeconds, s.SplitType, s.MetricsSummaryJSON); err != nil {
 			return fmt.Errorf("insert exercise_split: %w", err)
 		}
@@ -363,7 +363,7 @@ func insertChildren(ctx context.Context, tx *sql.Tx, userID, dpID int64, c *Data
 	for _, n := range c.Nutrients {
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO nutrition_log_nutrients (data_point_id, nutrient, grams)
-			VALUES (?, ?, ?)`,
+			VALUES ($1, $2, $3)`,
 			dpID, n.Nutrient, n.Grams); err != nil {
 			return fmt.Errorf("insert nutrient: %w", err)
 		}
@@ -371,7 +371,7 @@ func insertChildren(ctx context.Context, tx *sql.Tx, userID, dpID int64, c *Data
 	for _, z := range c.DailyHRZones {
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO daily_heart_rate_zones (data_point_id, zone_type, min_bpm, max_bpm)
-			VALUES (?, ?, ?, ?)`,
+			VALUES ($1, $2, $3, $4)`,
 			dpID, z.ZoneType, z.MinBPM, z.MaxBPM); err != nil {
 			return fmt.Errorf("insert daily_hr_zone: %w", err)
 		}
@@ -379,16 +379,22 @@ func insertChildren(ctx context.Context, tx *sql.Tx, userID, dpID int64, c *Data
 	for _, a := range c.ActiveMinutes {
 		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO active_minutes_by_level (data_point_id, activity_level, minutes)
-			VALUES (?, ?, ?)`,
+			VALUES ($1, $2, $3)`,
 			dpID, a.ActivityLevel, a.Minutes); err != nil {
 			return fmt.Errorf("insert active_minutes: %w", err)
 		}
 	}
 	for _, h := range c.HealthRecords {
 		if _, err := tx.ExecContext(ctx, `
-			INSERT OR REPLACE INTO health_data_records
+			INSERT INTO health_data_records
 				(user_id, data_point_id, record_date, metric_name, metric_value, metric_unit, metric_metadata_json, source, data_type)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			ON CONFLICT (user_id, record_date, metric_name, source) DO UPDATE SET
+				data_point_id = EXCLUDED.data_point_id,
+				metric_value = EXCLUDED.metric_value,
+				metric_unit = EXCLUDED.metric_unit,
+				metric_metadata_json = EXCLUDED.metric_metadata_json,
+				data_type = EXCLUDED.data_type`,
 			userID, dpID, h.RecordDate, h.MetricName, h.MetricValue, h.MetricUnit, h.MetadataJSON, h.Source, h.DataType); err != nil {
 			return fmt.Errorf("insert health_data_record: %w", err)
 		}
@@ -402,9 +408,9 @@ func insertChildren(ctx context.Context, tx *sql.Tx, userID, dpID int64, c *Data
 func (r *DataPointRepo) DeleteByTimeRange(ctx context.Context, userID int64, dataType string, start, end time.Time) (int64, error) {
 	res, err := r.db.ExecContext(ctx, `
 		DELETE FROM data_points
-		WHERE user_id = ? AND data_type = ?
-		  AND COALESCE(sample_time, start_time) >= ?
-		  AND COALESCE(sample_time, start_time) < ?
+		WHERE user_id = $1 AND data_type = $2
+		  AND COALESCE(sample_time, start_time) >= $3
+		  AND COALESCE(sample_time, start_time) < $4
 	`, userID, dataType, start.UTC(), end.UTC())
 	if err != nil {
 		return 0, fmt.Errorf("delete data points by range: %w", err)
@@ -419,7 +425,7 @@ func (r *DataPointRepo) GetByName(ctx context.Context, userID int64, name string
 		SELECT id, user_id, data_type, data_point_category,
 		       google_data_point_name, payload_json, fetched_at
 		FROM data_points
-		WHERE user_id = ? AND google_data_point_name = ?
+		WHERE user_id = $1 AND google_data_point_name = $2
 	`, userID, name)
 
 	rec := &DataPointRecord{}
@@ -482,7 +488,7 @@ func (r *DataPointRepo) GetLatestValue(ctx context.Context, userID int64, dataTy
 	row := r.db.QueryRowContext(ctx, `
 		SELECT COALESCE(value_avg, value_sum, 0)
 		FROM data_points
-		WHERE user_id = ? AND data_type = ? AND (value_avg IS NOT NULL OR value_sum IS NOT NULL)
+		WHERE user_id = $1 AND data_type = $2 AND (value_avg IS NOT NULL OR value_sum IS NOT NULL)
 		ORDER BY COALESCE(sample_time, start_time) DESC
 		LIMIT 1
 	`, userID, dataType)

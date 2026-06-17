@@ -60,7 +60,7 @@ func (r *TodayRepo) DaySummary(ctx context.Context, userID int64, localDate stri
 	err := r.db.QueryRowContext(ctx, `
 		SELECT COALESCE(SUM(value_count), 0)
 		FROM data_points
-		WHERE user_id = ? AND data_type = 'steps' AND date(civil_start_date) = ?
+		WHERE user_id = $1 AND data_type = 'steps' AND civil_start_date = $2
 		  AND COALESCE(platform, '') != 'HEALTH_CONNECT'
 		  AND COALESCE(device_form_factor, '') != 'PHONE'`,
 		userID, localDate).Scan(&out.Steps)
@@ -75,7 +75,7 @@ func (r *TodayRepo) DaySummary(ctx context.Context, userID int64, localDate stri
 	err = r.db.QueryRowContext(ctx, `
 		SELECT value_avg, sample_time, COALESCE(start_utc_offset_seconds, 0)
 		FROM data_points
-		WHERE user_id = ? AND data_type = 'heart-rate' AND value_avg IS NOT NULL AND sample_time IS NOT NULL
+		WHERE user_id = $1 AND data_type = 'heart-rate' AND value_avg IS NOT NULL AND sample_time IS NOT NULL
 		ORDER BY sample_time DESC
 		LIMIT 1`, userID).Scan(&hr, &at, &off)
 	switch {
@@ -100,10 +100,10 @@ func (r *TodayRepo) NutritionToday(ctx context.Context, userID int64, localDate 
 	err := r.db.QueryRowContext(ctx, `
 		SELECT
 			COALESCE(SUM(value_sum), 0),
-			COALESCE(SUM(json_extract(payload_json, '$.nutritionLog.totalCarbohydrate.grams')), 0),
-			COALESCE(SUM(json_extract(payload_json, '$.nutritionLog.totalFat.grams')), 0)
+			COALESCE(SUM(nutrition_carbs_grams), 0),
+			COALESCE(SUM(nutrition_fat_grams), 0)
 		FROM data_points
-		WHERE user_id = ? AND data_type = 'nutrition-log' AND date(civil_start_date) = ?`,
+		WHERE user_id = $1 AND data_type = 'nutrition-log' AND civil_start_date = $2`,
 		userID, localDate).Scan(&out.CaloriesEaten, &out.CarbsGrams, &out.FatGrams)
 	if err != nil {
 		return nil, fmt.Errorf("nutrition totals: %w", err)
@@ -114,8 +114,8 @@ func (r *TodayRepo) NutritionToday(ctx context.Context, userID int64, localDate 
 		SELECT COALESCE(SUM(n.grams), 0)
 		FROM nutrition_log_nutrients n
 		JOIN data_points d ON d.id = n.data_point_id
-		WHERE d.user_id = ? AND d.data_type = 'nutrition-log'
-		  AND date(d.civil_start_date) = ? AND n.nutrient = 'PROTEIN'`,
+		WHERE d.user_id = $1 AND d.data_type = 'nutrition-log'
+		  AND d.civil_start_date = $2 AND n.nutrient = 'PROTEIN'`,
 		userID, localDate).Scan(&out.ProteinGrams)
 	if err != nil {
 		return nil, fmt.Errorf("protein total: %w", err)
@@ -124,9 +124,9 @@ func (r *TodayRepo) NutritionToday(ctx context.Context, userID int64, localDate 
 	// Active energy burned: kcal per interval point. ROUND so fractional kcal
 	// don't truncate (e.g. 41.8 → 42, not 41).
 	err = r.db.QueryRowContext(ctx, `
-		SELECT CAST(ROUND(COALESCE(SUM(json_extract(payload_json, '$.activeEnergyBurned.kcal')), 0)) AS INTEGER)
+		SELECT ROUND(COALESCE(SUM(value_sum), 0))::int
 		FROM data_points
-		WHERE user_id = ? AND data_type = 'active-energy-burned' AND date(civil_start_date) = ?`,
+		WHERE user_id = $1 AND data_type = 'active-energy-burned' AND civil_start_date = $2`,
 		userID, localDate).Scan(&out.CaloriesBurnt)
 	if err != nil {
 		return nil, fmt.Errorf("calories burnt: %w", err)
@@ -136,49 +136,36 @@ func (r *TodayRepo) NutritionToday(ctx context.Context, userID int64, localDate 
 	err = r.db.QueryRowContext(ctx, `
 		SELECT COALESCE(SUM(value_sum), 0)
 		FROM data_points
-		WHERE user_id = ? AND data_type = 'hydration-log' AND date(civil_start_date) = ?`,
+		WHERE user_id = $1 AND data_type = 'hydration-log' AND civil_start_date = $2`,
 		userID, localDate).Scan(&out.HydrationML)
 	if err != nil {
 		return nil, fmt.Errorf("hydration total: %w", err)
 	}
 
 	// Most recent contributing entry today, across all nutrition/energy/hydration
-	// sources — drives the "as of" stamp. COALESCE loses the column's TIMESTAMP
-	// affinity so the driver returns the value as a string; scan into a string
-	// and parse, rather than directly into time.Time (which fails).
-	var atStr string
+	// sources — drives the "as of" stamp. In Postgres COALESCE preserves the
+	// column's timestamptz type, so scan directly into time.Time.
+	var at time.Time
 	var off sql.NullInt64
 	err = r.db.QueryRowContext(ctx, `
 		SELECT COALESCE(start_time, sample_time), COALESCE(start_utc_offset_seconds, 0)
 		FROM data_points
-		WHERE user_id = ?
+		WHERE user_id = $1
 		  AND data_type IN ('nutrition-log', 'active-energy-burned', 'hydration-log')
-		  AND date(civil_start_date) = ?
+		  AND civil_start_date = $2
 		  AND COALESCE(start_time, sample_time) IS NOT NULL
 		ORDER BY COALESCE(start_time, sample_time) DESC
-		LIMIT 1`, userID, localDate).Scan(&atStr, &off)
+		LIMIT 1`, userID, localDate).Scan(&at, &off)
 	switch {
 	case err == sql.ErrNoRows:
 		// nothing logged today — leave nil
 	case err != nil:
 		return nil, fmt.Errorf("nutrition last-updated: %w", err)
 	default:
-		if at := parseStoredTime(atStr); !at.IsZero() {
+		if !at.IsZero() {
 			out.LastUpdated = &LatestSample{At: at, OffsetSeconds: int(off.Int64)}
 		}
 	}
 
 	return &out, nil
-}
-
-// parseStoredTime parses a stored timestamp string (the driver returns COALESCE
-// results as strings, losing TIMESTAMP affinity), tolerating both RFC3339 and
-// the space-separated SQLite form. Returns the zero time if unparseable.
-func parseStoredTime(s string) time.Time {
-	for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02 15:04:05Z07:00", "2006-01-02 15:04:05"} {
-		if t, err := time.Parse(layout, s); err == nil {
-			return t
-		}
-	}
-	return time.Time{}
 }

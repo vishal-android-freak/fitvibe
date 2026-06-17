@@ -3,15 +3,16 @@ package db
 import (
 	"context"
 	"database/sql"
-	"database/sql/driver"
 	"embed"
 	"fmt"
 	"log/slog"
 	"path"
 	"sort"
 	"strings"
+	"time"
 
-	tursogo "turso.tech/database/tursogo"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/vishal-android-freak/fitvibe/internal/config"
 )
@@ -19,78 +20,67 @@ import (
 // DB wraps a *sql.DB with application-specific helpers.
 type DB struct {
 	*sql.DB
-	cfg *config.Config
+	cfg  *config.Config
+	pool *pgxpool.Pool
 }
 
-// Open opens a local Turso (libSQL) database and applies migrations.
+// Open opens the PostgreSQL database and applies migrations.
 //
-// The tursogo driver applies no per-connection PRAGMA defaults beyond busy
-// timeout, and foreign-key enforcement defaults OFF (SQLite compatibility).
-// Running PRAGMAs on the *sql.DB only configures whichever pooled connection
-// served the call, leaving other connections with foreign_keys OFF — so
-// ON DELETE CASCADE would silently not fire. We therefore wrap the driver's
-// connector so the session PRAGMAs run on every new connection.
+// We use pgxpool for connection management and expose a *sql.DB via the pgx
+// stdlib adapter so the repository layer keeps using database/sql unchanged.
+// Foreign keys are always enforced and concurrent writers are first-class, so
+// the per-connection PRAGMA dance the SQLite driver needed is gone.
 func Open(cfg *config.Config, logger *slog.Logger) (*DB, error) {
-	connector, err := tursogo.NewConnector(cfg.TursoDatabaseURL)
+	poolCfg, err := pgxpool.ParseConfig(cfg.DatabaseURL)
 	if err != nil {
-		return nil, fmt.Errorf("open database: %w", err)
+		return nil, fmt.Errorf("parse database url: %w", err)
+	}
+	if cfg.DBMaxConns > 0 {
+		poolCfg.MaxConns = cfg.DBMaxConns
+	}
+	if cfg.DBMinConns > 0 {
+		poolCfg.MinConns = cfg.DBMinConns
 	}
 
-	pragmas := []string{
-		"PRAGMA foreign_keys = ON",
-		fmt.Sprintf("PRAGMA busy_timeout = %d", cfg.SQLiteBusyTimeoutMs),
-		"PRAGMA journal_mode = WAL",
+	// Retry the initial connect so a just-started DB (e.g. docker compose up)
+	// or a brief network blip doesn't crash startup.
+	ctx := context.Background()
+	var pool *pgxpool.Pool
+	for attempt := 0; attempt < 10; attempt++ {
+		pool, err = pgxpool.NewWithConfig(ctx, poolCfg)
+		if err == nil {
+			pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			err = pool.Ping(pingCtx)
+			cancel()
+			if err == nil {
+				break
+			}
+			pool.Close()
+		}
+		logger.Warn("database not ready, retrying", "attempt", attempt+1, "error", err)
+		time.Sleep(time.Duration(attempt+1) * time.Second)
 	}
-	if cfg.TursoEncryptionKey != "" {
-		pragmas = append(pragmas, fmt.Sprintf("PRAGMA encryption_key = '%s'", cfg.TursoEncryptionKey))
+	if err != nil {
+		return nil, fmt.Errorf("connect database: %w", err)
 	}
 
-	db := sql.OpenDB(&pragmaConnector{inner: connector, pragmas: pragmas})
-
-	if err := db.Ping(); err != nil {
-		return nil, fmt.Errorf("ping database: %w", err)
-	}
-
-	d := &DB{DB: db, cfg: cfg}
+	d := &DB{DB: stdlib.OpenDBFromPool(pool), cfg: cfg, pool: pool}
 	if err := d.Migrate(); err != nil {
+		d.Close()
 		return nil, fmt.Errorf("migrate: %w", err)
 	}
 
-	logger.Info("database opened", "url", cfg.TursoDatabaseURL)
+	logger.Info("database opened", "host", poolCfg.ConnConfig.Host, "db", poolCfg.ConnConfig.Database)
 	return d, nil
 }
 
-// pragmaConnector wraps a driver.Connector and runs a fixed set of PRAGMAs on
-// every connection it hands out, so pool-wide session state is consistent.
-type pragmaConnector struct {
-	inner   driver.Connector
-	pragmas []string
-}
-
-func (c *pragmaConnector) Connect(ctx context.Context) (driver.Conn, error) {
-	conn, err := c.inner.Connect(ctx)
-	if err != nil {
-		return nil, err
-	}
-	execer, ok := conn.(driver.ExecerContext)
-	if !ok {
-		conn.Close()
-		return nil, fmt.Errorf("turso connection does not support ExecerContext")
-	}
-	for _, p := range c.pragmas {
-		if _, err := execer.ExecContext(ctx, p, nil); err != nil {
-			conn.Close()
-			return nil, fmt.Errorf("apply pragma %q: %w", p, err)
-		}
-	}
-	return conn, nil
-}
-
-func (c *pragmaConnector) Driver() driver.Driver { return c.inner.Driver() }
-
-// Close closes the underlying database connection.
+// Close closes the underlying database connection pool.
 func (d *DB) Close() error {
-	return d.DB.Close()
+	err := d.DB.Close()
+	if d.pool != nil {
+		d.pool.Close()
+	}
+	return err
 }
 
 //go:embed migrations/*.sql
