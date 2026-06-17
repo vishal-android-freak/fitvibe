@@ -42,6 +42,10 @@ type SleepNight struct {
 	OffsetSeconds int       // local UTC offset, for rendering wall-clock times
 	Segments      []SleepStageSegment
 	Summary       []SleepStageSummary
+	// The device's own summary minutes (Fitbit-authoritative). Null on rows
+	// whose payload lacks them; callers fall back to summed stage minutes.
+	MinutesAsleep        sql.NullInt64
+	MinutesInSleepPeriod sql.NullInt64
 }
 
 // LatestNight returns the most recent sleep session for a user, or nil if none.
@@ -49,11 +53,14 @@ func (r *SleepRepo) LatestNight(ctx context.Context, userID int64) (*SleepNight,
 	var night SleepNight
 	var offset sql.NullInt64
 	err := r.db.QueryRowContext(ctx, `
-		SELECT id, start_time, end_time, COALESCE(start_utc_offset_seconds, end_utc_offset_seconds, 0)
+		SELECT id, start_time, end_time, COALESCE(start_utc_offset_seconds, end_utc_offset_seconds, 0),
+		       (payload_json->'sleep'->'summary'->>'minutesAsleep')::int,
+		       (payload_json->'sleep'->'summary'->>'minutesInSleepPeriod')::int
 		FROM data_points
 		WHERE user_id = $1 AND data_type = 'sleep' AND start_time IS NOT NULL AND end_time IS NOT NULL
 		ORDER BY end_time DESC
-		LIMIT 1`, userID).Scan(&night.DataPointID, &night.Start, &night.End, &offset)
+		LIMIT 1`, userID).Scan(&night.DataPointID, &night.Start, &night.End, &offset,
+		&night.MinutesAsleep, &night.MinutesInSleepPeriod)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -87,7 +94,12 @@ type SleepNightDetail struct {
 	End           time.Time // session end (UTC instant)
 	OffsetSeconds int       // local UTC offset, for rendering wall-clock times
 	CivilDate     string    // local civil date "2006-01-02" (civil_end_date or date(end_time))
-	AsleepMinutes int       // deep + rem + light, from the device summary
+	AsleepMinutes int       // deep + rem + light, summed from stages (fallback)
+
+	// Device's own summary minutes (Fitbit-authoritative); null when the payload
+	// lacks them. Preferred for duration + efficiency.
+	MinutesAsleep        sql.NullInt64
+	MinutesInSleepPeriod sql.NullInt64
 
 	RestingHeartRate sql.NullFloat64 // daily-resting-heart-rate value_avg (bpm)
 	HRV              sql.NullFloat64 // daily-heart-rate-variability value_avg (ms)
@@ -115,7 +127,9 @@ func (r *SleepRepo) RecentNights(ctx context.Context, userID int64, limit int) (
 			SELECT DISTINCT ON (COALESCE(civil_end_date, date(end_time)))
 			       id, start_time, end_time,
 			       COALESCE(start_utc_offset_seconds, end_utc_offset_seconds, 0) AS offset_seconds,
-			       COALESCE(civil_end_date, date(end_time)) AS civil_date
+			       COALESCE(civil_end_date, date(end_time)) AS civil_date,
+			       (payload_json->'sleep'->'summary'->>'minutesAsleep')::int AS minutes_asleep,
+			       (payload_json->'sleep'->'summary'->>'minutesInSleepPeriod')::int AS minutes_in_period
 			FROM data_points
 			WHERE user_id = $1 AND data_type = 'sleep'
 			  AND start_time IS NOT NULL AND end_time IS NOT NULL
@@ -130,6 +144,7 @@ func (r *SleepRepo) RecentNights(ctx context.Context, userID int64, limit int) (
 		-- per civil date (e.g. respiratory-rate-sleep-summary), and joining would
 		-- fan each night into duplicate rows. Aggregate to one value per date.
 		SELECT n.id, n.start_time, n.end_time, n.offset_seconds, n.civil_date,
+		       n.minutes_asleep, n.minutes_in_period,
 		       (SELECT AVG(value_avg) FROM data_points v
 		          WHERE v.user_id = $1 AND v.data_type = 'daily-resting-heart-rate'
 		            AND v.civil_start_date = n.civil_date) AS rhr,
@@ -160,6 +175,7 @@ func (r *SleepRepo) RecentNights(ctx context.Context, userID int64, limit int) (
 		var offset sql.NullInt64
 		var civilDate time.Time
 		if err := rows.Scan(&d.DataPointID, &d.Start, &d.End, &offset, &civilDate,
+			&d.MinutesAsleep, &d.MinutesInSleepPeriod,
 			&d.RestingHeartRate, &d.HRV, &d.SpO2, &d.RespiratoryRate, &d.SkinTempDelta); err != nil {
 			return nil, fmt.Errorf("scan recent sleep night: %w", err)
 		}

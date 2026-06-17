@@ -167,6 +167,14 @@ func buildNight(n *repositories.SleepNightDetail) nightSummary {
 			awakenings = s.Count
 		}
 	}
+	// Prefer the device's own summary minutes (matches Google Health) for
+	// duration + efficiency; fall back to the summed stage minutes.
+	if n.MinutesAsleep.Valid {
+		asleep = int(n.MinutesAsleep.Int64)
+	}
+	if n.MinutesInSleepPeriod.Valid {
+		total = int(n.MinutesInSleepPeriod.Int64)
+	}
 
 	nullable := func(v sql.NullFloat64) *float64 {
 		if !v.Valid {
@@ -254,13 +262,21 @@ func buildLastNight(n *repositories.SleepNight, age int) LastNightResponse {
 
 	// Per-stage totals: prefer the device summary, fall back to summing segments.
 	stages, total, asleep := stageTotals(n.Summary, segments)
-	eff := efficiency(asleep, total)
 	awakenings := 0
 	for _, s := range stages {
 		if s.Stage == "Awake" {
 			awakenings = s.Count
 		}
 	}
+	// Prefer the device's own summary minutes (matches Google Health) for
+	// duration + efficiency; fall back to the summed stage minutes.
+	if n.MinutesAsleep.Valid {
+		asleep = int(n.MinutesAsleep.Int64)
+	}
+	if n.MinutesInSleepPeriod.Valid {
+		total = int(n.MinutesInSleepPeriod.Int64)
+	}
+	eff := efficiency(asleep, total)
 
 	return LastNightResponse{
 		Segments:      segments,
