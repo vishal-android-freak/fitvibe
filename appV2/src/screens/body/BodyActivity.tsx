@@ -20,6 +20,9 @@ const SESSIONS: Session[] = [
   { type: 'Morning walk', icon: 'footprints', hue: hue.oxygen, meta: '1.1 km · 14:00 · 78 kcal' },
 ];
 
+const ACTIVE_MINUTES = [18, 40, 26, 52, 38, 12, 32];
+const WEEK_LABELS = ['W', 'T', 'F', 'S', 'S', 'M', 'T'];
+
 /** Steps/distance/floors, energy & zone minutes, sessions, weekly active minutes. */
 export function BodyActivity() {
   return (
@@ -32,7 +35,7 @@ export function BodyActivity() {
       <SessionList sessions={SESSIONS} />
 
       <Eyebrow>This week</Eyebrow>
-      <TrainingLoad />
+      <TrainingLoad data={ACTIVE_MINUTES} labels={WEEK_LABELS} />
     </>
   );
 }

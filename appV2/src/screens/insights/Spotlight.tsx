@@ -1,9 +1,14 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Icon, InsightCard, RecoverySignals, RichText } from '@/components';
-import { accent, font, fontSize, glass, text } from '@/theme';
+import { Icon, InsightCard, RecoverySignals, RichText, type RecoverySignal } from '@/components';
+import { accent, font, fontSize, glass, hue, text } from '@/theme';
 import { SPOTLIGHT } from './data';
 import { Provenance } from './Provenance';
+
+const RECOVERY_SIGNALS: RecoverySignal[] = [
+  { label: 'Resting heart rate', value: '54', unit: 'bpm', hue: hue.heart, week: [58, 57, 57, 56, 55, 54, 54] },
+  { label: 'Heart rate variability', value: '62', unit: 'ms', hue: hue.mind, week: [52, 55, 54, 58, 60, 61, 62] },
+];
 
 /** "Insight of the week" — featured insight with recovery viz + provenance. */
 export function Spotlight({ onAsk }: { onAsk: (seed: string) => void }) {
@@ -12,7 +17,7 @@ export function Spotlight({ onAsk }: { onAsk: (seed: string) => void }) {
       <InsightCard eyebrow="Insight of the week" title={SPOTLIGHT.title}>
         <RichText segs={SPOTLIGHT.body} style={styles.body} />
         <View style={styles.signals}>
-          <RecoverySignals />
+          <RecoverySignals signals={RECOVERY_SIGNALS} />
         </View>
         <Provenance items={SPOTLIGHT.prov} source={SPOTLIGHT.source} topBorder={glass.border} />
         <View style={styles.ask}>

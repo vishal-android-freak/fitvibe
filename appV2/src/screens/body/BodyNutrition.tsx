@@ -1,7 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { CalorieBudget, MacroRings, MealsList, MicroBars } from '@/components';
-import type { Meal } from '@/components/genui/MealsList';
+import { CalorieBudget, MacroRings, MealsList, MicroBars, type Meal } from '@/components';
 import { border, hue, radius, surface } from '@/theme';
 import { Eyebrow, Tile } from './parts';
 

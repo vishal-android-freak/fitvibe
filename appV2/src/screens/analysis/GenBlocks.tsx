@@ -1,11 +1,17 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { RecoverySignals, SleepDurationCard, TrainingLoad, type RecoverySignal } from '@/components';
 import { SleepCard } from '@/screens/today/SleepCard';
-import { RecoverySignals } from '@/components/genui/RecoverySignals';
-import { SleepDurationCard } from '@/components/genui/SleepDurationCard';
-import { TrainingLoad } from '@/components/genui/TrainingLoad';
-import { font, fontSize, text } from '@/theme';
+import { font, fontSize, hue, text } from '@/theme';
 import type { GenKind } from './data';
+
+const RECOVERY_SIGNALS: RecoverySignal[] = [
+  { label: 'Resting heart rate', value: '54', unit: 'bpm', hue: hue.heart, week: [58, 57, 57, 56, 55, 54, 54] },
+  { label: 'Heart rate variability', value: '62', unit: 'ms', hue: hue.mind, week: [52, 55, 54, 58, 60, 61, 62] },
+];
+
+const ACTIVE_MINUTES = [18, 40, 26, 52, 38, 12, 32];
+const WEEK_LABELS = ['W', 'T', 'F', 'S', 'S', 'M', 'T'];
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return <Text style={styles.label}>{children}</Text>;
@@ -22,16 +28,16 @@ export function GenBlocks({ gen }: { gen: GenKind }) {
           <SleepCard />
         </View>
         <SectionLabel>Your recovery signals</SectionLabel>
-        <RecoverySignals />
+        <RecoverySignals signals={RECOVERY_SIGNALS} />
       </>
     );
   }
   return (
     <>
       <SectionLabel>This week's training load</SectionLabel>
-      <TrainingLoad />
+      <TrainingLoad data={ACTIVE_MINUTES} labels={WEEK_LABELS} />
       <SectionLabel>Your recovery signals</SectionLabel>
-      <RecoverySignals />
+      <RecoverySignals signals={RECOVERY_SIGNALS} />
     </>
   );
 }

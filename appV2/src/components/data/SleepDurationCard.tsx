@@ -1,21 +1,33 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { GaugeArc } from '@/components/data/GaugeArc';
+import type { IconName } from '@/components/Icon';
 import { accent, border, font, fontSize, hue, radius, surface, text } from '@/theme';
 
-/** Sleep duration + score gauge — a generative-UI block for an analysis/reply. */
-export function SleepDurationCard({ duration = '7h 12m', score = 84, rating = 'Good' }: { duration?: string; score?: number; rating?: string }) {
-  const gaugeHue = rating === 'Great' ? hue.move : rating === 'Good' ? accent.base : hue.energy;
+export interface SleepDurationCardProps {
+  duration: string;
+  score: number;
+  rating: string;
+  label?: string;
+  icon?: IconName;
+  /** override the gauge hue; defaults by rating (Great/Good/else) */
+  hueColor?: string;
+  style?: ViewStyle;
+}
+
+/** A duration figure + score gauge with a rating. Generative-UI block. */
+export function SleepDurationCard({ duration, score, rating, label = 'Sleep duration', icon = 'moon', hueColor, style }: SleepDurationCardProps) {
+  const gaugeHue = hueColor ?? (rating === 'Great' ? hue.move : rating === 'Good' ? accent.base : hue.energy);
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, style]}>
       <View style={styles.left}>
-        <Text style={styles.label}>Sleep duration</Text>
+        <Text style={styles.label}>{label}</Text>
         <Text style={styles.duration}>{duration}</Text>
         <Text style={styles.meta}>
           <Text style={styles.score}>{score}</Text> · {rating}
         </Text>
       </View>
-      <GaugeArc value={score / 100} hue={gaugeHue} icon="moon" />
+      <GaugeArc value={score / 100} hue={gaugeHue} icon={icon} />
     </View>
   );
 }

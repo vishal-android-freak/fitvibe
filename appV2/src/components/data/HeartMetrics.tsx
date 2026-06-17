@@ -11,6 +11,8 @@ export interface HeartTile {
 
 export interface HeartMetricsProps {
   bpm: number;
+  eyebrow?: string;
+  unit?: string;
   caption?: string;
   trend: number[];
   trendHue?: string;
@@ -18,14 +20,14 @@ export interface HeartMetricsProps {
   style?: ViewStyle;
 }
 
-/** Resting heart-rate hero + trend sparkline + supporting tiles. Generative-UI block. */
-export function HeartMetrics({ bpm, caption = 'resting heart rate · lowest this month', trend, trendHue = hues.heart, tiles = [], style }: HeartMetricsProps) {
+/** A big metric hero (e.g. resting HR) + trend sparkline + supporting tiles. Generative-UI block. */
+export function HeartMetrics({ bpm, eyebrow = 'HEART', unit = 'bpm', caption = 'resting heart rate · lowest this month', trend, trendHue = hues.heart, tiles = [], style }: HeartMetricsProps) {
   return (
     <View style={[styles.wrap, style]}>
-      <Text style={styles.eyebrow}>HEART</Text>
+      <Text style={styles.eyebrow}>{eyebrow}</Text>
       <View style={styles.row}>
         <Text style={styles.big}>{bpm}</Text>
-        <Text style={styles.unit}>bpm</Text>
+        <Text style={styles.unit}>{unit}</Text>
       </View>
       <Text style={styles.sub}>{caption}</Text>
       <View style={styles.spark}>
