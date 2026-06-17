@@ -14,6 +14,8 @@ export { Sparkline } from './data/Sparkline';
 export { StatTile } from './data/StatTile';
 export { BarChart } from './data/BarChart';
 export { GaugeArc } from './data/GaugeArc';
+export { Hypnogram, SAMPLE_SLEEP_SEGMENTS, SAMPLE_ONSET_CLOCK } from './data/Hypnogram';
+export type { SleepStage, SleepSegment, HypnogramProps } from './data/Hypnogram';
 
 // AI
 export { InsightCard } from './ai/InsightCard';
