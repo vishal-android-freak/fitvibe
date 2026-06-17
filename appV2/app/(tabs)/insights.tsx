@@ -1,5 +1,5 @@
-import { Placeholder } from '@/components/layout/Placeholder';
+import { InsightsScreen } from '@/screens/insights/InsightsScreen';
 
-export default function InsightsScreen() {
-  return <Placeholder title="Insights" icon="lightbulb" />;
+export default function Insights() {
+  return <InsightsScreen />;
 }

@@ -13,6 +13,7 @@ export type { Ring } from './data/ProgressRing';
 export { Sparkline } from './data/Sparkline';
 export { StatTile } from './data/StatTile';
 export { BarChart } from './data/BarChart';
+export { GaugeArc } from './data/GaugeArc';
 
 // AI
 export { InsightCard } from './ai/InsightCard';
@@ -25,6 +26,7 @@ export { Icon } from './Icon';
 export type { IconName } from './Icon';
 export { Spinner } from './Spinner';
 export { Rise } from './Rise';
+export { Toast } from './Toast';
 export { FieldGlow } from './FieldGlow';
 export { ScreenContainer } from './layout/ScreenContainer';
 export { Screen, NAV_CLEARANCE } from './layout/Screen';

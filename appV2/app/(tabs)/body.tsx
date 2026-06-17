@@ -1,5 +1,5 @@
-import { Placeholder } from '@/components/layout/Placeholder';
+import { BodyScreen } from '@/screens/body/BodyScreen';
 
-export default function BodyScreen() {
-  return <Placeholder title="Body" icon="activity" />;
+export default function Body() {
+  return <BodyScreen />;
 }

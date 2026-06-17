@@ -1,5 +1,5 @@
-import { Placeholder } from '@/components/layout/Placeholder';
+import { SleepScreen } from '@/screens/sleep/SleepScreen';
 
-export default function SleepScreen() {
-  return <Placeholder title="Sleep" icon="moon" />;
+export default function Sleep() {
+  return <SleepScreen />;
 }
