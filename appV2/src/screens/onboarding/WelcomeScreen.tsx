@@ -8,29 +8,14 @@ import { useAuth } from '@/auth';
 import { font, fontSize, glow, radius, status, text } from '@/theme';
 import { useResponsive } from '@/theme';
 
-export interface WelcomeScreenProps {
-  /** override the sign-in handler (e.g. for prototyping); defaults to the OAuth flow */
-  onGoogle?: () => void;
-  busy?: boolean;
-}
-
 /**
  * Onboarding welcome ("calm" variant): app icon, headline, subcopy, the white
- * "Continue with Google" button, a privacy note, and legal microcopy. By
- * default the button runs the real Google OAuth flow via the auth context.
+ * "Continue with Google" button, a privacy note, and legal microcopy. The
+ * button runs the real Google OAuth flow via the auth context.
  */
-export function WelcomeScreen({ onGoogle, busy: busyProp }: WelcomeScreenProps) {
+export function WelcomeScreen() {
   const { maxContent } = useResponsive();
-  const { signIn, busy: authBusy, error } = useAuth();
-  const busy = busyProp ?? authBusy;
-
-  const handlePress = () => {
-    if (onGoogle) {
-      onGoogle();
-      return;
-    }
-    void signIn();
-  };
+  const { signIn, busy, error } = useAuth();
 
   return (
     <FieldGlow>
@@ -54,7 +39,7 @@ export function WelcomeScreen({ onGoogle, busy: busyProp }: WelcomeScreenProps) 
           </View>
 
           <Rise delay={300} style={styles.footer}>
-            <GoogleButton onPress={handlePress} busy={busy} />
+            <GoogleButton onPress={() => void signIn()} busy={busy} />
             {error ? <Text style={styles.error}>{error}</Text> : null}
             <View style={styles.privacy}>
               <Icon name="shield-check" size={14} color={text.muted} />

@@ -1,3 +1,5 @@
+import Constants from 'expo-constants';
+
 /**
  * Backend configuration. In the brokered OAuth flow the backend owns the Google
  * client (id + secret) and scopes; the app only needs the backend base URL and
@@ -8,5 +10,11 @@ export const config = {
   apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:8080',
 };
 
-/** App custom-scheme redirect path; combined with the `fitvibe` scheme. */
+/** The app's custom URL scheme — single source is app.json's `scheme`. */
+export const APP_SCHEME = ((): string => {
+  const scheme = Constants.expoConfig?.scheme;
+  return (Array.isArray(scheme) ? scheme[0] : scheme) ?? 'fitvibe';
+})();
+
+/** App custom-scheme redirect path; combined with APP_SCHEME → fitvibe://oauthredirect. */
 export const REDIRECT_PATH = 'oauthredirect';

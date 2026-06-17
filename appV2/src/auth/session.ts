@@ -1,4 +1,5 @@
 import { config } from './config';
+import type { Session } from './storage';
 
 /** Identity returned by the backend (mirrors oauth.ExchangeResponse). */
 export interface SessionResponse {
@@ -6,6 +7,12 @@ export interface SessionResponse {
   health_user_id: string;
   google_user_id: string;
   legacy_user_id: string;
+}
+
+/** Map the backend's wire shape to the persisted Session (the one place this
+ *  snake_case → camelCase remap lives). */
+export function toSession(r: SessionResponse): Session {
+  return { userId: r.user_id, healthUserId: r.health_user_id, googleUserId: r.google_user_id };
 }
 
 /**

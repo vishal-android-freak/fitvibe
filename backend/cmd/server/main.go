@@ -159,38 +159,44 @@ func main() {
 	// the browser back to the app.
 	r.Get("/auth/callback", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
-		state := q.Get("state")
-		appRedirect, ok := authBroker.ResolveState(state)
+		appRedirect, ok := authBroker.ResolveState(q.Get("state"))
 		if !ok {
 			respondError(w, http.StatusBadRequest, "unknown or expired state")
 			return
 		}
+		// Deep-link back to the app with the given params. The state was already
+		// validated above, so the app doesn't need it echoed back.
+		redirectApp := func(params url.Values) {
+			http.Redirect(w, r, appRedirect+"?"+params.Encode(), http.StatusFound)
+		}
+		fail := func(code string) { redirectApp(url.Values{"error": {code}}) }
+
 		if oauthErr := q.Get("error"); oauthErr != "" {
-			http.Redirect(w, r, appRedirect+"?error="+url.QueryEscape(oauthErr)+"&state="+url.QueryEscape(state), http.StatusFound)
+			fail(oauthErr)
 			return
 		}
 		code := q.Get("code")
 		if code == "" {
-			http.Redirect(w, r, appRedirect+"?error=missing_code&state="+url.QueryEscape(state), http.StatusFound)
+			fail("missing_code")
 			return
 		}
 
 		resp, err := oauthService.Exchange(r.Context(), oauth.ExchangeRequest{Code: code, RedirectURI: cfg.GoogleRedirectURI})
 		if err != nil {
 			logger.Error("brokered exchange failed", "error", err)
-			http.Redirect(w, r, appRedirect+"?error=exchange_failed&state="+url.QueryEscape(state), http.StatusFound)
+			fail("exchange_failed")
 			return
 		}
 
 		token, err := authBroker.StashSession(resp)
 		if err != nil {
 			logger.Error("stash session failed", "error", err)
-			http.Redirect(w, r, appRedirect+"?error=server_error&state="+url.QueryEscape(state), http.StatusFound)
+			fail("server_error")
 			return
 		}
 
 		startBackfill(resp.UserID)
-		http.Redirect(w, r, appRedirect+"?token="+url.QueryEscape(token)+"&state="+url.QueryEscape(state), http.StatusFound)
+		redirectApp(url.Values{"token": {token}})
 	})
 
 	// /auth/session?token=  — the app redeems the one-time token for its identity.
