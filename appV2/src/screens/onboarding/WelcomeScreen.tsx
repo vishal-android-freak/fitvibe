@@ -1,34 +1,35 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FieldGlow, Icon, Rise } from '@/components';
 import { AppIcon } from '@/components/brand/AppIcon';
 import { GoogleButton } from '@/components/brand/GoogleButton';
-import { font, fontSize, glow, radius, text } from '@/theme';
+import { useAuth } from '@/auth';
+import { font, fontSize, glow, radius, status, text } from '@/theme';
 import { useResponsive } from '@/theme';
 
 export interface WelcomeScreenProps {
+  /** override the sign-in handler (e.g. for prototyping); defaults to the OAuth flow */
   onGoogle?: () => void;
   busy?: boolean;
 }
 
 /**
  * Onboarding welcome ("calm" variant): app icon, headline, subcopy, the white
- * "Continue with Google" button, a privacy note, and legal microcopy.
+ * "Continue with Google" button, a privacy note, and legal microcopy. By
+ * default the button runs the real Google OAuth flow via the auth context.
  */
 export function WelcomeScreen({ onGoogle, busy: busyProp }: WelcomeScreenProps) {
-  const [busyLocal, setBusyLocal] = useState(false);
   const { maxContent } = useResponsive();
-  const busy = busyProp ?? busyLocal;
+  const { signIn, busy: authBusy, error } = useAuth();
+  const busy = busyProp ?? authBusy;
 
   const handlePress = () => {
     if (onGoogle) {
       onGoogle();
       return;
     }
-    // No OAuth wired yet — show the button's busy state briefly.
-    setBusyLocal(true);
-    setTimeout(() => setBusyLocal(false), 1400);
+    void signIn();
   };
 
   return (
@@ -54,6 +55,7 @@ export function WelcomeScreen({ onGoogle, busy: busyProp }: WelcomeScreenProps) 
 
           <Rise delay={300} style={styles.footer}>
             <GoogleButton onPress={handlePress} busy={busy} />
+            {error ? <Text style={styles.error}>{error}</Text> : null}
             <View style={styles.privacy}>
               <Icon name="shield-check" size={14} color={text.muted} />
               <Text style={styles.privacyText}>Your data stays private, synced to your own device.</Text>
@@ -93,6 +95,7 @@ const styles = StyleSheet.create({
     maxWidth: 308,
   },
   footer: { paddingHorizontal: 24, paddingBottom: 32 },
+  error: { fontFamily: font.sansSemibold, fontSize: fontSize.xs, color: status.danger, textAlign: 'center', marginTop: 12 },
   privacy: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 16 },
   privacyText: { fontFamily: font.sansRegular, fontSize: fontSize.xs, color: text.muted, textAlign: 'center' },
   legal: {

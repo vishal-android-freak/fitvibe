@@ -12,6 +12,7 @@ import {
   Sora_700Bold,
 } from '@expo-google-fonts/sora';
 import { JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
+import { AuthProvider } from '@/auth';
 import { surface } from '@/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -36,19 +37,21 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: surface.bgApp }}>
       <SafeAreaProvider>
-        <StatusBar style="light" />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: surface.bgApp },
-            animation: 'slide_from_right',
-          }}
-        >
-          <Stack.Screen name="index" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="ask" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="analysis/[id]" options={{ presentation: 'modal' }} />
-        </Stack>
+        <AuthProvider>
+          <StatusBar style="light" />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: surface.bgApp },
+              animation: 'slide_from_right',
+            }}
+          >
+            <Stack.Screen name="index" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="ask" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="analysis/[id]" options={{ presentation: 'modal' }} />
+          </Stack>
+        </AuthProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
