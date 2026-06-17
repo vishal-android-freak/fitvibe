@@ -21,6 +21,11 @@ export { ChatMessage } from './ai/ChatMessage';
 export { AIGradient } from './ai/AIGradient';
 export { Sparkle } from './ai/Sparkle';
 
+// Generative-UI blocks (rendered inline in analyses / chat replies)
+export { TrainingLoad } from './genui/TrainingLoad';
+export { RecoverySignals } from './genui/RecoverySignals';
+export { SleepDurationCard } from './genui/SleepDurationCard';
+
 // Layout / shared
 export { Icon } from './Icon';
 export type { IconName } from './Icon';
