@@ -39,7 +39,8 @@ interface WireSegment {
   minutes: number;
 }
 
-interface WireResponse {
+/** Backend sleep payload shape (also embedded in GET /me/today). */
+export interface SleepWire {
   segments: WireSegment[];
   onsetClock: number;
   wakeClock: number;
@@ -51,7 +52,13 @@ interface WireResponse {
   typical: TypicalStages;
 }
 
-function decode(r: WireResponse): LastNight {
+/** Decode the backend sleep payload into the app's LastNight shape. Exported so
+ *  the Today aggregate can decode its embedded sleep block. */
+export function decodeSleep(r: SleepWire | null): LastNight | null {
+  return r ? decode(r) : null;
+}
+
+function decode(r: SleepWire): LastNight {
   return {
     segments: r.segments.map((s) => [s.stage, s.minutes] as SleepSegment),
     onsetClock: r.onsetClock,
@@ -97,7 +104,7 @@ export async function fetchLastNight(userId: number): Promise<LastNight | null> 
     }
     throw new Error(detail || `Failed to load sleep (HTTP ${res.status})`);
   }
-  return decode((await res.json()) as WireResponse);
+  return decode((await res.json()) as SleepWire);
 }
 
 export interface LastNightState {

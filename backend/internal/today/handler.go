@@ -1,5 +1,7 @@
-// Package today serves the Today screen's live day rollups: activity snapshot
-// (steps + current heart rate) and nutrition/energy/hydration totals.
+// Package today serves the Today screen as a single aggregate endpoint
+// (GET /me/today): activity snapshot (steps + current heart rate), nutrition /
+// energy / hydration totals, the activity timeline, and last night's sleep —
+// everything the screen renders, in one response (a backend-for-frontend).
 package today
 
 import (
@@ -8,28 +10,29 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/vishal-android-freak/fitvibe/internal/db/repositories"
+	"github.com/vishal-android-freak/fitvibe/internal/sleep"
 )
 
-// Handler exposes read-only "today" endpoints for the app.
+// Handler serves the unified Today endpoint for the app.
 type Handler struct {
-	repo *repositories.TodayRepo
-	db   *sql.DB
+	repo  *repositories.TodayRepo
+	sleep *sleep.Handler
+	db    *sql.DB
 }
 
-func NewHandler(repo *repositories.TodayRepo, db *sql.DB) *Handler {
-	return &Handler{repo: repo, db: db}
+func NewHandler(repo *repositories.TodayRepo, sleepHandler *sleep.Handler, db *sql.DB) *Handler {
+	return &Handler{repo: repo, sleep: sleepHandler, db: db}
 }
 
 // Register mounts the today routes.
 func (h *Handler) Register(r chi.Router) {
-	r.Get("/me/today/summary", h.summary)
-	r.Get("/me/today/timeline", h.timeline)
-	r.Get("/me/nutrition/today", h.nutrition)
+	r.Get("/me/today", h.today)
 }
 
 // latestSample is a timestamped reading. Value is omitted for timestamp-only
@@ -40,14 +43,14 @@ type latestSample struct {
 	OffsetSeconds int     `json:"offsetSeconds"` // local UTC offset for rendering wall-clock
 }
 
-type summaryResponse struct {
-	Date            string        `json:"date"` // local civil day used
+// summaryBlock — steps + current heart rate.
+type summaryBlock struct {
 	Steps           int           `json:"steps"`
 	LatestHeartRate *latestSample `json:"latestHeartRate"` // null if no sample
 }
 
-type nutritionResponse struct {
-	Date          string        `json:"date"`
+// nutritionBlock — today's intake / energy / hydration.
+type nutritionBlock struct {
 	CaloriesEaten int           `json:"caloriesEaten"`
 	CaloriesBurnt int           `json:"caloriesBurnt"`
 	CarbsGrams    float64       `json:"carbsGrams"`
@@ -55,60 +58,6 @@ type nutritionResponse struct {
 	ProteinGrams  float64       `json:"proteinGrams"`
 	HydrationML   float64       `json:"hydrationMl"`
 	LastUpdated   *latestSample `json:"lastUpdated"` // null if nothing logged today
-}
-
-func (h *Handler) summary(w http.ResponseWriter, r *http.Request) {
-	userID, ok := parseUserID(w, r)
-	if !ok {
-		return
-	}
-	localDate := h.localDate(r.Context(), userID)
-
-	s, err := h.repo.DaySummary(r.Context(), userID, localDate)
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "failed to load today summary")
-		return
-	}
-
-	resp := summaryResponse{Date: localDate, Steps: s.Steps}
-	if s.LatestHeartRate != nil {
-		resp.LatestHeartRate = &latestSample{
-			Value:         s.LatestHeartRate.Value,
-			At:            s.LatestHeartRate.At.Format(time.RFC3339),
-			OffsetSeconds: s.LatestHeartRate.OffsetSeconds,
-		}
-	}
-	writeJSON(w, http.StatusOK, resp)
-}
-
-func (h *Handler) nutrition(w http.ResponseWriter, r *http.Request) {
-	userID, ok := parseUserID(w, r)
-	if !ok {
-		return
-	}
-	localDate := h.localDate(r.Context(), userID)
-
-	n, err := h.repo.NutritionToday(r.Context(), userID, localDate)
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "failed to load nutrition")
-		return
-	}
-	resp := nutritionResponse{
-		Date:          localDate,
-		CaloriesEaten: n.CaloriesEaten,
-		CaloriesBurnt: n.CaloriesBurnt,
-		CarbsGrams:    n.CarbsGrams,
-		FatGrams:      n.FatGrams,
-		ProteinGrams:  n.ProteinGrams,
-		HydrationML:   n.HydrationML,
-	}
-	if n.LastUpdated != nil {
-		resp.LastUpdated = &latestSample{
-			At:            n.LastUpdated.At.Format(time.RFC3339),
-			OffsetSeconds: n.LastUpdated.OffsetSeconds,
-		}
-	}
-	writeJSON(w, http.StatusOK, resp)
 }
 
 type timelineEvent struct {
@@ -121,24 +70,91 @@ type timelineEvent struct {
 	Items         []string `json:"items,omitempty"` // meal contents, when grouped
 }
 
-type timelineResponse struct {
-	Date   string          `json:"date"`
-	Events []timelineEvent `json:"events"`
+// todayResponse is the whole Today screen in one payload.
+type todayResponse struct {
+	Date      string                   `json:"date"` // local civil day
+	Summary   summaryBlock             `json:"summary"`
+	Nutrition nutritionBlock           `json:"nutrition"`
+	Timeline  []timelineEvent          `json:"timeline"`
+	Sleep     *sleep.LastNightResponse `json:"sleep"` // null if no sleep recorded
 }
 
-func (h *Handler) timeline(w http.ResponseWriter, r *http.Request) {
+// today assembles the whole screen. The four sections are independent reads, so
+// fetch them concurrently and fail the request only if a section errors.
+func (h *Handler) today(w http.ResponseWriter, r *http.Request) {
 	userID, ok := parseUserID(w, r)
 	if !ok {
 		return
 	}
-	localDate := h.localDate(r.Context(), userID)
+	ctx := r.Context()
+	localDate := h.localDate(ctx, userID)
 
-	events, err := h.repo.Timeline(r.Context(), userID, localDate)
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "failed to load timeline")
+	var (
+		resp     = todayResponse{Date: localDate, Timeline: []timelineEvent{}}
+		sumErr   error
+		nutErr   error
+		tlErr    error
+		sleepErr error
+	)
+
+	var wg sync.WaitGroup
+	wg.Add(4)
+	go func() { defer wg.Done(); resp.Summary, sumErr = h.buildSummary(ctx, userID, localDate) }()
+	go func() { defer wg.Done(); resp.Nutrition, nutErr = h.buildNutrition(ctx, userID, localDate) }()
+	go func() { defer wg.Done(); resp.Timeline, tlErr = h.buildTimeline(ctx, userID, localDate) }()
+	go func() { defer wg.Done(); resp.Sleep, sleepErr = h.sleep.LastNight(ctx, userID) }()
+	wg.Wait()
+
+	if err := firstErr(sumErr, nutErr, tlErr, sleepErr); err != nil {
+		writeErr(w, http.StatusInternalServerError, "failed to load today")
 		return
 	}
+	writeJSON(w, http.StatusOK, resp)
+}
 
+func (h *Handler) buildSummary(ctx context.Context, userID int64, localDate string) (summaryBlock, error) {
+	s, err := h.repo.DaySummary(ctx, userID, localDate)
+	if err != nil {
+		return summaryBlock{}, err
+	}
+	b := summaryBlock{Steps: s.Steps}
+	if s.LatestHeartRate != nil {
+		b.LatestHeartRate = &latestSample{
+			Value:         s.LatestHeartRate.Value,
+			At:            s.LatestHeartRate.At.Format(time.RFC3339),
+			OffsetSeconds: s.LatestHeartRate.OffsetSeconds,
+		}
+	}
+	return b, nil
+}
+
+func (h *Handler) buildNutrition(ctx context.Context, userID int64, localDate string) (nutritionBlock, error) {
+	n, err := h.repo.NutritionToday(ctx, userID, localDate)
+	if err != nil {
+		return nutritionBlock{}, err
+	}
+	b := nutritionBlock{
+		CaloriesEaten: n.CaloriesEaten,
+		CaloriesBurnt: n.CaloriesBurnt,
+		CarbsGrams:    n.CarbsGrams,
+		FatGrams:      n.FatGrams,
+		ProteinGrams:  n.ProteinGrams,
+		HydrationML:   n.HydrationML,
+	}
+	if n.LastUpdated != nil {
+		b.LastUpdated = &latestSample{
+			At:            n.LastUpdated.At.Format(time.RFC3339),
+			OffsetSeconds: n.LastUpdated.OffsetSeconds,
+		}
+	}
+	return b, nil
+}
+
+func (h *Handler) buildTimeline(ctx context.Context, userID int64, localDate string) ([]timelineEvent, error) {
+	events, err := h.repo.Timeline(ctx, userID, localDate)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]timelineEvent, 0, len(events))
 	for _, e := range events {
 		out = append(out, timelineEvent{
@@ -151,7 +167,16 @@ func (h *Handler) timeline(w http.ResponseWriter, r *http.Request) {
 			Items:         e.Items,
 		})
 	}
-	writeJSON(w, http.StatusOK, timelineResponse{Date: localDate, Events: out})
+	return out, nil
+}
+
+func firstErr(errs ...error) error {
+	for _, e := range errs {
+		if e != nil {
+			return e
+		}
+	}
+	return nil
 }
 
 // localDate computes the user's current local civil date. The server is UTC, so
@@ -163,7 +188,7 @@ func (h *Handler) localDate(ctx context.Context, userID int64) string {
 	_ = h.db.QueryRowContext(ctx, `
 		SELECT start_utc_offset_seconds
 		FROM data_points
-		WHERE user_id = ? AND start_utc_offset_seconds IS NOT NULL
+		WHERE user_id = $1 AND start_utc_offset_seconds IS NOT NULL
 		ORDER BY COALESCE(start_time, sample_time) DESC
 		LIMIT 1`, userID).Scan(&offset)
 	loc := time.FixedZone("local", int(offset.Int64))

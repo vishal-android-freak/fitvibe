@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { config } from '@/auth/config';
 import { useAuth } from '@/auth';
 import { fmtClock } from '@/data/mock';
 import { useRefreshRegister } from '@/data/refresh';
+import { decodeSleep, type LastNight, type SleepWire } from '@/data/sleep';
 
 /** A timestamped reading in its own local zone. `value` is optional (omitted
  *  for timestamp-only stamps like nutrition "last updated"). */
@@ -15,16 +16,14 @@ export interface Stamped {
 /** Latest heart-rate sample with the instant it was measured. */
 export type LatestHeartRate = Stamped & { value: number };
 
-/** Today's live activity snapshot (steps + current heart rate). */
+/** Activity snapshot — steps + current heart rate. */
 export interface TodaySummary {
-  date: string;
   steps: number;
   latestHeartRate: LatestHeartRate | null;
 }
 
 /** Today's intake / energy / hydration totals. */
 export interface NutritionToday {
-  date: string;
   caloriesEaten: number;
   caloriesBurnt: number;
   carbsGrams: number;
@@ -45,9 +44,13 @@ export interface TimelineEvent {
   items?: string[]; // meal contents, when grouped
 }
 
-export interface TodayTimeline {
+/** The whole Today screen in one payload (mirrors GET /me/today). */
+export interface Today {
   date: string;
-  events: TimelineEvent[];
+  summary: TodaySummary;
+  nutrition: NutritionToday;
+  timeline: TimelineEvent[];
+  sleep: LastNight | null; // null if no sleep recorded
 }
 
 /**
@@ -93,19 +96,18 @@ async function getJSON<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-export function fetchTodaySummary(userId: number): Promise<TodaySummary> {
-  return getJSON<TodaySummary>(`/me/today/summary?user_id=${userId}`);
+/** The Today aggregate's wire shape (sleep arrives in backend/wire form). */
+interface TodayWire extends Omit<Today, 'sleep'> {
+  sleep: SleepWire | null;
 }
 
-export function fetchNutritionToday(userId: number): Promise<NutritionToday> {
-  return getJSON<NutritionToday>(`/me/nutrition/today?user_id=${userId}`);
+/** Fetch the whole Today screen in one request. */
+export async function fetchToday(userId: number): Promise<Today> {
+  const w = await getJSON<TodayWire>(`/me/today?user_id=${userId}`);
+  return { ...w, sleep: decodeSleep(w.sleep) };
 }
 
-export function fetchTodayTimeline(userId: number): Promise<TodayTimeline> {
-  return getJSON<TodayTimeline>(`/me/today/timeline?user_id=${userId}`);
-}
-
-interface Resource<T> {
+export interface Resource<T> {
   data: T | null;
   loading: boolean;
   error: string | null;
@@ -113,76 +115,79 @@ interface Resource<T> {
   reload: () => Promise<void>;
 }
 
-/** Shared loader: runs `fetcher(userId)` for the signed-in user with state. */
-function useUserResource<T>(fetcher: (userId: number) => Promise<T>): Resource<T> {
+// --- Shared Today store ---------------------------------------------------
+// One source of truth for the whole Today screen so that every section can call
+// useToday() independently (no prop-threading) while only ONE /me/today request
+// is in flight. A single in-flight promise dedups concurrent loads.
+
+interface TodayState {
+  data: Today | null;
+  loading: boolean;
+  error: string | null;
+}
+
+let todayState: TodayState = { data: null, loading: true, error: null };
+let inFlight: Promise<void> | null = null;
+const listeners = new Set<() => void>();
+
+function emit() {
+  for (const l of listeners) l();
+}
+
+async function loadToday(userId: number): Promise<void> {
+  // Dedup: if a load is already running, await it instead of starting another.
+  if (inFlight) return inFlight;
+  // Show the loading state only on the first load; on refresh keep old data.
+  if (todayState.data == null) todayState = { ...todayState, loading: true };
+  emit();
+
+  inFlight = (async () => {
+    try {
+      const d = await fetchToday(userId);
+      todayState = { data: d, loading: false, error: null };
+    } catch (e: unknown) {
+      // Keep old data on a failed refresh; surface the error only with nothing to show.
+      todayState = {
+        data: todayState.data,
+        loading: false,
+        error: todayState.data == null ? (e instanceof Error ? e.message : 'Failed to load') : todayState.error,
+      };
+    } finally {
+      inFlight = null;
+      emit();
+    }
+  })();
+  return inFlight;
+}
+
+/**
+ * The single hook the whole Today screen uses. Every section calls it; they
+ * share one request and one refresh. Returns the full Today payload — sections
+ * read `data.summary`, `data.nutrition`, `data.timeline`, `data.sleep`.
+ */
+export function useToday(): Resource<Today> {
   const { session } = useAuth();
   const userId = session?.userId;
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const mounted = useRef(true);
-  // Mirror data in a ref so load() can tell an initial load (no data yet → show
-  // the loading state) from a refresh (data present → keep showing it).
-  const dataRef = useRef<T | null>(null);
+  const [, force] = useState(0);
+
   useEffect(() => {
-    mounted.current = true;
+    const rerender = () => force((n) => n + 1);
+    listeners.add(rerender);
     return () => {
-      mounted.current = false;
+      listeners.delete(rerender);
     };
   }, []);
 
-  const load = useCallback(async () => {
-    if (!userId) {
-      if (mounted.current) {
-        dataRef.current = null;
-        setData(null);
-        setLoading(false);
-      }
-      return;
-    }
-    // Only show the loading state when we have nothing to show yet. On refresh
-    // (data already present) we keep the old data visible and let the
-    // pull-to-refresh spinner be the only indicator.
-    const isInitial = dataRef.current == null;
-    if (mounted.current && isInitial) {
-      setLoading(true);
-    }
-    try {
-      const d = await fetcher(userId);
-      if (mounted.current) {
-        dataRef.current = d;
-        setData(d);
-        setError(null);
-      }
-    } catch (e: unknown) {
-      // Keep the old data on a failed refresh — only surface the error when we
-      // have nothing else to show.
-      if (mounted.current && isInitial) {
-        setError(e instanceof Error ? e.message : 'Failed to load');
-      }
-    } finally {
-      if (mounted.current) setLoading(false);
-    }
-    // fetcher is a stable module-level function; only userId varies.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const reload = useCallback(async () => {
+    if (userId) await loadToday(userId);
   }, [userId]);
 
+  // Initial load when the user becomes known.
   useEffect(() => {
-    void load();
-  }, [load]);
-  useRefreshRegister(load);
+    if (userId) void loadToday(userId);
+  }, [userId]);
 
-  return { data, loading, error, reload: load };
-}
+  useRefreshRegister(reload);
 
-export function useTodaySummary(): Resource<TodaySummary> {
-  return useUserResource(fetchTodaySummary);
-}
-
-export function useNutritionToday(): Resource<NutritionToday> {
-  return useUserResource(fetchNutritionToday);
-}
-
-export function useTodayTimeline(): Resource<TodayTimeline> {
-  return useUserResource(fetchTodayTimeline);
+  return { data: todayState.data, loading: todayState.loading, error: todayState.error, reload };
 }

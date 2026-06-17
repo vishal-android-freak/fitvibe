@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Icon, type IconName } from '@/components';
-import { fmtStampClock, useNutritionToday } from '@/data/today';
+import { fmtStampClock, useToday } from '@/data/today';
 import { border, font, hue, radius, surface, text } from '@/theme';
 
 interface Macro {
@@ -32,8 +32,8 @@ function StatTile({ icon, hue: tint, label, value, unit }: Omit<Macro, 'key'>) {
 
 /** Hero page 2 — today's nutrition: calories eaten vs burnt, macro split, hydration. */
 export function NutritionPage() {
-  const { data } = useNutritionToday();
-  const n = data ?? {
+  const { data } = useToday();
+  const n = data?.nutrition ?? {
     caloriesEaten: 0,
     caloriesBurnt: 0,
     carbsGrams: 0,

@@ -1,7 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Icon, type IconName } from '@/components';
-import { fmtStampClock, useTodayTimeline, type TimelineEvent } from '@/data/today';
+import { fmtStampClock, useToday, type TimelineEvent } from '@/data/today';
 import { accent, border, font, fontSize, hue, mix, radius, surface, text } from '@/theme';
 
 /** Visuals per event category. */
@@ -19,8 +19,8 @@ const KIND_TAG: Record<TimelineEvent['kind'], { label: string; icon: IconName }>
 
 /** A unified timeline of today's logged items and tracked activity. */
 export function ActivityLog() {
-  const { data, loading } = useTodayTimeline();
-  const events = data?.events ?? [];
+  const { data, loading } = useToday();
+  const events = data?.timeline ?? [];
 
   if (loading && !data) {
     return (
