@@ -30,7 +30,7 @@ export function TodayHeader() {
       <View style={styles.top}>
         <View style={styles.greetingWrap}>
           <Text style={styles.date}>{date.toUpperCase()}</Text>
-          <Text style={styles.greeting} numberOfLines={1}>
+          <Text style={styles.greeting} numberOfLines={2}>
             {greetingFor(h)}, {firstName(session)}
           </Text>
         </View>
@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
   top: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
   greetingWrap: { flex: 1, minWidth: 0 },
   date: { fontFamily: font.sansBold, fontSize: fontSize['2xs'], letterSpacing: tracking.caps, color: text.tertiary, marginBottom: 5 },
-  greeting: { fontFamily: font.display, fontSize: fontSize['2xl'], letterSpacing: -0.4, color: text.primary, lineHeight: fontSize['2xl'] * 1.1 },
+  greeting: { fontFamily: font.display, fontSize: fontSize.xl, letterSpacing: -0.3, color: text.primary, lineHeight: fontSize.xl * 1.15 },
   aiStrip: {
     flexDirection: 'row',
     alignItems: 'flex-start',
