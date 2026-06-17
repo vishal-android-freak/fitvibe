@@ -205,24 +205,22 @@ func setFilterQuery(q url.Values, dataType, category string, start, end time.Tim
 	var field string
 	var useCivilDate bool
 
-	// Sleep filters on interval.end_time (a session may start the prior day).
-	if dataType == "sleep" {
+	switch category {
+	case "session":
+		// Session types (sleep, exercise, nutrition-log, hydration-log, …) only
+		// support filtering on interval.end_time — the Health API rejects
+		// interval.start_time for them (INVALID_DATA_POINT_FILTER_DATA_TYPE_MEMBER).
+		// A session may also start the prior day, so end_time is the right anchor.
 		field = snake + ".interval.end_time"
-	} else {
-		switch category {
-		case "interval", "session":
-			// Sessions (exercise, nutrition-log, hydration-log) carry an
-			// interval just like interval-category types; filter on the
-			// physical start_time, not a civil date.
-			field = snake + ".interval.start_time"
-		case "sample":
-			field = snake + ".sample_time.physical_time"
-		case "daily":
-			field = snake + ".date"
-			useCivilDate = true
-		default:
-			field = snake + ".interval.start_time"
-		}
+	case "interval":
+		field = snake + ".interval.start_time"
+	case "sample":
+		field = snake + ".sample_time.physical_time"
+	case "daily":
+		field = snake + ".date"
+		useCivilDate = true
+	default:
+		field = snake + ".interval.start_time"
 	}
 
 	startStr := start.UTC().Format(time.RFC3339)
@@ -234,7 +232,7 @@ func setFilterQuery(q url.Values, dataType, category string, start, end time.Tim
 
 	var filter string
 	if dataType == "electrocardiogram" {
-		// ECG only supports the >= operator on start_time.
+		// ECG only supports the >= operator on its (session) end_time field.
 		filter = fmt.Sprintf(`%s >= "%s"`, field, startStr)
 	} else {
 		filter = fmt.Sprintf(`%s >= "%s" AND %s < "%s"`, field, startStr, field, endStr)

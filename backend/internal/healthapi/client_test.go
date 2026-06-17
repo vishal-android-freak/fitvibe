@@ -39,9 +39,9 @@ func TestSetFilterQuerySession(t *testing.T) {
 	setFilterQuery(q, "exercise", "session", start, end)
 
 	got := q.Get("filter")
-	// Sessions filter on the physical interval.start_time (RFC3339), matching
-	// the live API; civil-date filtering on sessions returned wrong windows.
-	want := `exercise.interval.start_time >= "2026-06-15T00:00:00Z" AND exercise.interval.start_time < "2026-06-16T00:00:00Z"`
+	// Session types filter on interval.end_time — the live API rejects
+	// interval.start_time for them (INVALID_DATA_POINT_FILTER_DATA_TYPE_MEMBER).
+	want := `exercise.interval.end_time >= "2026-06-15T00:00:00Z" AND exercise.interval.end_time < "2026-06-16T00:00:00Z"`
 	if got != want {
 		t.Errorf("filter = %q, want %q", got, want)
 	}
@@ -64,10 +64,11 @@ func TestSetFilterQueryECG(t *testing.T) {
 	q := url.Values{}
 	start := time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 6, 16, 0, 0, 0, 0, time.UTC)
-	setFilterQuery(q, "electrocardiogram", "interval", start, end)
+	// ECG is a session type (Category("electrocardiogram") == "session").
+	setFilterQuery(q, "electrocardiogram", "session", start, end)
 
 	got := q.Get("filter")
-	want := `electrocardiogram.interval.start_time >= "2026-06-15T00:00:00Z"`
+	want := `electrocardiogram.interval.end_time >= "2026-06-15T00:00:00Z"`
 	if got != want {
 		t.Errorf("filter = %q, want %q", got, want)
 	}
