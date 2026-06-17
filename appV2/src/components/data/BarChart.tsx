@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -6,7 +6,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { accent, border, font, fontSize, motion, radius, text, tint } from '@/theme';
+import { accent, border, font, fontSize, motion, radius, surface, text, tint } from '@/theme';
 import { easeOut } from '@/theme/easing';
 
 export interface BarChartProps {
@@ -16,15 +16,14 @@ export interface BarChartProps {
   height?: number;
   goal?: number;
   highlightMax?: boolean;
-  /** When set, this bar is highlighted (overrides highlightMax) — for selection. */
-  selectedIndex?: number;
-  /** Makes bars tappable; called with the bar's index. */
-  onBarPress?: (i: number) => void;
+  /** One tooltip string per bar. When set, bars are tappable and tapping one
+   *  shows a tooltip over it (tap again, or another bar, to move/dismiss it). */
+  tooltips?: string[];
   style?: ViewStyle;
 }
 
-/** Vertical bars for daily/weekly trends. The highlighted bar glows; bars grow
- *  from 0. Pass selectedIndex + onBarPress to make it an interactive selector. */
+/** Vertical bars for daily/weekly trends. The tallest bar glows; bars grow from
+ *  0. Pass `tooltips` to let the user tap a bar and read its value in a popover. */
 export function BarChart({
   data,
   labels = [],
@@ -32,15 +31,16 @@ export function BarChart({
   height = 140,
   goal,
   highlightMax = true,
-  selectedIndex,
-  onBarPress,
+  tooltips,
   style,
 }: BarChartProps) {
   const max = Math.max(...data, goal || 0) || 1;
   const maxIdx = data.indexOf(Math.max(...data));
-  // A selection (if any) wins over the tallest-bar highlight.
-  const hasSelection = selectedIndex != null;
-  const litIdx = hasSelection ? selectedIndex : highlightMax ? maxIdx : -1;
+  // Locally-tracked tapped bar (tooltip target); null when none is open.
+  const [selected, setSelected] = useState<number | null>(null);
+  const interactive = tooltips != null;
+  // A tapped bar (if any) takes the highlight; otherwise the tallest one glows.
+  const litIdx = selected != null ? selected : highlightMax ? maxIdx : -1;
 
   return (
     <View style={style}>
@@ -56,7 +56,8 @@ export function BarChart({
               pct={Math.max(0.02, d / max)}
               color={lit ? hue : tint(hue, 0.3)}
               glow={lit}
-              onPress={onBarPress ? () => onBarPress(i) : undefined}
+              tooltip={selected === i ? tooltips?.[i] : undefined}
+              onPress={interactive ? () => setSelected((s) => (s === i ? null : i)) : undefined}
             />
           );
         })}
@@ -84,11 +85,13 @@ function Bar({
   pct,
   color,
   glow,
+  tooltip,
   onPress,
 }: {
   pct: number;
   color: string;
   glow: boolean;
+  tooltip?: string;
   onPress?: () => void;
 }) {
   const reduced = useReducedMotion();
@@ -100,15 +103,25 @@ function Bar({
 
   const animStyle = useAnimatedStyle(() => ({ height: `${h.value * 100}%` }));
 
-  const bar = (
-    <Animated.View
-      style={[
-        styles.bar,
-        { backgroundColor: color },
-        glow && { shadowColor: color, shadowOpacity: 0.5, shadowRadius: 14, elevation: 6 },
-        animStyle,
-      ]}
-    />
+  // The tooltip is anchored to the bar's top edge (bottom: '100%' of the bar
+  // wrapper) so it floats just above the bar tip regardless of the bar height.
+  const inner = (
+    <Animated.View style={[styles.barWrap, animStyle]}>
+      {tooltip != null && (
+        <View style={styles.tooltip} pointerEvents="none">
+          <Text style={styles.tooltipText} numberOfLines={1}>
+            {tooltip}
+          </Text>
+        </View>
+      )}
+      <View
+        style={[
+          styles.bar,
+          { backgroundColor: color },
+          glow && { shadowColor: color, shadowOpacity: 0.5, shadowRadius: 14, elevation: 6 },
+        ]}
+      />
+    </Animated.View>
   );
 
   // The whole column is the touch target so the empty space above a short bar
@@ -116,17 +129,38 @@ function Bar({
   if (onPress) {
     return (
       <Pressable style={styles.barCol} onPress={onPress} hitSlop={6}>
-        {bar}
+        {inner}
       </Pressable>
     );
   }
-  return <View style={styles.barCol}>{bar}</View>;
+  return <View style={styles.barCol}>{inner}</View>;
 }
 
 const styles = StyleSheet.create({
   bars: { flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
   barCol: { flex: 1, justifyContent: 'flex-end', height: '100%' },
-  bar: { borderTopLeftRadius: radius.sm, borderTopRightRadius: radius.sm, borderBottomLeftRadius: 4, borderBottomRightRadius: 4 },
+  barWrap: { width: '100%' },
+  bar: { width: '100%', height: '100%', borderTopLeftRadius: radius.sm, borderTopRightRadius: radius.sm, borderBottomLeftRadius: 4, borderBottomRightRadius: 4 },
+  tooltip: {
+    position: 'absolute',
+    bottom: '100%',
+    marginBottom: 6,
+    alignSelf: 'center',
+    minWidth: 56,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: radius.md,
+    backgroundColor: surface.raised,
+    borderWidth: 1,
+    borderColor: border.strong,
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 8,
+  },
+  tooltipText: { fontFamily: font.sansSemibold, fontSize: fontSize['2xs'], color: text.primary, textAlign: 'center' },
   goalLine: {
     position: 'absolute',
     left: 0,
