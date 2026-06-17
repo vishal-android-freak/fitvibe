@@ -51,11 +51,18 @@ type NutritionTotals struct {
 func (r *TodayRepo) DaySummary(ctx context.Context, userID int64, localDate string) (*DaySummary, error) {
 	var out DaySummary
 
-	// Steps: sum the per-interval value_count for the local day.
+	// Steps: sum the per-interval value_count for the local day, but only from
+	// the Fitbit wearable. The phone also reports steps via Health Connect
+	// (platform = HEALTH_CONNECT, device formFactor = PHONE) over OVERLAPPING
+	// time windows, so summing every source double-counts (e.g. 2083 wearable +
+	// 1138 phone = 3221, while Google shows ~the wearable's 2083). Exclude the
+	// Health Connect / phone source so our total matches the watch.
 	err := r.db.QueryRowContext(ctx, `
 		SELECT COALESCE(SUM(value_count), 0)
 		FROM data_points
-		WHERE user_id = ? AND data_type = 'steps' AND date(civil_start_date) = ?`,
+		WHERE user_id = ? AND data_type = 'steps' AND date(civil_start_date) = ?
+		  AND COALESCE(platform, '') != 'HEALTH_CONNECT'
+		  AND COALESCE(device_form_factor, '') != 'PHONE'`,
 		userID, localDate).Scan(&out.Steps)
 	if err != nil {
 		return nil, fmt.Errorf("sum today steps: %w", err)
