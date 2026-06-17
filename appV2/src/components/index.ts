@@ -26,6 +26,11 @@ export { TrainingLoad } from './genui/TrainingLoad';
 export { RecoverySignals } from './genui/RecoverySignals';
 export { SleepDurationCard } from './genui/SleepDurationCard';
 
+// Brand
+export { AppIcon } from './brand/AppIcon';
+export { LogoMark } from './brand/LogoMark';
+export { Wordmark } from './brand/Wordmark';
+
 // Layout / shared
 export { Icon } from './Icon';
 export type { IconName } from './Icon';

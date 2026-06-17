@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Badge, Sparkline } from '@/components';
+import { Badge } from '@/components/core/Badge';
+import { Sparkline } from '@/components/data/Sparkline';
 import { border, font, fontSize, hue, radius, surface, text } from '@/theme';
 
 const WEEK_LABELS = ['W', 'T', 'F', 'S', 'S', 'M', 'T'];
