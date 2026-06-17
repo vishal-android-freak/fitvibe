@@ -283,3 +283,67 @@ export function useSleepNights(limit = 14): SleepNightsState {
 
   return { nights, loading, error, reload: load };
 }
+
+// --- User sleep schedule (target bed/wake) --------------------------------
+
+/** Target bed/wake as minutes since local midnight; null when unset. */
+export interface SleepSchedule {
+  targetBedMinutes: number | null;
+  targetWakeMinutes: number | null;
+}
+
+export interface SleepScheduleState {
+  schedule: SleepSchedule;
+  loading: boolean;
+  save: (next: SleepSchedule) => Promise<void>;
+}
+
+/** Loads + saves the user's sleep-schedule target (GET/PUT /me/sleep/schedule). */
+export function useSleepSchedule(): SleepScheduleState {
+  const { session } = useAuth();
+  const userId = session?.userId;
+  const [schedule, setSchedule] = useState<SleepSchedule>({ targetBedMinutes: null, targetWakeMinutes: null });
+  const [loading, setLoading] = useState(true);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    fetch(`${config.apiBaseUrl}/me/sleep/schedule?user_id=${userId}`)
+      .then((r) => (r.ok ? (r.json() as Promise<SleepSchedule>) : null))
+      .then((s) => {
+        if (!cancelled && mounted.current && s) setSchedule(s);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled && mounted.current) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  const save = useCallback(
+    async (next: SleepSchedule) => {
+      if (!userId) return;
+      setSchedule(next); // optimistic
+      await fetch(`${config.apiBaseUrl}/me/sleep/schedule?user_id=${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(next),
+      });
+    },
+    [userId],
+  );
+
+  return { schedule, loading, save };
+}

@@ -1,10 +1,6 @@
 import { accent, hue, status } from '@/theme';
 import type { SleepNight } from '@/data/sleep';
 
-/** Target schedule the ScheduleCard compares against. */
-export const TARGET_BED = 23 * 60; // 11:00 PM
-export const TARGET_WAKE = 6 * 60 + 45; // 6:45 AM
-
 /** Minutes-since-midnight → 12-hour clock string ("11:24 PM"). */
 export function clk(c: number): string {
   c = ((c % 1440) + 1440) % 1440;
@@ -22,10 +18,26 @@ export function fmtH(min: number): string {
   return `${h}h ${String(m).padStart(2, '0')}m`;
 }
 
+/**
+ * Signed difference between two clock times (minutes since midnight), wrapped to
+ * the nearest direction on a 24h clock so e.g. 12:54 AM vs an 11:00 PM target
+ * reads "+1h 54m" (≈2h late), not "−1326m". Result is in [−720, +720].
+ */
+export function clockDeltaMinutes(actual: number, target: number): number {
+  let d = (((actual - target) % 1440) + 1440) % 1440; // 0..1439
+  if (d > 720) d -= 1440; // take the shorter signed direction
+  return d;
+}
+
+/** Human signed delta vs a target clock time, e.g. "+1h 54m" / "−25m" / "on time". */
 export function delta(actual: number, target: number): string {
-  const d = actual - target;
-  const sign = d > 0 ? '+' : d < 0 ? '−' : '';
-  return `${sign}${Math.abs(d)}m`;
+  const d = clockDeltaMinutes(actual, target);
+  if (d === 0) return 'on time';
+  const sign = d > 0 ? '+' : '−';
+  const abs = Math.abs(d);
+  const h = Math.floor(abs / 60);
+  const m = abs % 60;
+  return h > 0 ? `${sign}${h}h ${String(m).padStart(2, '0')}m` : `${sign}${m}m`;
 }
 
 export type Rating = 'Great' | 'Good' | 'Fair';

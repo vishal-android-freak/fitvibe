@@ -270,3 +270,41 @@ func (r *UserRepo) UpdateTokensByID(ctx context.Context, id int64, accessToken, 
 	}
 	return nil
 }
+
+// GetSleepSchedule returns the user's target bedtime/wake (minutes since local
+// midnight), each nil when unset. Google doesn't expose this, so we own it.
+func (r *UserRepo) GetSleepSchedule(ctx context.Context, id int64) (bed, wake *int, err error) {
+	var b, w sql.NullInt32
+	err = r.db.QueryRowContext(ctx, `SELECT target_bed_minutes, target_wake_minutes FROM users WHERE id = $1`, id).Scan(&b, &w)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get sleep schedule: %w", err)
+	}
+	if b.Valid {
+		v := int(b.Int32)
+		bed = &v
+	}
+	if w.Valid {
+		v := int(w.Int32)
+		wake = &v
+	}
+	return bed, wake, nil
+}
+
+// SetSleepSchedule updates the user's target bedtime/wake (minutes since local
+// midnight). A nil value clears that target.
+func (r *UserRepo) SetSleepSchedule(ctx context.Context, id int64, bed, wake *int) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE users SET target_bed_minutes = $1, target_wake_minutes = $2, updated_at = $3 WHERE id = $4`,
+		nullableInt(bed), nullableInt(wake), time.Now().UTC(), id)
+	if err != nil {
+		return fmt.Errorf("set sleep schedule: %w", err)
+	}
+	return nil
+}
+
+func nullableInt(v *int) sql.NullInt32 {
+	if v == nil {
+		return sql.NullInt32{}
+	}
+	return sql.NullInt32{Int32: int32(*v), Valid: true}
+}
