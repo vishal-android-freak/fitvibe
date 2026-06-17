@@ -249,14 +249,25 @@ func setFilterQuery(q url.Values, dataType, category string, start, end time.Tim
 	startStr := start.UTC().Format(format)
 	endStr := end.UTC().Format(format)
 
-	// For civil-date filters (daily summaries), both bounds collapse to a date
-	// with no time component. When start and end land on the same civil date —
-	// common when a frequent cron resumes from a recent last_end_time — the
-	// `>= D AND < D` window is empty and the API rejects it with
-	// INVALID_TIME_RANGE. Push the upper bound to the next day so the day that
-	// contains `end` is still included (the API needs end strictly > start).
-	if !geOnly && format == civilDateFormat && endStr <= startStr {
-		endStr = end.UTC().AddDate(0, 0, 1).Format(format)
+	// Guard against a degenerate window. The API requires end strictly > start,
+	// and our formats drop precision (civil date drops the time; civil datetime
+	// drops sub-seconds), so distinct instants can format to equal strings. This
+	// happens when:
+	//   - a frequent cron resumes from a recent last_end_time on the same civil
+	//     date (daily types), or
+	//   - a webhook sends a zero-width interval (startTime == endTime), which
+	//     Google does for point-in-time UPSERTs (seen on nutrition-log).
+	// In either case bump the upper bound by the format's smallest unit so the
+	// instant in `end` is still covered.
+	if !geOnly && endStr <= startStr {
+		var bumped time.Time
+		switch format {
+		case civilDateFormat:
+			bumped = end.UTC().AddDate(0, 0, 1) // next day
+		default:
+			bumped = end.UTC().Add(time.Second) // next second (RFC3339 / civil datetime)
+		}
+		endStr = bumped.Format(format)
 	}
 
 	var filter string

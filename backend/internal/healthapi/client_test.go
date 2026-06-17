@@ -111,3 +111,17 @@ func TestKebabToSnake(t *testing.T) {
 		t.Errorf("kebabToSnake = %q", got)
 	}
 }
+
+// TestSetFilterQueryZeroWidthSession covers the webhook zero-width interval bug:
+// Google sends point-in-time UPSERTs where startTime == endTime; the session
+// civil-datetime filter must bump the end so it isn't an empty range.
+func TestSetFilterQueryZeroWidthSession(t *testing.T) {
+	q := url.Values{}
+	at := time.Date(2026, 6, 17, 12, 43, 0, 0, time.UTC)
+	setFilterQuery(q, "nutrition-log", "session", at, at)
+	got := q.Get("filter")
+	want := `nutrition_log.interval.civil_start_time >= "2026-06-17T12:43:00" AND nutrition_log.interval.civil_start_time < "2026-06-17T12:43:01"`
+	if got != want {
+		t.Errorf("filter = %q, want %q", got, want)
+	}
+}
