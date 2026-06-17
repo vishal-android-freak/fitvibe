@@ -61,7 +61,7 @@ func (r *TodayRepo) timelineRows(ctx context.Context, userID int64, dataType, lo
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT payload_json, COALESCE(start_utc_offset_seconds, 0)
 		FROM data_points
-		WHERE user_id = ? AND data_type = ? AND date(civil_start_date) = ?`,
+		WHERE user_id = $1 AND data_type = $2 AND civil_start_date = $3`,
 		userID, dataType, localDate)
 	if err != nil {
 		return nil, fmt.Errorf("timeline %s: %w", dataType, err)
@@ -110,7 +110,7 @@ func (r *TodayRepo) timelineWorkouts(ctx context.Context, userID int64, localDat
 			continue
 		}
 		e := p.Exercise
-		at := parseStoredTime(e.Interval.StartTime)
+		at := parseRFC3339Time(e.Interval.StartTime)
 		if at.IsZero() {
 			continue
 		}
@@ -169,7 +169,7 @@ func (r *TodayRepo) timelineMeals(ctx context.Context, userID int64, localDate s
 		k := mealKey{meal: n.MealType, t: n.Interval.StartTime}
 		g := groups[k]
 		if g == nil {
-			at := parseStoredTime(n.Interval.StartTime)
+			at := parseRFC3339Time(n.Interval.StartTime)
 			if at.IsZero() {
 				continue
 			}
@@ -220,7 +220,7 @@ func (r *TodayRepo) timelineWater(ctx context.Context, userID int64, localDate s
 			continue
 		}
 		h := p.HydrationLog
-		at := parseStoredTime(h.Interval.StartTime)
+		at := parseRFC3339Time(h.Interval.StartTime)
 		if at.IsZero() {
 			continue
 		}
@@ -241,7 +241,7 @@ func (r *TodayRepo) timelineWake(ctx context.Context, userID int64, localDate st
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT payload_json, COALESCE(end_utc_offset_seconds, start_utc_offset_seconds, 0)
 		FROM data_points
-		WHERE user_id = ? AND data_type = 'sleep' AND date(civil_end_date) = ?
+		WHERE user_id = $1 AND data_type = 'sleep' AND civil_end_date = $2
 		ORDER BY end_time DESC LIMIT 1`, userID, localDate)
 	if err != nil {
 		return nil, fmt.Errorf("timeline wake: %w", err)
@@ -268,7 +268,7 @@ func (r *TodayRepo) timelineWake(ctx context.Context, userID int64, localDate st
 		if err := json.Unmarshal([]byte(payload), &p); err != nil {
 			continue
 		}
-		at := parseStoredTime(p.Sleep.Interval.EndTime)
+		at := parseRFC3339Time(p.Sleep.Interval.EndTime)
 		if at.IsZero() {
 			continue
 		}
@@ -283,6 +283,18 @@ func (r *TodayRepo) timelineWake(ctx context.Context, userID int64, localDate st
 		})
 	}
 	return out, rows.Err()
+}
+
+// parseRFC3339Time parses a timestamp string taken from a JSON payload field
+// (Google's API emits RFC3339), tolerating the space-separated variant too.
+// Returns the zero time if unparseable.
+func parseRFC3339Time(s string) time.Time {
+	for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02 15:04:05Z07:00", "2006-01-02 15:04:05"} {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t
+		}
+	}
+	return time.Time{}
 }
 
 // --- small formatting helpers ---

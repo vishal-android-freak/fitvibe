@@ -26,11 +26,13 @@ type Config struct {
 	GoogleRedirectURI  string `env:"GOOGLE_REDIRECT_URI,required"`
 	GoogleProjectNumber string `env:"GOOGLE_PROJECT_NUMBER"`
 
-	// Turso / SQLite (local-only)
-	TursoDatabaseURL string `env:"TURSO_DATABASE_URL" envDefault:"fitvibe.db"`
+	// Database (PostgreSQL). Standard libpq/pgx DSN, e.g.
+	// postgres://user:pass@host:5432/fitvibe?sslmode=disable
+	DatabaseURL    string `env:"DATABASE_URL" envDefault:"postgres://fitvibe:fitvibe@localhost:5432/fitvibe?sslmode=disable"`
+	DBMaxConns     int32  `env:"DB_MAX_CONNS" envDefault:"10"`
+	DBMinConns     int32  `env:"DB_MIN_CONNS" envDefault:"2"`
 
 	// Security
-	TursoEncryptionKey      string        `env:"TURSO_ENCRYPTION_KEY"`
 	WebhookSignatureCacheTTL time.Duration `env:"WEBHOOK_SIGNATURE_CACHE_TTL" envDefault:"24h"`
 
 	// Sync
@@ -42,7 +44,6 @@ type Config struct {
 	CronReconcileSync             string        `env:"CRON_RECONCILE_SYNC" envDefault:"0 3 * * *"`
 	CronCatchupSync               string        `env:"CRON_CATCHUP_SYNC" envDefault:"0 */3 * * *"`
 	CatchupLookbackHours          int           `env:"CATCHUP_LOOKBACK_HOURS" envDefault:"48"`
-	SQLiteBusyTimeoutMs           int           `env:"SQLITE_BUSY_TIMEOUT_MS" envDefault:"5000"`
 }
 
 // Load reads configuration from environment variables. It optionally loads a

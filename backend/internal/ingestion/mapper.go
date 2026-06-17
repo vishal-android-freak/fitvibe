@@ -338,6 +338,21 @@ func extractScalars(rec *repositories.DataPointRecord, dataType string, value ma
 		}
 		if n, ok := value["mealType"].(string); ok {
 			rec.EnumValueSecondary = sql.NullString{String: n, Valid: true}
+			rec.MealType = sql.NullString{String: n, Valid: true}
+		}
+		if name, ok := value["foodDisplayName"].(string); ok && name != "" {
+			rec.FoodDisplayName = sql.NullString{String: name, Valid: true}
+		}
+		// Promote total carbs / fat (nested under {grams}) to typed columns.
+		if c, ok := value["totalCarbohydrate"].(map[string]interface{}); ok {
+			if g, ok := c["grams"]; ok {
+				rec.NutritionCarbsGrams = sql.NullFloat64{Float64: number(g), Valid: true}
+			}
+		}
+		if f, ok := value["totalFat"].(map[string]interface{}); ok {
+			if g, ok := f["grams"]; ok {
+				rec.NutritionFatGrams = sql.NullFloat64{Float64: number(g), Valid: true}
+			}
 		}
 	}
 }

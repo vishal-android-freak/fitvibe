@@ -3,13 +3,9 @@ package oauth
 import (
 	"context"
 	"errors"
-	"io"
-	"log/slog"
-	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/vishal-android-freak/fitvibe/internal/config"
 	"github.com/vishal-android-freak/fitvibe/internal/db"
 	"github.com/vishal-android-freak/fitvibe/internal/db/repositories"
 	"github.com/vishal-android-freak/fitvibe/internal/healthapi"
@@ -32,20 +28,9 @@ func (f *fakeTokenSource) Refresh(ctx context.Context, refreshToken string) (*oa
 func newTestRepo(t *testing.T) *repositories.UserRepo {
 	t.Helper()
 
-	dir := t.TempDir()
-	cfg := &config.Config{
-		TursoDatabaseURL:    filepath.Join(dir, "test.db"),
-		SQLiteBusyTimeoutMs: 5000,
-		GoogleClientID:      "test",
-		GoogleClientSecret:  "test",
-		GoogleRedirectURI:   "test",
-		WebhookSecret:       "test",
-	}
-
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	database, err := db.Open(cfg, logger)
-	if err != nil {
-		t.Fatalf("open test db: %v", err)
+	database := db.OpenTestDB(t)
+	if database == nil {
+		t.Skip("no test Postgres available (set TEST_DATABASE_URL or run docker compose up)")
 	}
 	t.Cleanup(func() { database.Close() })
 

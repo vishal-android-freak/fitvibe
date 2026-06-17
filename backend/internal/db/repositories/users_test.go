@@ -2,40 +2,24 @@ package repositories
 
 import (
 	"context"
-	"io"
-	"log/slog"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/vishal-android-freak/fitvibe/internal/config"
 	"github.com/vishal-android-freak/fitvibe/internal/db"
 )
 
+// newTestDB opens a Postgres test database (TEST_DATABASE_URL, defaulting to the
+// local docker instance) and applies migrations. Each call uses a fresh,
+// uniquely-named schema so parallel tests don't collide; the schema is dropped
+// on cleanup. Skips when no Postgres is reachable so `go test` still runs in
+// environments without one.
 func newTestDB(t *testing.T) *db.DB {
 	t.Helper()
-
-	dir := t.TempDir()
-	cfg := &config.Config{
-		TursoDatabaseURL:    filepath.Join(dir, "test.db"),
-		SQLiteBusyTimeoutMs: 5000,
-		GoogleClientID:      "test",
-		GoogleClientSecret:  "test",
-		GoogleRedirectURI:   "test",
-		WebhookSecret:       "test",
+	database := db.OpenTestDB(t)
+	if database == nil {
+		t.Skip("no test Postgres available (set TEST_DATABASE_URL or run docker compose up)")
 	}
-
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	database, err := db.Open(cfg, logger)
-	if err != nil {
-		t.Fatalf("open test db: %v", err)
-	}
-
-	t.Cleanup(func() {
-		database.Close()
-	})
-
+	t.Cleanup(func() { database.Close() })
 	return database
 }
 
@@ -134,6 +118,3 @@ func TestStoreTokensUpsert(t *testing.T) {
 		t.Errorf("expected loaded access token access-b, got %s", loaded.AccessToken)
 	}
 }
-
-// Ensure os.Environ doesn't leak into tests (we don't use it here but keep for safety).
-var _ = os.Environ

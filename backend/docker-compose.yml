@@ -1,0 +1,28 @@
+# Local development PostgreSQL for FitVibe.
+#   docker compose up -d        # start
+#   docker compose down         # stop (keeps data volume)
+#   docker compose down -v      # stop + wipe data
+#
+# Connect with:
+#   DATABASE_URL=postgres://fitvibe:fitvibe@localhost:5432/fitvibe?sslmode=disable
+services:
+  postgres:
+    image: postgres:17
+    container_name: fitvibe-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fitvibe
+      POSTGRES_PASSWORD: fitvibe
+      POSTGRES_DB: fitvibe
+    ports:
+      - "5432:5432"
+    volumes:
+      - fitvibe_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fitvibe -d fitvibe"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  fitvibe_pgdata:

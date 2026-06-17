@@ -25,8 +25,8 @@ func TestLoadFromDefaults(t *testing.T) {
 	if cfg.WebhookPath != "/webhooks/google-health" {
 		t.Errorf("expected default WebhookPath, got %s", cfg.WebhookPath)
 	}
-	if cfg.TursoDatabaseURL != "fitvibe.db" {
-		t.Errorf("expected default TursoDatabaseURL fitvibe.db, got %s", cfg.TursoDatabaseURL)
+	if cfg.DatabaseURL != "postgres://fitvibe:fitvibe@localhost:5432/fitvibe?sslmode=disable" {
+		t.Errorf("expected default DatabaseURL, got %s", cfg.DatabaseURL)
 	}
 	if cfg.WebhookSignatureCacheTTL != 24*time.Hour {
 		t.Errorf("expected default WebhookSignatureCacheTTL 24h, got %v", cfg.WebhookSignatureCacheTTL)
@@ -34,8 +34,8 @@ func TestLoadFromDefaults(t *testing.T) {
 	if cfg.DefaultBackfillDays != 30 {
 		t.Errorf("expected default DefaultBackfillDays 30, got %d", cfg.DefaultBackfillDays)
 	}
-	if cfg.SQLiteBusyTimeoutMs != 5000 {
-		t.Errorf("expected default SQLiteBusyTimeoutMs 5000, got %d", cfg.SQLiteBusyTimeoutMs)
+	if cfg.DBMaxConns != 10 {
+		t.Errorf("expected default DBMaxConns 10, got %d", cfg.DBMaxConns)
 	}
 }
 
@@ -49,15 +49,14 @@ func TestLoadFromCustomValues(t *testing.T) {
 		"GOOGLE_CLIENT_SECRET":         "gsecret",
 		"GOOGLE_REDIRECT_URI":          "https://example.com/callback",
 		"GOOGLE_PROJECT_NUMBER":        "12345",
-		"TURSO_DATABASE_URL":           "file:test.db",
-		"TURSO_ENCRYPTION_KEY":         "key",
+		"DATABASE_URL":                 "postgres://u:p@db:5432/test?sslmode=disable",
+		"DB_MAX_CONNS":                 "25",
 		"WEBHOOK_SIGNATURE_CACHE_TTL":  "1h",
 		"DEFAULT_BACKFILL_DAYS":        "7",
 		"CRON_INTRADAY_ROLLUP":         "0 0 * * *",
 		"CRON_DAILY_ROLLUP":            "0 1 * * *",
 		"CRON_LIST_SYNC":               "0 2 * * *",
 		"CRON_PROFILE_SETTINGS_SYNC":   "0 3 * * *",
-		"SQLITE_BUSY_TIMEOUT_MS":       "10000",
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -75,20 +74,17 @@ func TestLoadFromCustomValues(t *testing.T) {
 	if cfg.GoogleProjectNumber != "12345" {
 		t.Errorf("expected GoogleProjectNumber 12345, got %s", cfg.GoogleProjectNumber)
 	}
-	if cfg.TursoDatabaseURL != "file:test.db" {
-		t.Errorf("expected TursoDatabaseURL file:test.db, got %s", cfg.TursoDatabaseURL)
+	if cfg.DatabaseURL != "postgres://u:p@db:5432/test?sslmode=disable" {
+		t.Errorf("expected DatabaseURL, got %s", cfg.DatabaseURL)
 	}
-	if cfg.TursoEncryptionKey != "key" {
-		t.Errorf("expected TursoEncryptionKey key, got %s", cfg.TursoEncryptionKey)
+	if cfg.DBMaxConns != 25 {
+		t.Errorf("expected DBMaxConns 25, got %d", cfg.DBMaxConns)
 	}
 	if cfg.WebhookSignatureCacheTTL != time.Hour {
 		t.Errorf("expected WebhookSignatureCacheTTL 1h, got %v", cfg.WebhookSignatureCacheTTL)
 	}
 	if cfg.DefaultBackfillDays != 7 {
 		t.Errorf("expected DefaultBackfillDays 7, got %d", cfg.DefaultBackfillDays)
-	}
-	if cfg.SQLiteBusyTimeoutMs != 10000 {
-		t.Errorf("expected SQLiteBusyTimeoutMs 10000, got %d", cfg.SQLiteBusyTimeoutMs)
 	}
 }
 

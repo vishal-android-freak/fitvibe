@@ -45,11 +45,11 @@ type RollupDataPointRecord struct {
 
 // RawRollup is a minimal projection used by the backfill re-parser.
 type RawRollup struct {
-	ID         int64
-	UserID     int64
-	DataType   string
-	RollupKind string
-	WindowSize sql.NullString
+	ID          int64
+	UserID      int64
+	DataType    string
+	RollupKind  string
+	WindowSize  sql.NullString
 	PayloadJSON string
 }
 
@@ -85,14 +85,31 @@ func (r *RollupDataPointRepo) InsertMany(ctx context.Context, recs []*RollupData
 	defer tx.Rollback()
 
 	stmt, err := tx.PrepareContext(ctx, `
-		INSERT OR REPLACE INTO rollup_data_points (
+		INSERT INTO rollup_data_points (
 			user_id, data_type, rollup_kind, window_size, data_source_family,
 			start_time, end_time, civil_start_date, civil_end_date,
 			count_sum, count_avg, count_min, count_max,
 			distance_meters_sum, energy_kcal_sum, duration_seconds_sum,
 			heart_rate_zone_type, activity_level, exercise_type, swim_stroke_type, nutrient,
 			payload_json
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+		ON CONFLICT (user_id, data_type, rollup_kind, window_size, data_source_family, start_time, end_time)
+		DO UPDATE SET
+			civil_start_date = EXCLUDED.civil_start_date,
+			civil_end_date = EXCLUDED.civil_end_date,
+			count_sum = EXCLUDED.count_sum,
+			count_avg = EXCLUDED.count_avg,
+			count_min = EXCLUDED.count_min,
+			count_max = EXCLUDED.count_max,
+			distance_meters_sum = EXCLUDED.distance_meters_sum,
+			energy_kcal_sum = EXCLUDED.energy_kcal_sum,
+			duration_seconds_sum = EXCLUDED.duration_seconds_sum,
+			heart_rate_zone_type = EXCLUDED.heart_rate_zone_type,
+			activity_level = EXCLUDED.activity_level,
+			exercise_type = EXCLUDED.exercise_type,
+			swim_stroke_type = EXCLUDED.swim_stroke_type,
+			nutrient = EXCLUDED.nutrient,
+			payload_json = EXCLUDED.payload_json
 	`)
 	if err != nil {
 		return fmt.Errorf("prepare stmt: %w", err)
