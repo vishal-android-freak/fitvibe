@@ -46,12 +46,17 @@ type ExchangeRequest struct {
 	RedirectURI string `json:"redirect_uri"`
 }
 
-// ExchangeResponse is returned after a successful token exchange.
+// ExchangeResponse is returned after a successful token exchange. It carries
+// the connected user's identity plus the Google profile fields the app shows
+// (name/email/picture), so the client doesn't need a separate profile fetch.
 type ExchangeResponse struct {
 	UserID       int64  `json:"user_id"`
 	HealthUserID string `json:"health_user_id"`
 	GoogleUserID string `json:"google_user_id"`
 	LegacyUserID string `json:"legacy_user_id"`
+	DisplayName  string `json:"display_name"`
+	Email        string `json:"email"`
+	Picture      string `json:"picture"`
 }
 
 // Exchange exchanges an authorization code, fetches Google Health identity, and stores the tokens.
@@ -98,11 +103,26 @@ func (s *Service) Exchange(ctx context.Context, req ExchangeRequest) (*ExchangeR
 		}
 	}
 
+	// Prefer the profile fields from this login (freshest); fall back to what
+	// was stored if Google didn't return them this time.
+	if displayName == "" {
+		displayName = u.GoogleDisplayName.String
+	}
+	if email == "" {
+		email = u.Email.String
+	}
+	if picture == "" {
+		picture = u.GooglePicture.String
+	}
+
 	return &ExchangeResponse{
 		UserID:       u.ID,
 		HealthUserID: identity.HealthUserID,
 		GoogleUserID: googleUserID,
 		LegacyUserID: identity.LegacyUserID,
+		DisplayName:  displayName,
+		Email:        email,
+		Picture:      picture,
 	}, nil
 }
 

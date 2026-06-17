@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Avatar, Icon } from '@/components';
 import { AIGradient } from '@/components/ai/AIGradient';
-import { FV } from '@/data/mock';
+import { firstName, useAuth } from '@/auth';
 import { accent, ai, font, fontSize, mix, radius, surface, text, tint, tracking } from '@/theme';
 
 function greetingFor(h: number): string {
@@ -20,6 +20,7 @@ function aiLineFor(h: number): string {
 
 /** Time-based greeting + date eyebrow + profile avatar, with an AI one-liner strip. */
 export function TodayHeader() {
+  const { session } = useAuth();
   const now = new Date();
   const h = now.getHours();
   const date = now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
@@ -30,11 +31,11 @@ export function TodayHeader() {
         <View style={styles.greetingWrap}>
           <Text style={styles.date}>{date.toUpperCase()}</Text>
           <Text style={styles.greeting} numberOfLines={1}>
-            {greetingFor(h)}, {FV.user.first}
+            {greetingFor(h)}, {firstName(session)}
           </Text>
         </View>
         <Pressable accessibilityLabel="Your profile">
-          <Avatar name={FV.user.name} size={44} ring />
+          <Avatar name={session?.displayName || ''} src={session?.picture || undefined} size={44} ring />
         </Pressable>
       </View>
 
