@@ -15,11 +15,15 @@ export interface TrendCardProps {
   height?: number;
   /** up to two summary stats shown above the chart (left + right) */
   stats?: [TrendStat, TrendStat];
+  /** Highlighted/selected bar index (forwarded to BarChart). */
+  selectedIndex?: number;
+  /** Makes bars tappable; called with the bar's index. */
+  onBarPress?: (i: number) => void;
   style?: ViewStyle;
 }
 
 /** A bar-chart card with optional left/right summary stats. Generative-UI block. */
-export function TrendCard({ data, labels, hue = accent.base, height = 96, stats, style }: TrendCardProps) {
+export function TrendCard({ data, labels, hue = accent.base, height = 96, stats, selectedIndex, onBarPress, style }: TrendCardProps) {
   return (
     <View style={[styles.card, style]}>
       {stats && (
@@ -34,7 +38,7 @@ export function TrendCard({ data, labels, hue = accent.base, height = 96, stats,
           </View>
         </View>
       )}
-      <BarChart data={data} labels={labels} hue={hue} height={height} />
+      <BarChart data={data} labels={labels} hue={hue} height={height} selectedIndex={selectedIndex} onBarPress={onBarPress} />
     </View>
   );
 }
