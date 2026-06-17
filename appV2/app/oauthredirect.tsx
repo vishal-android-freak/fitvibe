@@ -20,8 +20,14 @@ export default function OAuthRedirect() {
   useEffect(() => {
     if (ran.current) return;
     ran.current = true;
-    // Make sure the auth browser tab is closed before we navigate on.
-    WebBrowser.dismissBrowser().catch(() => {});
+    // Best-effort close the auth browser tab. dismissBrowser is typed as a
+    // Promise but can return undefined at runtime (e.g. no browser to dismiss
+    // when the deep link reopened the app), so guard before chaining.
+    try {
+      void Promise.resolve(WebBrowser.dismissBrowser()).catch(() => {});
+    } catch {
+      // ignore — nothing to dismiss
+    }
     completeSignIn({ token, error }).finally(() => setDone(true));
   }, [completeSignIn, token, error]);
 
