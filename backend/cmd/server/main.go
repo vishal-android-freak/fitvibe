@@ -55,7 +55,7 @@ func main() {
 	sleepRepo := repositories.NewSleepRepo(database.DB)
 	sleepHandler := sleep.NewHandler(sleepRepo, userRepo)
 	todayRepo := repositories.NewTodayRepo(database.DB)
-	todayHandler := today.NewHandler(todayRepo, database.DB)
+	todayHandler := today.NewHandler(todayRepo, sleepHandler, database.DB)
 
 	verifier := webhooks.NewVerifier(cfg.WebhookSignatureCacheTTL)
 	webhookHandler := webhooks.NewHandler(cfg, verifier, webhookNotificationRepo, logger)

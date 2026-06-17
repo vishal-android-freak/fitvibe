@@ -95,21 +95,26 @@ func (r *TodayRepo) DaySummary(ctx context.Context, userID int64, localDate stri
 func (r *TodayRepo) NutritionToday(ctx context.Context, userID int64, localDate string) (*NutritionTotals, error) {
 	var out NutritionTotals
 
-	// Nutrition log: calories (energy.kcal), carbs, fat — top-level in payload.
-	// value_sum holds energy.kcal (the mapper's headline scalar for nutrition-log).
+	// All data_points-derived totals in one pass over the local day, split by
+	// data_type with conditional aggregation (nutrition-log calories/carbs/fat,
+	// active-energy-burned kcal, hydration ml). value_sum holds energy.kcal for
+	// nutrition-log, ml for hydration, and kcal for active-energy-burned.
 	err := r.db.QueryRowContext(ctx, `
 		SELECT
-			COALESCE(SUM(value_sum), 0),
-			COALESCE(SUM(nutrition_carbs_grams), 0),
-			COALESCE(SUM(nutrition_fat_grams), 0)
+			COALESCE(SUM(value_sum)             FILTER (WHERE data_type = 'nutrition-log'), 0),
+			COALESCE(SUM(nutrition_carbs_grams) FILTER (WHERE data_type = 'nutrition-log'), 0),
+			COALESCE(SUM(nutrition_fat_grams)   FILTER (WHERE data_type = 'nutrition-log'), 0),
+			ROUND(COALESCE(SUM(value_sum)       FILTER (WHERE data_type = 'active-energy-burned'), 0))::int,
+			COALESCE(SUM(value_sum)             FILTER (WHERE data_type = 'hydration-log'), 0)
 		FROM data_points
-		WHERE user_id = $1 AND data_type = 'nutrition-log' AND civil_start_date = $2`,
-		userID, localDate).Scan(&out.CaloriesEaten, &out.CarbsGrams, &out.FatGrams)
+		WHERE user_id = $1 AND civil_start_date = $2
+		  AND data_type IN ('nutrition-log', 'active-energy-burned', 'hydration-log')`,
+		userID, localDate).Scan(&out.CaloriesEaten, &out.CarbsGrams, &out.FatGrams, &out.CaloriesBurnt, &out.HydrationML)
 	if err != nil {
 		return nil, fmt.Errorf("nutrition totals: %w", err)
 	}
 
-	// Protein lives in the nutrients child table.
+	// Protein lives in the nutrients child table, so it needs its own join.
 	err = r.db.QueryRowContext(ctx, `
 		SELECT COALESCE(SUM(n.grams), 0)
 		FROM nutrition_log_nutrients n
@@ -121,30 +126,10 @@ func (r *TodayRepo) NutritionToday(ctx context.Context, userID int64, localDate 
 		return nil, fmt.Errorf("protein total: %w", err)
 	}
 
-	// Active energy burned: kcal per interval point. ROUND so fractional kcal
-	// don't truncate (e.g. 41.8 → 42, not 41).
-	err = r.db.QueryRowContext(ctx, `
-		SELECT ROUND(COALESCE(SUM(value_sum), 0))::int
-		FROM data_points
-		WHERE user_id = $1 AND data_type = 'active-energy-burned' AND civil_start_date = $2`,
-		userID, localDate).Scan(&out.CaloriesBurnt)
-	if err != nil {
-		return nil, fmt.Errorf("calories burnt: %w", err)
-	}
-
-	// Hydration: amountConsumed.milliliters (value_sum holds it).
-	err = r.db.QueryRowContext(ctx, `
-		SELECT COALESCE(SUM(value_sum), 0)
-		FROM data_points
-		WHERE user_id = $1 AND data_type = 'hydration-log' AND civil_start_date = $2`,
-		userID, localDate).Scan(&out.HydrationML)
-	if err != nil {
-		return nil, fmt.Errorf("hydration total: %w", err)
-	}
-
 	// Most recent contributing entry today, across all nutrition/energy/hydration
-	// sources — drives the "as of" stamp. In Postgres COALESCE preserves the
-	// column's timestamptz type, so scan directly into time.Time.
+	// sources — drives the "as of" stamp. ORDER BY ... LIMIT 1, so it stays a
+	// separate query from the aggregates above. COALESCE preserves the
+	// timestamptz type, so scan directly into time.Time.
 	var at time.Time
 	var off sql.NullInt64
 	err = r.db.QueryRowContext(ctx, `

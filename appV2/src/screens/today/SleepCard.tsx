@@ -1,14 +1,16 @@
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Badge, Hypnogram, type TypicalByStage } from '@/components';
-import { useLastNight } from '@/data/sleep';
+import { useToday } from '@/data/today';
 import { fmtClock, fmtMin } from '@/data/mock';
 import { accent, border, font, fontSize, radius, surface, text } from '@/theme';
 
 /** Last night's sleep: a summary header over the shared Hypnogram component,
- *  driven by the user's most recent recorded night from the backend. */
+ *  driven by the user's most recent recorded night (from the Today aggregate). */
 export function SleepCard() {
-  const { data, loading, error } = useLastNight();
+  const today = useToday();
+  const data = today.data?.sleep ?? null;
+  const { loading, error } = today;
 
   let body: React.ReactNode;
   if (loading) {

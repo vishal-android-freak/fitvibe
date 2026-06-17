@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,6 +25,17 @@ type BackfillJob struct {
 	dataPointRepo *repositories.DataPointRepo
 	logger        *slog.Logger
 	userID        int64
+
+	// startOverride, when non-zero, replaces the default
+	// (now - DefaultBackfillDays) window start — e.g. to backfill just today.
+	startOverride time.Time
+}
+
+// WithStart overrides the backfill window start (default is
+// now - DefaultBackfillDays). Returns the job for chaining.
+func (b *BackfillJob) WithStart(start time.Time) *BackfillJob {
+	b.startOverride = start
+	return b
 }
 
 // NewBackfillJob creates a backfill job for a user.
@@ -62,10 +74,13 @@ func (b *BackfillJob) Run(ctx context.Context) error {
 		return fmt.Errorf("user %d not found", b.userID)
 	}
 
-	dataTypes := WebhookListDataTypes
+	dataTypes := backfillDataTypes()
 
-	start := time.Now().UTC().Add(-time.Duration(b.cfg.DefaultBackfillDays) * 24 * time.Hour)
 	end := time.Now().UTC()
+	start := end.Add(-time.Duration(b.cfg.DefaultBackfillDays) * 24 * time.Hour)
+	if !b.startOverride.IsZero() {
+		start = b.startOverride.UTC()
+	}
 
 	// Process data types concurrently to speed up backfill.
 	// Use a shared rate-limited client so all workers stay under the Google
@@ -122,6 +137,42 @@ func (b *BackfillJob) updateBodyMetrics(ctx context.Context, userID int64) error
 	return b.userRepo.UpdateBodyMetrics(ctx, userID, heightMeters, weightKg)
 }
 
+// isUnsupportedListAction reports whether the error is the API's
+// "List is not supported for data type" 400 — those types only allow
+// reconcile/rollup and are filled by those crons instead.
+func isUnsupportedListAction(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "UNSUPPORTED_DATA_TYPE_ACTION") ||
+		strings.Contains(msg, "List is not supported for data type")
+}
+
+// backfillDataTypes is every data type the historical backfill pulls: the
+// webhook-supported list PLUS the cron-only types (ECG, vo2-max, SpO2,
+// active-energy-burned, …) that webhooks never deliver. Deduped, preserving a
+// stable order. Types that don't support `list` (only reconcile/rollup) are
+// skipped gracefully at fetch time rather than excluded here, so the list stays
+// the simple union of "everything we ingest".
+func backfillDataTypes() []string {
+	seen := make(map[string]bool, len(WebhookListDataTypes)+len(cronOnlyDataTypes))
+	out := make([]string, 0, len(WebhookListDataTypes)+len(cronOnlyDataTypes))
+	for _, dt := range WebhookListDataTypes {
+		if !seen[dt] {
+			seen[dt] = true
+			out = append(out, dt)
+		}
+	}
+	for _, dt := range cronOnlyDataTypes {
+		if !seen[dt] {
+			seen[dt] = true
+			out = append(out, dt)
+		}
+	}
+	return out
+}
+
 func (b *BackfillJob) syncDataType(ctx context.Context, client *healthapi.Client, userID int64, dataType string, start, end time.Time) error {
 	pageToken := ""
 	for {
@@ -133,6 +184,13 @@ func (b *BackfillJob) syncDataType(ctx context.Context, client *healthapi.Client
 			PageSize:  100,
 		})
 		if err != nil {
+			// Some types (e.g. floors, irregular-rhythm) only support
+			// reconcile/rollup, not list. Skip those quietly rather than failing
+			// the whole type — they're recovered by the rollup/reconcile crons.
+			if isUnsupportedListAction(err) {
+				b.logger.Info("backfill skipping unsupported list data type", "data_type", dataType)
+				return nil
+			}
 			return fmt.Errorf("list data points: %w", err)
 		}
 
