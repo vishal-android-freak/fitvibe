@@ -1,15 +1,15 @@
 import React from 'react';
 import { ReadinessCard, type ReadinessFactor } from '@/components';
-import { useLastNight } from '@/data/sleep';
-import { fmtStampClock, useTodaySummary } from '@/data/today';
+import { fmtStampClock, useToday } from '@/data/today';
 import { fmtMin } from '@/data/mock';
 import { hue } from '@/theme';
 
 /** Hero page 1 — readiness score ring + today's headline stats (steps, current
  *  heart rate, last night's sleep). */
 export function ReadinessPage() {
-  const { data: today } = useTodaySummary();
-  const { data: night } = useLastNight();
+  const { data } = useToday();
+  const today = data?.summary ?? null;
+  const night = data?.sleep ?? null;
 
   const factors: ReadinessFactor[] = [
     {

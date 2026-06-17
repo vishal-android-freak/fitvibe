@@ -42,8 +42,9 @@ type stageTotal struct {
 	Count   int    `json:"count"`
 }
 
-// lastNightResponse is the full payload the SleepCard/Hypnogram render.
-type lastNightResponse struct {
+// LastNightResponse is the full payload the SleepCard/Hypnogram render. Exported
+// so the Today aggregate endpoint can embed it.
+type LastNightResponse struct {
 	// Chronological stage blocks for the cityscape chart.
 	Segments []stageSegment `json:"segments"`
 	// Local wall-clock minutes-since-midnight for the hour axis and header.
@@ -61,6 +62,20 @@ type lastNightResponse struct {
 	Typical TypicalStages `json:"typical"`
 }
 
+// LastNight returns the user's most recent sleep night as the rendered payload,
+// or nil if there is none. Shared by the HTTP handler and the Today aggregate.
+func (h *Handler) LastNight(ctx context.Context, userID int64) (*LastNightResponse, error) {
+	night, err := h.sleep.LatestNight(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if night == nil {
+		return nil, nil
+	}
+	resp := buildLastNight(night, h.userAge(ctx, userID))
+	return &resp, nil
+}
+
 func (h *Handler) lastNight(w http.ResponseWriter, r *http.Request) {
 	userID, err := strconv.ParseInt(r.URL.Query().Get("user_id"), 10, 64)
 	if err != nil {
@@ -68,18 +83,15 @@ func (h *Handler) lastNight(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	night, err := h.sleep.LatestNight(r.Context(), userID)
+	resp, err := h.LastNight(r.Context(), userID)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "failed to load sleep")
 		return
 	}
-	if night == nil {
+	if resp == nil {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-
-	age := h.userAge(r.Context(), userID)
-	resp := buildLastNight(night, age)
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -108,7 +120,7 @@ func canonStage(t string) string {
 	}
 }
 
-func buildLastNight(n *repositories.SleepNight, age int) lastNightResponse {
+func buildLastNight(n *repositories.SleepNight, age int) LastNightResponse {
 	loc := time.FixedZone("local", n.OffsetSeconds)
 
 	// Chronological segments (rounded to whole minutes).
@@ -174,7 +186,7 @@ func buildLastNight(n *repositories.SleepNight, age int) lastNightResponse {
 		return lt.Hour()*60 + lt.Minute()
 	}
 
-	return lastNightResponse{
+	return LastNightResponse{
 		Segments:      segments,
 		OnsetClock:    clockOf(n.Start),
 		WakeClock:     clockOf(n.End),
