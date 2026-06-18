@@ -106,11 +106,31 @@ type LastNightResponse struct {
 	AsleepMinutes int `json:"asleepMinutes"` // total minus Awake
 	// Sleep efficiency = asleep / total, as a percent.
 	Efficiency int `json:"efficiency"`
-	// Number of awakenings (distinct Awake periods).
+	// Number of awakenings (distinct Awake periods). Raw device count — kept for
+	// backward compat; prefer FullAwakenings for the honest mid-sleep count.
 	Awakenings int `json:"awakenings"`
+	// Derived "Sleep quality" metrics (validated against Google Health). See
+	// quality.go for formulas and caveats.
+	Quality sleepQuality `json:"quality"`
 	// Per-stage breakdown with the typical-for-age target each bar marks against.
 	Stages  []stageTotal  `json:"stages"`
 	Typical TypicalStages `json:"typical"`
+}
+
+// sleepQuality holds the derived "Sleep quality" metrics. Exact: interruptions.
+// Approximate: timeToSoundSleep. Proxy-only: soundSleep (Deep+REM). Disruptions
+// is a stage-based tick timeline (NOT Google's movement-based restlessness).
+type sleepQuality struct {
+	// TimeToSoundSleepMinutes is onset→first deep/REM latency; null if never
+	// reached (no deep/REM that night).
+	TimeToSoundSleepMinutes *int `json:"timeToSoundSleepMinutes"`
+	// InterruptionsMinutes / FullAwakenings: mid-sleep awake stretches ≥5 min.
+	InterruptionsMinutes int `json:"interruptionsMinutes"`
+	FullAwakenings       int `json:"fullAwakenings"`
+	// SoundSleepMinutes is Deep+REM only — a proxy, NOT Google's sound sleep.
+	SoundSleepMinutes int `json:"soundSleepMinutes"`
+	// Disruptions is the mid-sleep disturbance tick timeline (may be empty).
+	Disruptions []disruption `json:"disruptions"`
 }
 
 // LastNight returns the user's most recent sleep night as the rendered payload,
@@ -164,7 +184,8 @@ type nightSummary struct {
 	WakeClock       int          `json:"wakeClock"`
 	DurationMinutes int          `json:"durationMinutes"` // asleep minutes
 	Efficiency      int          `json:"efficiency"`      // asleep/total %
-	Awakenings      int          `json:"awakenings"`      // AWAKE count
+	Awakenings      int          `json:"awakenings"`      // raw AWAKE count (back-compat)
+	Quality         sleepQuality `json:"quality"`         // derived sleep-quality metrics
 	Stages          []stageTotal `json:"stages"`
 	Vitals          nightVitals  `json:"vitals"`
 }
@@ -250,6 +271,7 @@ func buildNight(n *repositories.SleepNightDetail) nightSummary {
 		DurationMinutes: asleep,
 		Efficiency:      efficiency(asleep, total),
 		Awakenings:      awakenings,
+		Quality:         buildQuality(loc, n.Segments, n.Summary),
 		Stages:          stages,
 		Vitals: nightVitals{
 			RHR:             nullable(n.RestingHeartRate),
@@ -338,9 +360,31 @@ func buildLastNight(n *repositories.SleepNight, age int) LastNightResponse {
 		AsleepMinutes: asleep,
 		Efficiency:    eff,
 		Awakenings:    awakenings,
+		Quality:       buildQuality(loc, n.Segments, n.Summary),
 		Stages:        stages,
 		Typical:       typicalByAge(age),
 	}
+}
+
+// buildQuality assembles the derived sleep-quality metrics from the segment
+// timeline + per-stage summary. Disruptions are always non-nil (empty slice, not
+// null) so the JSON renders a usable array.
+func buildQuality(loc *time.Location, segs []repositories.SleepStageSegment, summary []repositories.SleepStageSummary) sleepQuality {
+	intMin, intCnt := computeInterruptions(segs)
+	disruptions := computeDisruptions(loc, segs)
+	if disruptions == nil {
+		disruptions = []disruption{}
+	}
+	q := sleepQuality{
+		InterruptionsMinutes: intMin,
+		FullAwakenings:       intCnt,
+		SoundSleepMinutes:    computeSoundSleep(summary),
+		Disruptions:          disruptions,
+	}
+	if ttss, ok := computeTimeToSoundSleep(segs); ok {
+		q.TimeToSoundSleepMinutes = &ttss
+	}
+	return q
 }
 
 // stageTotals computes the per-stage [Deep, REM, Light, Awake] roll-up, the total

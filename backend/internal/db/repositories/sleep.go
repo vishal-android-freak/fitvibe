@@ -107,7 +107,8 @@ type SleepNightDetail struct {
 	RespiratoryRate  sql.NullFloat64 // respiratory-rate-sleep-summary value_avg (breaths/min)
 	SkinTempDelta    sql.NullFloat64 // nightly - baseline temp, celsius
 
-	Summary []SleepStageSummary // per-stage minutes + counts
+	Segments []SleepStageSegment // chronological stage timeline (for derived metrics)
+	Summary  []SleepStageSummary // per-stage minutes + counts
 }
 
 // RecentNights returns up to limit recent sleep nights (most recent first), each
@@ -191,7 +192,8 @@ func (r *SleepRepo) RecentNights(ctx context.Context, userID int64, limit int) (
 		return nil, fmt.Errorf("iterate recent sleep nights: %w", err)
 	}
 
-	// Stage summary + asleep minutes per night (reuse the existing summary helper).
+	// Stage summary + the chronological timeline (needed for derived sleep-quality
+	// metrics: interruptions, time-to-sound-sleep, disruption ticks) per night.
 	for i := range out {
 		summary, err := r.summary(ctx, out[i].DataPointID)
 		if err != nil {
@@ -206,6 +208,12 @@ func (r *SleepRepo) RecentNights(ctx context.Context, userID int64, limit int) (
 			}
 		}
 		out[i].AsleepMinutes = asleep
+
+		segs, err := r.stages(ctx, out[i].DataPointID)
+		if err != nil {
+			return nil, err
+		}
+		out[i].Segments = segs
 	}
 
 	return out, nil
