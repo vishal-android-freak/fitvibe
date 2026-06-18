@@ -72,7 +72,7 @@ export function BodyActivity({ activity }: { activity: ActivityBlock }) {
   return (
     <>
       <Eyebrow>Today</Eyebrow>
-      <StatTileGrid tiles={today} columns={1} />
+      <StatTileGrid tiles={today} columns={3} />
       <StatTileGrid tiles={energy} style={styles.energy} />
 
       <Eyebrow>Recent sessions</Eyebrow>

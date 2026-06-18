@@ -34,7 +34,7 @@ export function StatTileGrid({ tiles, columns = 2, style }: StatTileGridProps) {
             value={t.value}
             unit={t.unit}
             hue={t.hue}
-            icon={t.icon ? <Icon name={t.icon} size={16} color={t.hue} /> : undefined}
+            icon={t.icon ? <Icon name={t.icon} size={14} color={t.hue} /> : undefined}
             delta={t.delta}
             deltaDir={t.deltaDir}
             goal={t.goal}
