@@ -10,6 +10,8 @@ export interface SessionResponse {
   display_name: string;
   email: string;
   picture: string;
+  /** Firebase custom token (uid = google_user_id) to signInWithCustomToken. */
+  firebase_token?: string;
 }
 
 /** Map the backend's wire shape to the persisted Session (the one place this

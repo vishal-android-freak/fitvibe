@@ -4,6 +4,7 @@ import { parse } from 'expo-linking';
 import { makeRedirectUri } from 'expo-auth-session';
 import { APP_SCHEME, config, REDIRECT_PATH } from './config';
 import { redeemSession, toSession } from './session';
+import { signInWithCustomToken, firebaseSignOut } from './firebase';
 import { clearSession, loadSession, saveSession, type Session } from './storage';
 
 // Ensures any lingering auth browser session is completed on cold start.
@@ -68,6 +69,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!params.token) throw new Error('No session token returned');
 
       const data = await redeemSession(params.token);
+      // Sign into Firebase with the backend-minted custom token so subsequent
+      // API requests carry a verifiable Bearer ID token (no extra user step).
+      if (data.firebase_token) {
+        await signInWithCustomToken(data.firebase_token);
+      }
       await saveSession(toSession(data));
       setSession(toSession(data));
       setStatus('signedIn');
@@ -102,6 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [busy, redirectUri, completeSignIn]);
 
   const signOut = useCallback(async () => {
+    await firebaseSignOut();
     await clearSession();
     setSession(null);
     setStatus('signedOut');

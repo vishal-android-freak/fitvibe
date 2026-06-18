@@ -120,8 +120,8 @@ export interface Body {
   nutrition: NutritionBlock;
 }
 
-export async function fetchBody(userId: number): Promise<Body> {
-  return apiGet<Body>(`/me/body?user_id=${userId}`);
+export async function fetchBody(): Promise<Body> {
+  return apiGet<Body>(`/me/body`);
 }
 
 /** Loads the Body tab for the signed-in user. Keeps stale data on refresh. */

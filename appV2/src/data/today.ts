@@ -70,9 +70,10 @@ interface TodayWire extends Omit<Today, 'sleep'> {
   sleep: SleepWire | null;
 }
 
-/** Fetch the whole Today screen in one request. */
-export async function fetchToday(userId: number): Promise<Today> {
-  const w = await apiGet<TodayWire>(`/me/today?user_id=${userId}`);
+/** Fetch the whole Today screen in one request. The signed-in user is derived
+ *  from the auth token, not a query param; userId only gates the call. */
+export async function fetchToday(_userId: number): Promise<Today> {
+  const w = await apiGet<TodayWire>(`/me/today`);
   return { ...w, sleep: decodeSleep(w.sleep) };
 }
 

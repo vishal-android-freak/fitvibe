@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { config } from '@/auth/config';
 import { useAuth } from '@/auth';
-import { apiGet, apiGetOrNull } from '@/data/api';
+import { apiGet, apiGetOrNull, apiSend } from '@/data/api';
 import { useResource, type Resource } from '@/data/useResource';
 import type { SleepSegment, SleepStage } from '@/components';
 
@@ -74,8 +73,8 @@ function decode(r: SleepWire): LastNight {
 }
 
 /** Fetches the user's most recent sleep night. Returns null when there is none. */
-export async function fetchLastNight(userId: number): Promise<LastNight | null> {
-  const wire = await apiGetOrNull<SleepWire>(`/me/sleep/last-night?user_id=${userId}`);
+export async function fetchLastNight(): Promise<LastNight | null> {
+  const wire = await apiGetOrNull<SleepWire>(`/me/sleep/last-night`);
   return wire ? decode(wire) : null;
 }
 
@@ -174,8 +173,8 @@ interface NightsWire {
   nights: SleepNight[];
 }
 
-export async function fetchSleepNights(userId: number, limit = 7): Promise<SleepNight[]> {
-  const w = await apiGet<NightsWire>(`/me/sleep/nights?user_id=${userId}&limit=${limit}`);
+export async function fetchSleepNights(limit = 7): Promise<SleepNight[]> {
+  const w = await apiGet<NightsWire>(`/me/sleep/nights?limit=${limit}`);
   return w.nights ?? [];
 }
 
@@ -189,7 +188,7 @@ export interface SleepNightsState {
 /** Loads the last N nights for the Sleep tab. Keeps old data on refresh. */
 export function useSleepNights(limit = 7): SleepNightsState {
   const { data, loading, error, reload } = useResource(
-    (userId) => fetchSleepNights(userId, limit),
+    () => fetchSleepNights(limit),
     [limit],
   );
   return { nights: data ?? [], loading, error, reload };
@@ -229,8 +228,7 @@ export function useSleepSchedule(): SleepScheduleState {
       return;
     }
     let cancelled = false;
-    fetch(`${config.apiBaseUrl}/me/sleep/schedule?user_id=${userId}`)
-      .then((r) => (r.ok ? (r.json() as Promise<SleepSchedule>) : null))
+    apiGet<SleepSchedule>(`/me/sleep/schedule`)
       .then((s) => {
         if (!cancelled && mounted.current && s) setSchedule(s);
       })
@@ -247,11 +245,7 @@ export function useSleepSchedule(): SleepScheduleState {
     async (next: SleepSchedule) => {
       if (!userId) return;
       setSchedule(next); // optimistic
-      await fetch(`${config.apiBaseUrl}/me/sleep/schedule?user_id=${userId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(next),
-      });
+      await apiSend('PUT', `/me/sleep/schedule`, next);
     },
     [userId],
   );
