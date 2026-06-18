@@ -276,9 +276,10 @@ score = round( clamp( 0.8110 · composite + 4.10 , 0 , 100 ) )</code></pre>
 <h2 class="sec">Stage totals, efficiency &amp; typical mix</h2>
 <p class="file"><b>internal/sleep/handler.go</b>, <b>typical.go</b></p>
 
-<h4>Efficiency</h4>
+<h4>Efficiency <span class="pill no">NOT SHOWN</span></h4>
 <pre><code>efficiency% = round( asleep / total · 100 )      // 0 if total ≤ 0</code></pre>
-<p>Where <code>asleep</code> and <code>total</code> prefer the device's authoritative <code>MinutesAsleep</code> / <code>MinutesInSleepPeriod</code> (matches Google Health), falling back to summed stage minutes only when absent.</p>
+<p>Where <code>asleep</code> and <code>total</code> prefer the device's authoritative <code>MinutesAsleep</code> / <code>MinutesInSleepPeriod</code>, falling back to summed stage minutes only when absent.</p>
+<div class="callout warn"><b>Computed but no longer displayed (dropped 2026-06-18).</b> The Fitbit-sourced payload gives no real "time in bed" — <code>minutesToFallAsleep</code> and <code>minutesAfterWakeUp</code> are hard-zero, so <code>minutesInSleepPeriod</code> ≈ the onset→wake span. The result is <code>asleep / sleep-period</code> ≈ 98–99% every normal night, with almost no variation, so it carried no signal and was removed from the Sleep-quality card. The field is still emitted in the API and still feeds the score's duration term indirectly and the <code>ratingFor</code> bucket, but is not rendered as a gauge. To compute a <i>true</i> clinical efficiency we'd need a time-in-bed the device doesn't provide.</div>
 
 <h4>Stage canonicalization</h4>
 <p><code>DEEP→Deep</code>, <code>REM→REM</code>, <code>LIGHT|SLEEPING→Light</code>, <code>AWAKE|AWAKE_IN_BED|OUT_OF_BED→Awake</code>, others skipped. Asleep = Deep + REM + Light (excludes Awake).</p>
@@ -461,8 +462,9 @@ score = round( clamp( 0.8110 · composite + 4.10 , 0 , 100 ) )</code></pre>
 <h2 class="sec">Sleep-quality gauges &amp; verdicts</h2>
 <p class="file"><b>appV2/src/screens/sleep/SleepQualityCard.tsx</b></p>
 <ul class="tight">
-  <li><b>Three-state verdict.</b> Lower-is-better metrics: <code>in</code> if ≤ greenMax, <code>amber</code> if ≤ amberMax, else <code>out</code>. Higher-is-better (restorative, efficiency): green floors. Interruptions takes <code>worst(wasoVerdict, awakeVerdict)</code> (out &gt; amber &gt; in).</li>
-  <li><b>Track scaling.</b> Lower-is-better fills against <code>amberMax · 1.4</code> (40% headroom); the dashed band runs <code>[0, greenMax/(amberMax·1.4)]</code>. Restorative scales against <code>asleep · 0.6</code> and converts the fraction band to minutes (<code>fraction · asleep</code>). Efficiency band runs <code>[greenMin/100, 1]</code>.</li>
+  <li><b>Rows shown:</b> Time to sound sleep, Restorative (Deep+REM), Interruptions, and the disruptions timeline. (Efficiency was dropped — see the Efficiency note above.)</li>
+  <li><b>Three-state verdict.</b> Lower-is-better metrics: <code>in</code> if ≤ greenMax, <code>amber</code> if ≤ amberMax, else <code>out</code>. Higher-is-better (restorative): green floor. Interruptions takes <code>worst(wasoVerdict, awakeVerdict)</code> (out &gt; amber &gt; in).</li>
+  <li><b>Track scaling.</b> Lower-is-better fills against <code>amberMax · 1.4</code> (40% headroom); the dashed band runs <code>[0, greenMax/(amberMax·1.4)]</code>. Restorative scales against <code>asleep · 0.6</code> and converts the fraction band to minutes (<code>fraction · asleep</code>).</li>
   <li><b>Disruptions timeline.</b> Night span <code>((wake − onset + 1440) mod 1440) || 1440</code> (handles past-midnight); each tick at <code>((at − onset + 1440) mod 1440) / span</code>.</li>
 </ul>
 
@@ -500,6 +502,7 @@ score = round( clamp( 0.8110 · composite + 4.10 , 0 , 100 ) )</code></pre>
   <li><b>In-range bands</b> are population age norms, not Google's exact (undisclosed) tables, and not personalized by gender.</li>
   <li><b>Recent-nights</b> shows one session per civil date (longest); naps on a main-sleep day don't appear separately.</li>
   <li><b>Readiness</b> (Today hero) is not yet computed — the page currently shows a fixed placeholder. See the readiness research note.</li>
+  <li><b>Sleep efficiency</b> is computed but <b>not displayed</b> — it's ≈98–99% every night (no real time-in-bed from the device), so it carries no signal.</li>
   <li><b>Steps</b> exclude phone/Health-Connect sources to avoid double-counting against the wearable.</li>
 </ul>
 </section>
@@ -510,6 +513,7 @@ score = round( clamp( 0.8110 · composite + 4.10 , 0 , 100 ) )</code></pre>
 <table>
   <thead><tr><th>Date</th><th>Change</th></tr></thead>
   <tbody>
+    <tr><td>2026-06-18</td><td>Dropped the Sleep-efficiency row from the quality card (≈98–99% every night, no signal — device gives no real time-in-bed). Reworded the per-night insight to lead with duration + stage composition instead of efficiency. Reduced the quality-card value font size.</td></tr>
     <tr><td>2026-06-18</td><td>Initial document. Covers sleep score (calibrated, ±3 vs 9 real nights), sleep-quality metrics (interruptions exact, time-to-sound-sleep ±2–3min, restorative proxy, disruptions timeline, restlessness not-possible), typical-for-age bands, stage totals/efficiency/typical mix, recent-nights query, Today aggregations, ingestion coercion/extraction/children, Health API filtering/rate-limit/retry, cron windows, and the full app-side formatter/gauge/geometry inventory.</td></tr>
   </tbody>
 </table>

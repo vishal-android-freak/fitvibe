@@ -32,8 +32,10 @@ function lowerVerdict(value: number, greenMax: number, amberMax: number): Verdic
  *    sleep" (which HR-gates light & deep); banded as % of asleep time by age.
  *  - Interruptions — exact match to Google; in range is ≤~20 min & ≤1 awakening
  *    (NOT required to be zero).
- *  - Sleep efficiency — asleep/in-bed; green ≥85%.
  *  - Sleep disruptions — a stage-based tick timeline (NOT movement restlessness).
+ *
+ * Sleep efficiency is deliberately NOT shown: the device exposes no real "time
+ * in bed", so asleep/sleep-period is always ~98-99% and carries no signal.
  */
 export function SleepQualityCard({ night }: { night: NightView }) {
   const q: SleepQuality = night.raw.quality;
@@ -57,9 +59,9 @@ export function SleepQualityCard({ night }: { night: NightView }) {
   const awakeV = lowerVerdict(q.fullAwakenings, b.fullAwakenings.greenMax, b.fullAwakenings.amberMax);
   const interruptVerdict: Verdict = worst(wasoV, awakeV);
 
-  // Efficiency — higher is better.
-  const eff = night.raw.efficiency;
-  const effVerdict: Verdict = eff >= b.efficiency.greenMin ? 'in' : eff >= b.efficiency.amberMin ? 'amber' : 'out';
+  // Sleep efficiency is intentionally omitted: the device gives no real
+  // "time in bed", so asleep/sleep-period is always ~98-99% and carries no
+  // signal. See backend/docs/calculations-methodology.html.
 
   return (
     <View style={styles.card}>
@@ -94,17 +96,6 @@ export function SleepQualityCard({ night }: { night: NightView }) {
         bandStart={0}
         bandEnd={clamp(b.interruptionsMinutes.greenMax / (b.interruptionsMinutes.amberMax * 1.4))}
         hue={hue.heart}
-      />
-      <View style={styles.divider} />
-      <RangeRow
-        label="Sleep efficiency"
-        value={`${eff}%`}
-        verdict={effVerdict}
-        fill={clamp(eff / 100)}
-        // Green band runs from the floor up to 100%.
-        bandStart={clamp(b.efficiency.greenMin / 100)}
-        bandEnd={1}
-        hue={hue.oxygen}
       />
       <View style={styles.divider} />
       <Disruptions night={night} q={q} />
@@ -225,7 +216,7 @@ const styles = StyleSheet.create({
   labelWrap: { flex: 1 },
   label: { fontFamily: font.sansSemibold, fontSize: fontSize.sm, color: text.primary },
   sublabel: { fontFamily: font.sansRegular, fontSize: fontSize.xs, color: text.muted, marginTop: 2 },
-  value: { fontFamily: font.mono, fontSize: fontSize.sm, color: text.secondary },
+  value: { fontFamily: font.mono, fontSize: fontSize.xs, color: text.secondary },
   pill: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill },
   pillText: { fontFamily: font.sansBold, fontSize: fontSize['2xs'] },
   track: { height: 10, borderRadius: radius.pill, backgroundColor: surface.inset, overflow: 'hidden', justifyContent: 'center' },

@@ -13,15 +13,15 @@ export function SleepInsight({ night, onPress }: { night: NightView; onPress?: (
   const deepPct = deep?.percent ?? 0;
   const remPct = rem?.percent ?? 0;
 
-  const title =
-    night.eff >= 92 ? 'Efficient, restful night' : n.awakenings >= 3 ? 'Restful overall, a few wake-ups' : 'A solid night';
+  const wakeups = n.quality.fullAwakenings;
+  const title = wakeups >= 2 ? 'Restful overall, a few wake-ups' : 'A solid night';
 
   return (
     <Pressable onPress={onPress}>
       <InsightCard eyebrow="FitVibe insight" title={title}>
         <Text style={styles.body}>
-          You slept {fmtH(night.dur)} at {night.eff}% efficiency — {deepPct}% deep and {remPct}% REM, with{' '}
-          {n.awakenings} {n.awakenings === 1 ? 'awakening' : 'awakenings'}
+          You slept {fmtH(night.dur)} — {deepPct}% deep and {remPct}% REM, with{' '}
+          {wakeups} {wakeups === 1 ? 'wake-up' : 'wake-ups'}
           {n.vitals.hrv != null ? `, and HRV at ${Math.round(n.vitals.hrv)} ms` : ''}.
         </Text>
         <View style={styles.badges}>
