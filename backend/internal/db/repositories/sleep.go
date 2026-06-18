@@ -236,8 +236,9 @@ func (r *SleepRepo) RecentNights(ctx context.Context, userID int64, limit int) (
 	return out, nil
 }
 
-// napsForDate returns the naps recorded on a given local civil date (newest
-// first), each with its stage timeline for the hypnogram. No score/quality.
+// napsForDate returns the naps recorded on a given local civil date in
+// chronological order (earliest → latest by start time), each with its stage
+// timeline for the hypnogram. No score/quality.
 func (r *SleepRepo) napsForDate(ctx context.Context, userID int64, civilDate string) ([]Nap, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, start_time, end_time,
@@ -247,7 +248,7 @@ func (r *SleepRepo) napsForDate(ctx context.Context, userID int64, civilDate str
 		WHERE user_id = $1 AND data_type = 'sleep' AND is_nap = true
 		  AND COALESCE(civil_end_date, date(end_time)) = $2::date
 		  AND start_time IS NOT NULL AND end_time IS NOT NULL
-		ORDER BY end_time DESC`, userID, civilDate)
+		ORDER BY start_time ASC`, userID, civilDate)
 	if err != nil {
 		return nil, fmt.Errorf("query naps: %w", err)
 	}

@@ -48,7 +48,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: border.subtle,
   },
-  head: { flexDirection: 'row', alignItems: 'center', gap: 9, marginBottom: 4 },
+  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, marginBottom: 4 },
   badge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999, backgroundColor: tint(accent.base, 0.18) },
   badgeText: { fontFamily: font.sansBold, fontSize: fontSize['2xs'], letterSpacing: 0.6, color: accent.base },
   dur: { fontFamily: font.display, fontSize: fontSize.md, color: text.primary },
