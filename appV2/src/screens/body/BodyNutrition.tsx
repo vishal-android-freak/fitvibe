@@ -1,8 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { CalorieBudget } from '@/components';
+import { CalorieBudget, MealsList, type Meal, type IconName } from '@/components';
 import { border, font, fontSize, hue, radius, surface, text } from '@/theme';
-import type { NutritionBlock, NutrientTotal } from '@/data/body';
+import type { NutritionBlock, NutrientTotal, MealView } from '@/data/body';
 import { Eyebrow } from './parts';
 
 /** Default daily calorie goal until the user sets one (no goal endpoint yet). */
@@ -39,6 +39,34 @@ function fmtGrams(grams: number, unit: 'g' | 'mg'): string {
   return `${grams >= 10 ? Math.round(grams) : grams.toFixed(1)} g`;
 }
 
+/** Meal-type → display label + icon. Falls back gracefully for unknown/blank. */
+const MEAL_META: Record<string, { label: string; icon: IconName }> = {
+  BREAKFAST: { label: 'Breakfast', icon: 'sunrise' },
+  LUNCH: { label: 'Lunch', icon: 'sun' },
+  SNACK: { label: 'Snack', icon: 'cookie' },
+  DINNER: { label: 'Dinner', icon: 'moon' },
+};
+
+/** RFC3339 instant + the reading's own UTC offset → "8:10 AM" wall-clock. */
+function fmtMealTime(at: string, offsetSeconds: number): string {
+  const ms = Date.parse(at);
+  if (Number.isNaN(ms)) return '';
+  const local = new Date(ms + offsetSeconds * 1000);
+  let h = local.getUTCHours();
+  const m = local.getUTCMinutes();
+  const ap = h < 12 ? 'AM' : 'PM';
+  h = h % 12 || 12;
+  return `${h}:${String(m).padStart(2, '0')} ${ap}`;
+}
+
+/** Map the API meals to the MealsList component shape. */
+function toMeals(meals: MealView[]): Meal[] {
+  return meals.map((m) => {
+    const meta = MEAL_META[m.mealType] ?? { label: 'Logged', icon: 'utensils' as IconName };
+    return { meal: meta.label, item: m.name, time: fmtMealTime(m.at, m.offsetSeconds), kcal: m.kcal, icon: meta.icon };
+  });
+}
+
 /**
  * Calorie balance + the dynamic micronutrient breakdown. Nutrients are whatever
  * the day's logged foods carried (from nutrition_log_nutrients) — the list grows
@@ -66,6 +94,13 @@ export function BodyNutrition({ nutrition }: { nutrition: NutritionBlock }) {
       <Text style={styles.note}>
         Totals reflect only foods you logged with nutrient details, so they may understate your full intake.
       </Text>
+
+      <Eyebrow note={`${n.caloriesEaten.toLocaleString()} kcal`}>Today's meals</Eyebrow>
+      {n.meals.length > 0 ? (
+        <MealsList meals={toMeals(n.meals)} />
+      ) : (
+        <Text style={styles.empty}>No meals logged today.</Text>
+      )}
     </>
   );
 }

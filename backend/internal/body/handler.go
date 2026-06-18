@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"math"
 	"net/http"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -163,6 +164,15 @@ type nutritionBlock struct {
 	CaloriesEaten int                          `json:"caloriesEaten"`
 	CaloriesBurnt int                          `json:"caloriesBurnt"`
 	Nutrients     []repositories.NutrientTotal `json:"nutrients"` // dynamic, from logged foods
+	Meals         []mealView                   `json:"meals"`     // today's logged foods
+}
+
+type mealView struct {
+	Name          string `json:"name"`
+	MealType      string `json:"mealType"` // BREAKFAST | LUNCH | DINNER | SNACK | ""
+	Kcal          int    `json:"kcal"`
+	At            string `json:"at"`
+	OffsetSeconds int    `json:"offsetSeconds"`
 }
 
 // ---- builders ----
@@ -285,18 +295,59 @@ func (h *Handler) buildNutrition(ctx context.Context, userID int64, localDate st
 	if err != nil {
 		return nutritionBlock{}, err
 	}
-	nutrients, err := h.repo.NutrientsToday(ctx, userID, localDate)
+	childNutrients, err := h.repo.NutrientsToday(ctx, userID, localDate)
 	if err != nil {
 		return nutritionBlock{}, err
 	}
-	if nutrients == nil {
-		nutrients = []repositories.NutrientTotal{}
+	meals, err := h.repo.MealsToday(ctx, userID, localDate)
+	if err != nil {
+		return nutritionBlock{}, err
+	}
+	mv := make([]mealView, 0, len(meals))
+	for _, m := range meals {
+		mv = append(mv, mealView{
+			Name: m.Name, MealType: m.MealType, Kcal: m.Kcal,
+			At: m.At.UTC().Format("2006-01-02T15:04:05Z07:00"), OffsetSeconds: m.OffsetSeconds,
+		})
 	}
 	return nutritionBlock{
 		CaloriesEaten: totals.CaloriesEaten,
 		CaloriesBurnt: totals.CaloriesBurnt,
-		Nutrients:     nutrients,
+		Nutrients:     mergeNutrients(totals, childNutrients),
+		Meals:         mv,
 	}, nil
+}
+
+// mergeNutrients combines the promoted macro columns (carbs/fat) with the
+// child-table nutrients (protein/fiber/…) into one list, macros first. Carbs
+// and fat live as top-level payload fields, not in the nutrients[] array, so
+// they'd otherwise be missing from the breakdown. Same-named entries are summed
+// (a food rarely also lists carbs inside nutrients[]) to avoid double-counting.
+func mergeNutrients(totals repositories.NutritionCalories, child []repositories.NutrientTotal) []repositories.NutrientTotal {
+	// Macros from promoted columns, in display order.
+	order := []string{"CARBOHYDRATES", "TOTAL_FAT", "PROTEIN", "DIETARY_FIBER"}
+	sums := map[string]float64{}
+	if totals.CarbsGrams > 0 {
+		sums["CARBOHYDRATES"] = totals.CarbsGrams
+	}
+	if totals.FatGrams > 0 {
+		sums["TOTAL_FAT"] = totals.FatGrams
+	}
+	for _, n := range child {
+		sums[n.Nutrient] += n.Grams
+		// Track any micronutrient not already in the fixed macro order so it
+		// still renders (and the list stays dynamic as logging gets richer).
+		if !slices.Contains(order, n.Nutrient) {
+			order = append(order, n.Nutrient)
+		}
+	}
+	out := make([]repositories.NutrientTotal, 0, len(sums))
+	for _, k := range order {
+		if g, ok := sums[k]; ok {
+			out = append(out, repositories.NutrientTotal{Nutrient: k, Grams: round1(g)})
+		}
+	}
+	return out
 }
 
 // ---- band / stat helpers ----

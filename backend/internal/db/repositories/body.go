@@ -288,29 +288,74 @@ type NutrientTotal struct {
 	Grams    float64 `json:"grams"`
 }
 
-// NutritionCalories is the day's calories-in/out (macros come from the dynamic
-// nutrient list). Mirrors the relevant part of TodayRepo.NutritionToday.
+// NutritionCalories is the day's calories-in/out plus the macro totals that
+// live in promoted columns (carbs/fat) rather than the nutrients child table.
 type NutritionCalories struct {
 	CaloriesEaten int
 	CaloriesBurnt int
+	CarbsGrams    float64
+	FatGrams      float64
 }
 
 // NutritionToday returns the local day's calories eaten (nutrition-log) and
-// burnt (active-energy-burned).
+// burnt (active-energy-burned), plus total carbs/fat (promoted columns — these
+// are top-level payload fields, NOT entries in the nutrients[] array).
 func (r *BodyRepo) NutritionToday(ctx context.Context, userID int64, localDate string) (NutritionCalories, error) {
 	var c NutritionCalories
 	err := r.db.QueryRowContext(ctx, `
 		SELECT
 			ROUND(COALESCE(SUM(value_sum) FILTER (WHERE data_type='nutrition-log'), 0))::int,
-			ROUND(COALESCE(SUM(value_sum) FILTER (WHERE data_type='active-energy-burned'), 0))::int
+			ROUND(COALESCE(SUM(value_sum) FILTER (WHERE data_type='active-energy-burned'), 0))::int,
+			COALESCE(SUM(nutrition_carbs_grams) FILTER (WHERE data_type='nutrition-log'), 0),
+			COALESCE(SUM(nutrition_fat_grams) FILTER (WHERE data_type='nutrition-log'), 0)
 		FROM data_points
 		WHERE user_id = $1 AND civil_start_date = $2
 		  AND data_type IN ('nutrition-log','active-energy-burned')`,
-		userID, localDate).Scan(&c.CaloriesEaten, &c.CaloriesBurnt)
+		userID, localDate).Scan(&c.CaloriesEaten, &c.CaloriesBurnt, &c.CarbsGrams, &c.FatGrams)
 	if err != nil {
 		return c, fmt.Errorf("body nutrition calories: %w", err)
 	}
 	return c, nil
+}
+
+// MealEntry is one logged food for the day.
+type MealEntry struct {
+	Name          string
+	MealType      string // BREAKFAST | LUNCH | DINNER | SNACK | ""
+	Kcal          int
+	At            time.Time
+	OffsetSeconds int
+}
+
+// MealsToday returns the day's logged foods (nutrition-log entries) in
+// chronological order, each with its name, meal type, calories, and time.
+func (r *BodyRepo) MealsToday(ctx context.Context, userID int64, localDate string) ([]MealEntry, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT COALESCE(food_display_name, 'Food'),
+		       COALESCE(meal_type, ''),
+		       ROUND(COALESCE(value_sum, 0))::int,
+		       COALESCE(start_time, sample_time),
+		       COALESCE(start_utc_offset_seconds, 0)
+		FROM data_points
+		WHERE user_id = $1 AND data_type = 'nutrition-log' AND civil_start_date = $2
+		ORDER BY COALESCE(start_time, sample_time)`, userID, localDate)
+	if err != nil {
+		return nil, fmt.Errorf("meals today: %w", err)
+	}
+	defer rows.Close()
+	var out []MealEntry
+	for rows.Next() {
+		var m MealEntry
+		var at sql.NullTime
+		var off sql.NullInt64
+		if err := rows.Scan(&m.Name, &m.MealType, &m.Kcal, &at, &off); err != nil {
+			return nil, fmt.Errorf("scan meal: %w", err)
+		}
+		m.At = at.Time
+		m.OffsetSeconds = int(off.Int64)
+		out = append(out, m)
+	}
+	return out, rows.Err()
 }
 
 // NutrientsToday sums each logged nutrient for the local day across all

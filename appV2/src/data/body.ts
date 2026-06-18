@@ -95,10 +95,20 @@ export interface NutrientTotal {
   grams: number;
 }
 
+/** One logged food for the day. */
+export interface MealView {
+  name: string;
+  mealType: string; // BREAKFAST | LUNCH | DINNER | SNACK | ""
+  kcal: number;
+  at: string;
+  offsetSeconds: number;
+}
+
 export interface NutritionBlock {
   caloriesEaten: number;
   caloriesBurnt: number;
   nutrients: NutrientTotal[];
+  meals: MealView[];
 }
 
 /** The whole Body screen in one payload (mirrors GET /me/body). */
