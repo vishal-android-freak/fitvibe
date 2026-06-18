@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   head: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  iconBox: { width: 24, height: 24, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
+  iconBox: { width: 20, height: 20, borderRadius: radius.xs, alignItems: 'center', justifyContent: 'center' },
   label: { flex: 1, fontFamily: font.sansSemibold, fontSize: fontSize.xs, color: text.muted },
   valueRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, flexWrap: 'wrap' },
   value: { fontFamily: font.display, fontSize: fontSize.xl, color: text.primary, lineHeight: Math.round(fontSize.xl * 1.18) },
