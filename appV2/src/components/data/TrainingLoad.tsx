@@ -10,6 +10,8 @@ export interface TrainingLoadProps {
   caption?: string;
   hue?: string;
   height?: number;
+  /** Per-bar tooltip strings; when set, tapping a bar shows its value. */
+  tooltips?: string[];
   style?: ViewStyle;
 }
 
@@ -21,6 +23,7 @@ export function TrainingLoad({
   caption = 'this week',
   hue = hues.move,
   height = 92,
+  tooltips,
   style,
 }: TrainingLoadProps) {
   return (
@@ -29,7 +32,7 @@ export function TrainingLoad({
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.sub}>{caption}</Text>
       </View>
-      <BarChart data={data} labels={labels} hue={hue} height={height} />
+      <BarChart data={data} labels={labels} hue={hue} height={height} tooltips={tooltips} />
     </View>
   );
 }

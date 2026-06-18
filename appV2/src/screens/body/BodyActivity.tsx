@@ -23,6 +23,7 @@ function fmtDur(sec: number): string {
 }
 
 const WEEK_DAY = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const WEEK_FULL = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 /** Steps/distance/floors, energy & zone minutes, sessions, weekly active energy. */
 export function BodyActivity({ activity }: { activity: ActivityBlock }) {
@@ -58,17 +59,20 @@ export function BodyActivity({ activity }: { activity: ActivityBlock }) {
   }));
 
   // Weekly active-energy bars, oldest→newest, labeled by weekday initial.
+  // Each bar carries a tooltip ("Tue · 612 kcal") shown when tapped.
   const week = a.activeEnergyWeek;
   const weekData = week.map((p) => p.value);
-  const weekLabels = week.map((p) => {
+  const weekDow = week.map((p) => {
     const [y, m, d] = p.date.split('-').map(Number);
-    return WEEK_DAY[new Date(y, (m ?? 1) - 1, d ?? 1).getDay()];
+    return new Date(y, (m ?? 1) - 1, d ?? 1).getDay();
   });
+  const weekLabels = weekDow.map((dow) => WEEK_DAY[dow]);
+  const weekTooltips = week.map((p, i) => `${WEEK_FULL[weekDow[i]]} · ${Math.round(p.value)} kcal`);
 
   return (
     <>
       <Eyebrow>Today</Eyebrow>
-      <StatTileGrid tiles={today} columns={3} />
+      <StatTileGrid tiles={today} columns={1} />
       <StatTileGrid tiles={energy} style={styles.energy} />
 
       <Eyebrow>Recent sessions</Eyebrow>
@@ -81,7 +85,7 @@ export function BodyActivity({ activity }: { activity: ActivityBlock }) {
       {weekData.length >= 2 ? (
         <>
           <Eyebrow>This week</Eyebrow>
-          <TrainingLoad data={weekData} labels={weekLabels} title="Active energy" caption="this week" hue={hue.energy} />
+          <TrainingLoad data={weekData} labels={weekLabels} tooltips={weekTooltips} title="Active energy" caption="this week" hue={hue.energy} />
         </>
       ) : null}
     </>
