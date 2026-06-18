@@ -1,6 +1,8 @@
 # Environment & secrets
 .env
 service-account.json
+firebase-service-account.json
+*-service-account.json
 
 # Generated database files
 fitvibe.db

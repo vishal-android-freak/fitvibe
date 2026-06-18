@@ -21,29 +21,35 @@ type Config struct {
 	WebhookSecret string `env:"WEBHOOK_SECRET,required"`
 
 	// Google OAuth
-	GoogleClientID     string `env:"GOOGLE_CLIENT_ID,required"`
-	GoogleClientSecret string `env:"GOOGLE_CLIENT_SECRET,required"`
-	GoogleRedirectURI  string `env:"GOOGLE_REDIRECT_URI,required"`
+	GoogleClientID      string `env:"GOOGLE_CLIENT_ID,required"`
+	GoogleClientSecret  string `env:"GOOGLE_CLIENT_SECRET,required"`
+	GoogleRedirectURI   string `env:"GOOGLE_REDIRECT_URI,required"`
 	GoogleProjectNumber string `env:"GOOGLE_PROJECT_NUMBER"`
 
 	// Database (PostgreSQL). Standard libpq/pgx DSN, e.g.
 	// postgres://user:pass@host:5432/fitvibe?sslmode=disable
-	DatabaseURL    string `env:"DATABASE_URL" envDefault:"postgres://fitvibe:fitvibe@localhost:5432/fitvibe?sslmode=disable"`
-	DBMaxConns     int32  `env:"DB_MAX_CONNS" envDefault:"10"`
-	DBMinConns     int32  `env:"DB_MIN_CONNS" envDefault:"2"`
+	DatabaseURL string `env:"DATABASE_URL" envDefault:"postgres://fitvibe:fitvibe@localhost:5432/fitvibe?sslmode=disable"`
+	DBMaxConns  int32  `env:"DB_MAX_CONNS" envDefault:"10"`
+	DBMinConns  int32  `env:"DB_MIN_CONNS" envDefault:"2"`
 
 	// Security
 	WebhookSignatureCacheTTL time.Duration `env:"WEBHOOK_SIGNATURE_CACHE_TTL" envDefault:"24h"`
 
+	// Firebase Auth — mints custom tokens after OAuth and verifies app ID tokens.
+	// FirebaseCredentialsFile is the Admin service-account JSON path; falls back
+	// to GOOGLE_APPLICATION_CREDENTIALS / ADC when empty.
+	FirebaseProjectID       string `env:"FIREBASE_PROJECT_ID"`
+	FirebaseCredentialsFile string `env:"FIREBASE_CREDENTIALS_FILE"`
+
 	// Sync
-	DefaultBackfillDays           int           `env:"DEFAULT_BACKFILL_DAYS" envDefault:"30"`
-	CronIntradayRollup            string        `env:"CRON_INTRADAY_ROLLUP" envDefault:"0 * * * *"`
-	CronDailyRollup               string        `env:"CRON_DAILY_ROLLUP" envDefault:"10 0 * * *"`
-	CronListSync                  string        `env:"CRON_LIST_SYNC" envDefault:"0 */6 * * *"`
-	CronProfileSettingsSync       string        `env:"CRON_PROFILE_SETTINGS_SYNC" envDefault:"0 2 * * *"`
-	CronReconcileSync             string        `env:"CRON_RECONCILE_SYNC" envDefault:"0 3 * * *"`
-	CronCatchupSync               string        `env:"CRON_CATCHUP_SYNC" envDefault:"0 */3 * * *"`
-	CatchupLookbackHours          int           `env:"CATCHUP_LOOKBACK_HOURS" envDefault:"48"`
+	DefaultBackfillDays     int    `env:"DEFAULT_BACKFILL_DAYS" envDefault:"30"`
+	CronIntradayRollup      string `env:"CRON_INTRADAY_ROLLUP" envDefault:"0 * * * *"`
+	CronDailyRollup         string `env:"CRON_DAILY_ROLLUP" envDefault:"10 0 * * *"`
+	CronListSync            string `env:"CRON_LIST_SYNC" envDefault:"0 */6 * * *"`
+	CronProfileSettingsSync string `env:"CRON_PROFILE_SETTINGS_SYNC" envDefault:"0 2 * * *"`
+	CronReconcileSync       string `env:"CRON_RECONCILE_SYNC" envDefault:"0 3 * * *"`
+	CronCatchupSync         string `env:"CRON_CATCHUP_SYNC" envDefault:"0 */3 * * *"`
+	CatchupLookbackHours    int    `env:"CATCHUP_LOOKBACK_HOURS" envDefault:"48"`
 }
 
 // Load reads configuration from environment variables. It optionally loads a

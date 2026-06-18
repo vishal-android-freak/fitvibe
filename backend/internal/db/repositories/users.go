@@ -169,6 +169,20 @@ func (r *UserRepo) GetByHealthUserID(ctx context.Context, healthUserID string) (
 	return u, nil
 }
 
+// GetByGoogleUserID looks up a user by google_user_id — the Firebase uid the
+// auth middleware resolves from a verified ID token.
+func (r *UserRepo) GetByGoogleUserID(ctx context.Context, googleUserID string) (*User, error) {
+	row := r.db.QueryRowContext(ctx, "SELECT "+userColumns()+" FROM users WHERE google_user_id = $1", googleUserID)
+	u, err := scanUser(row)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get user by google_user_id: %w", err)
+	}
+	return u, nil
+}
+
 // List returns all onboarded users.
 func (r *UserRepo) List(ctx context.Context) ([]*User, error) {
 	rows, err := r.db.QueryContext(ctx, "SELECT "+userColumns()+" FROM users ORDER BY id")

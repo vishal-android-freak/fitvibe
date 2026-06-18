@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/vishal-android-freak/fitvibe/internal/authmw"
 	"github.com/vishal-android-freak/fitvibe/internal/db/repositories"
 )
 
@@ -41,9 +42,9 @@ type scheduleBody struct {
 }
 
 func (h *Handler) getSchedule(w http.ResponseWriter, r *http.Request) {
-	userID, err := strconv.ParseInt(r.URL.Query().Get("user_id"), 10, 64)
-	if err != nil {
-		writeErr(w, http.StatusBadRequest, "valid user_id query parameter is required")
+	userID, ok := authmw.UserID(r.Context())
+	if !ok {
+		writeErr(w, http.StatusUnauthorized, "unauthenticated")
 		return
 	}
 	bed, wake, err := h.users.GetSleepSchedule(r.Context(), userID)
@@ -55,9 +56,9 @@ func (h *Handler) getSchedule(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) putSchedule(w http.ResponseWriter, r *http.Request) {
-	userID, err := strconv.ParseInt(r.URL.Query().Get("user_id"), 10, 64)
-	if err != nil {
-		writeErr(w, http.StatusBadRequest, "valid user_id query parameter is required")
+	userID, ok := authmw.UserID(r.Context())
+	if !ok {
+		writeErr(w, http.StatusUnauthorized, "unauthenticated")
 		return
 	}
 	var body scheduleBody
@@ -153,9 +154,9 @@ func (h *Handler) LastNight(ctx context.Context, userID int64) (*LastNightRespon
 }
 
 func (h *Handler) lastNight(w http.ResponseWriter, r *http.Request) {
-	userID, err := strconv.ParseInt(r.URL.Query().Get("user_id"), 10, 64)
-	if err != nil {
-		writeErr(w, http.StatusBadRequest, "valid user_id query parameter is required")
+	userID, ok := authmw.UserID(r.Context())
+	if !ok {
+		writeErr(w, http.StatusUnauthorized, "unauthenticated")
 		return
 	}
 
@@ -203,9 +204,9 @@ type nightsResponse struct {
 }
 
 func (h *Handler) nights(w http.ResponseWriter, r *http.Request) {
-	userID, err := strconv.ParseInt(r.URL.Query().Get("user_id"), 10, 64)
-	if err != nil {
-		writeErr(w, http.StatusBadRequest, "valid user_id query parameter is required")
+	userID, ok := authmw.UserID(r.Context())
+	if !ok {
+		writeErr(w, http.StatusUnauthorized, "unauthenticated")
 		return
 	}
 

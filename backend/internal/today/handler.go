@@ -9,12 +9,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/vishal-android-freak/fitvibe/internal/authmw"
 	"github.com/vishal-android-freak/fitvibe/internal/db/repositories"
 	"github.com/vishal-android-freak/fitvibe/internal/sleep"
 )
@@ -195,10 +195,13 @@ func (h *Handler) localDate(ctx context.Context, userID int64) string {
 	return time.Now().In(loc).Format("2006-01-02")
 }
 
+// parseUserID returns the authenticated user id from the request context (set
+// by the auth middleware after verifying the Firebase ID token). Identity is
+// never taken from the request itself.
 func parseUserID(w http.ResponseWriter, r *http.Request) (int64, bool) {
-	userID, err := strconv.ParseInt(r.URL.Query().Get("user_id"), 10, 64)
-	if err != nil {
-		writeErr(w, http.StatusBadRequest, "valid user_id query parameter is required")
+	userID, ok := authmw.UserID(r.Context())
+	if !ok {
+		writeErr(w, http.StatusUnauthorized, "unauthenticated")
 		return 0, false
 	}
 	return userID, true

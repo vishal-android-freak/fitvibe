@@ -12,12 +12,12 @@ import (
 	"math"
 	"net/http"
 	"slices"
-	"strconv"
 	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/vishal-android-freak/fitvibe/internal/authmw"
 	"github.com/vishal-android-freak/fitvibe/internal/db/repositories"
 )
 
@@ -484,10 +484,12 @@ func firstErr(errs ...error) error {
 	return nil
 }
 
+// parseUserID returns the authenticated user id from the request context (set
+// by the auth middleware after verifying the Firebase ID token).
 func parseUserID(w http.ResponseWriter, r *http.Request) (int64, bool) {
-	userID, err := strconv.ParseInt(r.URL.Query().Get("user_id"), 10, 64)
-	if err != nil {
-		writeErr(w, http.StatusBadRequest, "valid user_id query parameter is required")
+	userID, ok := authmw.UserID(r.Context())
+	if !ok {
+		writeErr(w, http.StatusUnauthorized, "unauthenticated")
 		return 0, false
 	}
 	return userID, true

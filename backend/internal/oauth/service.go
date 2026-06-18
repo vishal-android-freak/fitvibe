@@ -11,13 +11,25 @@ import (
 	"golang.org/x/oauth2"
 )
 
+// TokenMinter mints a Firebase custom token for a uid (the user's Google user
+// id). Injected so the OAuth flow can hand the app a sign-in token with no
+// extra step. Optional — when nil, no firebase token is minted.
+type TokenMinter interface {
+	CustomToken(ctx context.Context, uid string) (string, error)
+}
+
 // Service handles Google OAuth operations and token storage.
 type Service struct {
-	cfg            *config.Config
-	tokens         TokenSource
-	users          *repositories.UserRepo
-	getIdentityFn  func(ctx context.Context, accessToken string) (*healthapi.IdentityResponse, error)
+	cfg           *config.Config
+	tokens        TokenSource
+	users         *repositories.UserRepo
+	getIdentityFn func(ctx context.Context, accessToken string) (*healthapi.IdentityResponse, error)
+	minter        TokenMinter
 }
+
+// SetTokenMinter wires the Firebase custom-token minter (called from main once
+// the Firebase client is initialized).
+func (s *Service) SetTokenMinter(m TokenMinter) { s.minter = m }
 
 // NewService creates a new OAuth service using the production Google token source.
 func NewService(cfg *config.Config, users *repositories.UserRepo) *Service {
@@ -57,6 +69,10 @@ type ExchangeResponse struct {
 	DisplayName  string `json:"display_name"`
 	Email        string `json:"email"`
 	Picture      string `json:"picture"`
+	// FirebaseToken is a custom token (uid = google_user_id) the app exchanges
+	// via signInWithCustomToken to get an ID token for authenticated requests.
+	// Empty if Firebase minting isn't configured.
+	FirebaseToken string `json:"firebase_token,omitempty"`
 }
 
 // Exchange exchanges an authorization code, fetches Google Health identity, and stores the tokens.
@@ -115,7 +131,7 @@ func (s *Service) Exchange(ctx context.Context, req ExchangeRequest) (*ExchangeR
 		picture = u.GooglePicture.String
 	}
 
-	return &ExchangeResponse{
+	resp := &ExchangeResponse{
 		UserID:       u.ID,
 		HealthUserID: identity.HealthUserID,
 		GoogleUserID: googleUserID,
@@ -123,7 +139,19 @@ func (s *Service) Exchange(ctx context.Context, req ExchangeRequest) (*ExchangeR
 		DisplayName:  displayName,
 		Email:        email,
 		Picture:      picture,
-	}, nil
+	}
+
+	// Mint a Firebase custom token keyed to the Google user id, so the app can
+	// sign in (signInWithCustomToken) with no extra consent step.
+	if s.minter != nil && googleUserID != "" {
+		tok, err := s.minter.CustomToken(ctx, googleUserID)
+		if err != nil {
+			return nil, fmt.Errorf("mint firebase token: %w", err)
+		}
+		resp.FirebaseToken = tok
+	}
+
+	return resp, nil
 }
 
 func extractScopes(token *oauth2.Token) string {

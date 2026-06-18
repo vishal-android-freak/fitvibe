@@ -17,11 +17,13 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/vishal-android-freak/fitvibe/internal/api"
+	"github.com/vishal-android-freak/fitvibe/internal/authmw"
 	"github.com/vishal-android-freak/fitvibe/internal/body"
 	"github.com/vishal-android-freak/fitvibe/internal/config"
 	"github.com/vishal-android-freak/fitvibe/internal/cron"
 	"github.com/vishal-android-freak/fitvibe/internal/db"
 	"github.com/vishal-android-freak/fitvibe/internal/db/repositories"
+	"github.com/vishal-android-freak/fitvibe/internal/firebaseauth"
 	"github.com/vishal-android-freak/fitvibe/internal/oauth"
 	"github.com/vishal-android-freak/fitvibe/internal/sleep"
 	"github.com/vishal-android-freak/fitvibe/internal/today"
@@ -59,6 +61,16 @@ func main() {
 	todayHandler := today.NewHandler(todayRepo, sleepHandler, database.DB)
 	bodyRepo := repositories.NewBodyRepo(database.DB)
 	bodyHandler := body.NewHandler(bodyRepo, userRepo, database.DB)
+
+	// Firebase Auth: mint custom tokens after OAuth (no extra app step) and
+	// verify the app's ID tokens in /me/* middleware (uid = google_user_id).
+	fbClient, err := firebaseauth.New(context.Background(), cfg)
+	if err != nil {
+		logger.Error("init firebase auth", "error", err)
+		os.Exit(1)
+	}
+	oauthService.SetTokenMinter(fbClient)
+	authMiddleware := authmw.New(fbClient, userRepo, logger)
 
 	verifier := webhooks.NewVerifier(cfg.WebhookSignatureCacheTTL)
 	webhookHandler := webhooks.NewHandler(cfg, verifier, webhookNotificationRepo, logger)
@@ -109,9 +121,16 @@ func main() {
 	r.Post(cfg.WebhookPath, webhookHandler.ServeHTTP)
 
 	adminHandler.Register(r)
-	sleepHandler.Register(r)
-	todayHandler.Register(r)
-	bodyHandler.Register(r)
+
+	// App-facing /me/* endpoints are authenticated: a verified Firebase ID token
+	// (uid = google_user_id) resolves the user; handlers never trust a
+	// client-supplied user_id. Grouped so the middleware wraps only these.
+	r.Group(func(pr chi.Router) {
+		pr.Use(authMiddleware.Require)
+		sleepHandler.Register(pr)
+		todayHandler.Register(pr)
+		bodyHandler.Register(pr)
+	})
 
 	// startBackfill kicks off the historical backfill for a freshly exchanged
 	// user in the background. Shared by the direct exchange and the brokered flow.
