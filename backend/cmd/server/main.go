@@ -17,6 +17,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/vishal-android-freak/fitvibe/internal/api"
+	"github.com/vishal-android-freak/fitvibe/internal/body"
 	"github.com/vishal-android-freak/fitvibe/internal/config"
 	"github.com/vishal-android-freak/fitvibe/internal/cron"
 	"github.com/vishal-android-freak/fitvibe/internal/db"
@@ -56,6 +57,8 @@ func main() {
 	sleepHandler := sleep.NewHandler(sleepRepo, userRepo)
 	todayRepo := repositories.NewTodayRepo(database.DB)
 	todayHandler := today.NewHandler(todayRepo, sleepHandler, database.DB)
+	bodyRepo := repositories.NewBodyRepo(database.DB)
+	bodyHandler := body.NewHandler(bodyRepo, userRepo, database.DB)
 
 	verifier := webhooks.NewVerifier(cfg.WebhookSignatureCacheTTL)
 	webhookHandler := webhooks.NewHandler(cfg, verifier, webhookNotificationRepo, logger)
@@ -108,6 +111,7 @@ func main() {
 	adminHandler.Register(r)
 	sleepHandler.Register(r)
 	todayHandler.Register(r)
+	bodyHandler.Register(r)
 
 	// startBackfill kicks off the historical backfill for a freshly exchanged
 	// user in the background. Shared by the direct exchange and the brokered flow.
