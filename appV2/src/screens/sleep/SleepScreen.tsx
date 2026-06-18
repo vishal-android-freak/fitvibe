@@ -69,10 +69,16 @@ function SleepBody() {
 
             <SectionLabel>Stages</SectionLabel>
             <SleepCard />
-            <NapCards naps={night.raw.naps} />
 
             <SectionLabel>Sleep quality</SectionLabel>
             <SleepQualityCard night={night} />
+
+            {night.raw.naps.length > 0 && (
+              <>
+                <SectionLabel>Naps</SectionLabel>
+                <NapCards naps={night.raw.naps} />
+              </>
+            )}
 
             <SectionLabel>Overnight vitals</SectionLabel>
             <VitalsGrid nights={nights} idx={safeIdx} />
