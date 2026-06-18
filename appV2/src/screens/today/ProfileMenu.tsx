@@ -15,17 +15,16 @@ export function ProfileMenu({ open, onClose }: { open: boolean; onClose: () => v
   const { session, signOut } = useAuth();
 
   const confirmSignOut = () => {
-    Alert.alert('Sign out?', "You'll need to sign in with Google again to use FitVibe.", [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign out',
-        style: 'destructive',
-        onPress: () => {
-          onClose();
-          void signOut();
-        },
-      },
-    ]);
+    // Close the menu FIRST, then show the alert — an Alert fired while this
+    // Modal is still open is rendered behind it / has its taps swallowed on
+    // Android, so the confirm button appears to "do nothing".
+    onClose();
+    setTimeout(() => {
+      Alert.alert('Sign out?', "You'll need to sign in with Google again to use FitVibe.", [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign out', style: 'destructive', onPress: () => void signOut() },
+      ]);
+    }, 250);
   };
 
   return (

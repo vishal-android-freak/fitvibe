@@ -121,8 +121,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [busy, redirectUri, completeSignIn]);
 
   const signOut = useCallback(async () => {
-    // The onAuthState listener flips status to signedOut and clears the session.
-    await firebaseSignOut();
+    try {
+      await firebaseSignOut();
+    } catch {
+      // ignore — fall through to forcing signed-out state below
+    }
+    // The onAuthState listener normally flips status; set it here too so the UI
+    // updates immediately even if the listener is slow or didn't fire.
+    setSession(null);
+    setStatus('signedOut');
   }, []);
 
   const value = useMemo<AuthContextValue>(
