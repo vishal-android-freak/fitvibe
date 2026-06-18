@@ -147,6 +147,13 @@ export interface SleepBands {
   efficiency: FloorBand;
 }
 
+/** Sleep score band (mirrors backend scoreBand). */
+export interface ScoreBand {
+  label: string; // Excellent | Good | Fair | Poor
+  min: number;
+  max: number;
+}
+
 /** One night's summary (mirrors backend nightSummary). */
 export interface SleepNight {
   date: string; // local civil date, "2006-01-02"
@@ -155,6 +162,8 @@ export interface SleepNight {
   durationMinutes: number; // asleep
   efficiency: number;
   awakenings: number;
+  score: number; // FitVibe sleep score 0-100
+  scoreBand: ScoreBand;
   quality: SleepQuality;
   bands: SleepBands;
   stages: SleepStageTotal[];

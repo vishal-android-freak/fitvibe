@@ -140,6 +140,57 @@ func TestBandsByAge(t *testing.T) {
 	}
 }
 
+func TestComputeSleepScore(t *testing.T) {
+	// The 9 real Google-scored nights this model was calibrated against.
+	// (asleep, deep+rem, interruption-min, full-awakenings, expected Google score)
+	cases := []struct {
+		name              string
+		asleep, deepRem   int
+		wasoMin, fullAwk  int
+		google            int
+	}{
+		{"Jun18", 365, 186, 0, 0, 76},
+		{"Jun17", 384, 156, 0, 0, 76},
+		{"Jun16", 418, 98, 23, 1, 72},
+		{"Jun15", 412, 134, 6, 1, 73},
+		{"Jun14", 454, 190, 0, 0, 84},
+		{"Jun13", 534, 240, 0, 0, 85},
+		{"Jun12", 496, 225, 0, 0, 86},
+		{"Jun11", 232, 64, 0, 0, 50},
+		{"Jun10", 549, 197, 6, 1, 82},
+	}
+	for _, c := range cases {
+		got, band := computeSleepScore(sleepScoreInput{
+			AsleepMinutes:      c.asleep,
+			DeepPlusRemMinutes: c.deepRem,
+			InterruptionsMin:   c.wasoMin,
+			FullAwakenings:     c.fullAwk,
+		})
+		diff := got - c.google
+		if diff < 0 {
+			diff = -diff
+		}
+		// Calibrated fit: every night must land within 3 points of the real score.
+		if diff > 3 {
+			t.Errorf("%s: score %d vs Google %d (off by %d, want <=3)", c.name, got, c.google, diff)
+		}
+		// Band must be self-consistent with the score.
+		if got < band.Min || (band.Max < 100 && got > band.Max) {
+			t.Errorf("%s: score %d outside its band %+v", c.name, got, band)
+		}
+	}
+
+	// Band boundaries.
+	for _, c := range []struct {
+		score int
+		label string
+	}{{95, "Excellent"}, {85, "Good"}, {70, "Fair"}, {50, "Poor"}, {59, "Poor"}, {60, "Fair"}} {
+		if b := bandFor(c.score); b.Label != c.label {
+			t.Errorf("bandFor(%d) = %q; want %q", c.score, b.Label, c.label)
+		}
+	}
+}
+
 func TestComputeSoundSleep(t *testing.T) {
 	summary := []repositories.SleepStageSummary{
 		{StageType: "DEEP", Minutes: 102},

@@ -46,6 +46,20 @@ export function ratingHue(r: Rating): string {
   return r === 'Great' ? hue.move : r === 'Good' ? accent.base : status.warning;
 }
 
+/** Sleep-score band label → gauge hue (Excellent/Good green-ish, Fair amber, Poor red). */
+export function scoreBandHue(label: string): string {
+  switch (label) {
+    case 'Excellent':
+      return hue.move;
+    case 'Good':
+      return accent.base;
+    case 'Fair':
+      return status.warning;
+    default:
+      return status.danger;
+  }
+}
+
 /**
  * A night adapted for the Sleep-tab view, derived from the API SleepNight plus
  * computed labels (rel/day/date) and a rating bucketed from efficiency. The raw

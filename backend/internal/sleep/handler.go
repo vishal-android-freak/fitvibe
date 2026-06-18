@@ -109,6 +109,9 @@ type LastNightResponse struct {
 	// Number of awakenings (distinct Awake periods). Raw device count — kept for
 	// backward compat; prefer FullAwakenings for the honest mid-sleep count.
 	Awakenings int `json:"awakenings"`
+	// FitVibe sleep score (0-100) + its band. Calibrated to Google's; see score.go.
+	Score     int       `json:"score"`
+	ScoreBand scoreBand `json:"scoreBand"`
 	// Derived "Sleep quality" metrics (validated against Google Health). See
 	// quality.go for formulas and caveats.
 	Quality sleepQuality `json:"quality"`
@@ -187,6 +190,8 @@ type nightSummary struct {
 	DurationMinutes int          `json:"durationMinutes"` // asleep minutes
 	Efficiency      int          `json:"efficiency"`      // asleep/total %
 	Awakenings      int          `json:"awakenings"`      // raw AWAKE count (back-compat)
+	Score           int          `json:"score"`           // FitVibe sleep score 0-100
+	ScoreBand       scoreBand    `json:"scoreBand"`       // score band + label
 	Quality         sleepQuality `json:"quality"`         // derived sleep-quality metrics
 	Bands           SleepBands   `json:"bands"`           // typical-for-age in-range bands
 	Stages          []stageTotal `json:"stages"`
@@ -268,6 +273,9 @@ func buildNight(n *repositories.SleepNightDetail, age int) nightSummary {
 		return &f
 	}
 
+	q := buildQuality(loc, n.Segments, n.Summary)
+	score, band := scoreFromQuality(asleep, q)
+
 	return nightSummary{
 		Date:            n.CivilDate,
 		OnsetClock:      clockOf(loc, n.Start),
@@ -275,7 +283,9 @@ func buildNight(n *repositories.SleepNightDetail, age int) nightSummary {
 		DurationMinutes: asleep,
 		Efficiency:      efficiency(asleep, total),
 		Awakenings:      awakenings,
-		Quality:         buildQuality(loc, n.Segments, n.Summary),
+		Score:           score,
+		ScoreBand:       band,
+		Quality:         q,
 		Bands:           bandsByAge(age),
 		Stages:          stages,
 		Vitals: nightVitals{
@@ -356,6 +366,8 @@ func buildLastNight(n *repositories.SleepNight, age int) LastNightResponse {
 		total = int(n.MinutesInSleepPeriod.Int64)
 	}
 	eff := efficiency(asleep, total)
+	q := buildQuality(loc, n.Segments, n.Summary)
+	score, band := scoreFromQuality(asleep, q)
 
 	return LastNightResponse{
 		Segments:      segments,
@@ -365,7 +377,9 @@ func buildLastNight(n *repositories.SleepNight, age int) LastNightResponse {
 		AsleepMinutes: asleep,
 		Efficiency:    eff,
 		Awakenings:    awakenings,
-		Quality:       buildQuality(loc, n.Segments, n.Summary),
+		Score:         score,
+		ScoreBand:     band,
+		Quality:       q,
 		Bands:         bandsByAge(age),
 		Stages:        stages,
 		Typical:       typicalByAge(age),
