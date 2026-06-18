@@ -153,12 +153,13 @@ export interface ScoreBand {
   max: number;
 }
 
-/** One night's summary (mirrors backend nightSummary). */
+/** One sleep session's summary (mirrors backend nightSummary). May be a nap. */
 export interface SleepNight {
   date: string; // local civil date, "2006-01-02"
   onsetClock: number; // minutes since local midnight
   wakeClock: number;
   durationMinutes: number; // asleep
+  isNap: boolean; // true = nap, false = main/overnight sleep
   efficiency: number;
   awakenings: number;
   score: number; // FitVibe sleep score 0-100
