@@ -29,6 +29,10 @@ func extractChildren(rec *repositories.DataPointRecord, dataType string, value m
 		extractDailyHRZoneChildren(rec, value)
 	case "active-minutes":
 		extractActiveMinutesChildren(rec, value)
+	case "electrocardiogram":
+		extractEcgChildren(rec, value)
+	case "irregular-rhythm-notification":
+		extractIrnChildren(rec, value)
 	}
 
 	extractHealthRecord(rec, dataType)
@@ -153,6 +157,82 @@ func extractExerciseChildren(rec *repositories.DataPointRecord, value map[string
 		}
 		rec.Children.ExerciseSplits = append(rec.Children.ExerciseSplits, row)
 	}
+}
+
+// extractEcgChildren populates the electrocardiogram_waveforms child row from an
+// electrocardiogram data point. We accept a few plausible v4 field-name variants
+// since this user has no ECG data yet to pin the exact shape against; the result
+// classification + summary are the hot read fields, the raw samples kept as JSON.
+func extractEcgChildren(rec *repositories.DataPointRecord, value map[string]interface{}) {
+	row := repositories.EcgWaveformRow{
+		ResultClassification: nullStr(str(firstOf(value, "resultClassification", "classification", "result"))),
+	}
+	if n := number(firstOf(value, "averageBeatsPerMinute", "beatsPerMinuteAvg", "beatsPerMinute")); n > 0 {
+		row.BeatsPerMinuteAvg = sql.NullInt32{Int32: int32(n), Valid: true}
+	}
+	if n := number(firstOf(value, "samplingFrequencyHertz", "samplingFrequencyHz", "samplingFrequency")); n > 0 {
+		row.SamplingFrequencyHertz = sql.NullInt32{Int32: int32(n), Valid: true}
+	}
+	if n := number(firstOf(value, "millivoltsScalingFactor", "scalingFactor", "voltageScalingFactor")); n > 0 {
+		row.MillivoltsScalingFactor = sql.NullInt32{Int32: int32(n), Valid: true}
+	}
+	if n := number(firstOf(value, "leadNumber", "lead")); n > 0 {
+		row.LeadNumber = sql.NullInt32{Int32: int32(n), Valid: true}
+	}
+	// The waveform samples may live under voltageSamples / samples / waveform.
+	if samples := firstOf(value, "voltageSamples", "samples", "waveformSamples", "waveform"); samples != nil {
+		if b, err := json.Marshal(samples); err == nil {
+			row.WaveformSamplesJSON = sql.NullString{String: string(b), Valid: true}
+		}
+	}
+	// Only emit a row if we extracted something meaningful.
+	if row.ResultClassification.Valid || row.WaveformSamplesJSON.Valid || row.BeatsPerMinuteAvg.Valid {
+		rec.Children.EcgWaveforms = append(rec.Children.EcgWaveforms, row)
+	}
+}
+
+// extractIrnChildren populates irregular_rhythm_alert_windows from an
+// irregular-rhythm-notification data point (one row per alert window).
+func extractIrnChildren(rec *repositories.DataPointRecord, value map[string]interface{}) {
+	windows, ok := value["alertWindows"].([]interface{})
+	if !ok {
+		// May be a single alertWindow object.
+		if w, ok := value["alertWindow"].(map[string]interface{}); ok {
+			windows = []interface{}{w}
+		}
+	}
+	for _, w := range windows {
+		wm, ok := w.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		row := repositories.IrnWindowRow{}
+		if t := parseRFC(firstOf(wm, "startTime", "start")); !t.IsZero() {
+			row.StartTime = sql.NullTime{Time: t, Valid: true}
+		}
+		if t := parseRFC(firstOf(wm, "endTime", "end")); !t.IsZero() {
+			row.EndTime = sql.NullTime{Time: t, Valid: true}
+		}
+		if p, ok := wm["positive"].(bool); ok {
+			row.Positive = sql.NullBool{Bool: p, Valid: true}
+		}
+		if hb := firstOf(wm, "heartBeats", "beats"); hb != nil {
+			if b, err := json.Marshal(hb); err == nil {
+				row.HeartBeatsJSON = sql.NullString{String: string(b), Valid: true}
+			}
+		}
+		rec.Children.IrnWindows = append(rec.Children.IrnWindows, row)
+	}
+}
+
+// firstOf returns the first present, non-nil value among the given keys.
+func firstOf(m map[string]interface{}, keys ...string) interface{} {
+	for _, k := range keys {
+		if v, ok := m[k]; ok && v != nil {
+			return v
+		}
+	}
+	return nil
 }
 
 func extractNutritionChildren(rec *repositories.DataPointRecord, value map[string]interface{}) {

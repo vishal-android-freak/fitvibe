@@ -75,6 +75,8 @@ type DataPointChildren struct {
 	Nutrients      []NutrientRow
 	DailyHRZones   []DailyHRZoneRow
 	ActiveMinutes  []ActiveMinutesRow
+	EcgWaveforms   []EcgWaveformRow
+	IrnWindows     []IrnWindowRow
 	HealthRecords  []HealthDataRow
 }
 
@@ -82,7 +84,8 @@ type DataPointChildren struct {
 func (c DataPointChildren) IsEmpty() bool {
 	return len(c.SleepStages) == 0 && len(c.SleepSummary) == 0 && len(c.SleepOutOfBed) == 0 &&
 		len(c.ExerciseEvents) == 0 && len(c.ExerciseSplits) == 0 && len(c.Nutrients) == 0 &&
-		len(c.DailyHRZones) == 0 && len(c.ActiveMinutes) == 0 && len(c.HealthRecords) == 0
+		len(c.DailyHRZones) == 0 && len(c.ActiveMinutes) == 0 && len(c.EcgWaveforms) == 0 &&
+		len(c.IrnWindows) == 0 && len(c.HealthRecords) == 0
 }
 
 // SleepStageRow is a sleep_stages child row.
@@ -144,6 +147,24 @@ type DailyHRZoneRow struct {
 type ActiveMinutesRow struct {
 	ActivityLevel string
 	Minutes       sql.NullInt32
+}
+
+// EcgWaveformRow is an electrocardiogram_waveforms child row.
+type EcgWaveformRow struct {
+	ResultClassification    sql.NullString
+	BeatsPerMinuteAvg       sql.NullInt32
+	SamplingFrequencyHertz  sql.NullInt32
+	MillivoltsScalingFactor sql.NullInt32
+	LeadNumber              sql.NullInt32
+	WaveformSamplesJSON     sql.NullString
+}
+
+// IrnWindowRow is an irregular_rhythm_alert_windows child row.
+type IrnWindowRow struct {
+	StartTime      sql.NullTime
+	EndTime        sql.NullTime
+	Positive       sql.NullBool
+	HeartBeatsJSON sql.NullString
 }
 
 // HealthDataRow is a health_data_records normalized row.
@@ -304,7 +325,8 @@ func (r *DataPointRepo) InsertMany(ctx context.Context, recs []*DataPointRecord)
 var childTables = []string{
 	"sleep_stages", "sleep_summary_stages", "sleep_out_of_bed_segments",
 	"exercise_events", "exercise_splits", "nutrition_log_nutrients",
-	"daily_heart_rate_zones", "active_minutes_by_level", "health_data_records",
+	"daily_heart_rate_zones", "active_minutes_by_level",
+	"electrocardiogram_waveforms", "irregular_rhythm_alert_windows", "health_data_records",
 }
 
 // insertChildren clears and re-writes the normalized child rows for a data
@@ -382,6 +404,23 @@ func insertChildren(ctx context.Context, tx *sql.Tx, userID, dpID int64, c *Data
 			VALUES ($1, $2, $3)`,
 			dpID, a.ActivityLevel, a.Minutes); err != nil {
 			return fmt.Errorf("insert active_minutes: %w", err)
+		}
+	}
+	for _, e := range c.EcgWaveforms {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO electrocardiogram_waveforms
+				(data_point_id, result_classification, beats_per_minute_avg, sampling_frequency_hertz, millivolts_scaling_factor, lead_number, waveform_samples_json)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+			dpID, e.ResultClassification, e.BeatsPerMinuteAvg, e.SamplingFrequencyHertz, e.MillivoltsScalingFactor, e.LeadNumber, e.WaveformSamplesJSON); err != nil {
+			return fmt.Errorf("insert ecg_waveform: %w", err)
+		}
+	}
+	for _, w := range c.IrnWindows {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO irregular_rhythm_alert_windows (data_point_id, start_time, end_time, positive, heart_beats_json)
+			VALUES ($1, $2, $3, $4, $5)`,
+			dpID, w.StartTime, w.EndTime, w.Positive, w.HeartBeatsJSON); err != nil {
+			return fmt.Errorf("insert irn_window: %w", err)
 		}
 	}
 	for _, h := range c.HealthRecords {

@@ -255,8 +255,12 @@ func extractScalars(rec *repositories.DataPointRecord, dataType string, value ma
 		} else if zones, ok := value["zones"].([]interface{}); ok {
 			rec.ValueCount = sql.NullInt32{Int32: int32(len(zones)), Valid: true}
 		}
-	case "run-vo2-max":
-		if n, ok := value["millilitersPerKilogramPerMinute"]; ok {
+	case "run-vo2-max", "vo2-max", "daily-vo2-max":
+		// v4 exposes the value as vo2Max (ml/kg/min); older/run variants use
+		// millilitersPerKilogramPerMinute. Accept either so all three populate.
+		if n, ok := value["vo2Max"]; ok {
+			rec.ValueAvg = sql.NullFloat64{Float64: number(n), Valid: true}
+		} else if n, ok := value["millilitersPerKilogramPerMinute"]; ok {
 			rec.ValueAvg = sql.NullFloat64{Float64: number(n), Valid: true}
 		}
 	case "respiratory-rate-sleep-summary":
