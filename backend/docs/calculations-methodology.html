@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FitVibe — Calculations &amp; Methodology Reference</title>
+<style>
+  :root {
+    --bg: #0a0e1a; --panel: #131a2b; --panel2: #1a2236; --inset: #070b14;
+    --ink: #f8fafc; --body: #c3ccda; --muted: #8a97ab; --faint: #64748b;
+    --accent: #a78bfa; --cyan: #22d3ee; --green: #4ade80; --amber: #fbbf24;
+    --red: #f43f5e; --blue: #60a5fa; --border: rgba(255,255,255,0.09);
+    --border2: rgba(255,255,255,0.16);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--body);
+    font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 260px 1fr; gap: 0; }
+  /* Sidebar */
+  nav.toc {
+    position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto;
+    padding: 28px 18px 60px; border-right: 1px solid var(--border); background: var(--inset);
+  }
+  nav.toc h2 { font-size: 12px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--faint); margin: 22px 0 8px; }
+  nav.toc h2:first-child { margin-top: 0; }
+  nav.toc a { display: block; color: var(--muted); text-decoration: none; padding: 4px 8px; border-radius: 7px; font-size: 13.5px; }
+  nav.toc a:hover { color: var(--ink); background: var(--panel2); }
+  nav.toc .brand { font-weight: 800; color: var(--ink); font-size: 17px; letter-spacing: -0.3px; }
+  nav.toc .brand span { color: var(--accent); }
+  /* Main */
+  main { padding: 40px 46px 120px; min-width: 0; }
+  header.hero { border-bottom: 1px solid var(--border); padding-bottom: 26px; margin-bottom: 8px; }
+  header.hero h1 { font-size: 30px; letter-spacing: -0.6px; color: var(--ink); margin: 0 0 8px; }
+  header.hero p { color: var(--muted); margin: 6px 0; max-width: 70ch; }
+  .meta-row { margin-top: 14px; font-size: 12.5px; color: var(--faint); }
+  .meta-row code { color: var(--cyan); }
+  h2.sec { font-size: 23px; color: var(--ink); letter-spacing: -0.3px; margin: 54px 0 6px; padding-top: 18px; border-top: 1px solid var(--border); }
+  h2.sec:first-of-type { border-top: none; }
+  h3 { font-size: 17px; color: var(--ink); margin: 30px 0 6px; }
+  h4 { font-size: 14.5px; color: var(--accent); margin: 20px 0 4px; letter-spacing: 0.2px; }
+  p { margin: 8px 0; }
+  .lead { color: var(--muted); }
+  code { font-family: "JetBrains Mono", "SF Mono", Consolas, monospace; font-size: 12.5px; background: var(--inset); padding: 1.5px 6px; border-radius: 5px; color: #e7d7ff; }
+  pre { background: var(--inset); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+  pre code { background: none; padding: 0; color: #d6e3f0; font-size: 12.5px; line-height: 1.55; }
+  .file { font-family: "JetBrains Mono", monospace; font-size: 11.5px; color: var(--faint); }
+  .file b { color: var(--cyan); font-weight: 500; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--faint); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.6px; }
+  td { color: var(--body); }
+  td code { font-size: 11.5px; }
+  tbody tr:hover { background: rgba(255,255,255,0.02); }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; margin: 16px 0; }
+  .pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; letter-spacing: 0.3px; }
+  .pill.exact { background: rgba(74,222,128,0.16); color: var(--green); }
+  .pill.approx { background: rgba(251,191,36,0.16); color: var(--amber); }
+  .pill.proxy { background: rgba(96,165,250,0.16); color: var(--blue); }
+  .pill.no { background: rgba(244,63,94,0.16); color: var(--red); }
+  .callout { border-left: 3px solid var(--amber); background: rgba(251,191,36,0.06); border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 14px 0; }
+  .callout.note { border-color: var(--cyan); background: rgba(34,211,238,0.06); }
+  .callout.warn { border-color: var(--red); background: rgba(244,63,94,0.06); }
+  .callout b { color: var(--ink); }
+  .num { font-variant-numeric: tabular-nums; }
+  .diff-ok { color: var(--green); font-weight: 600; }
+  ul.tight { margin: 8px 0; padding-left: 22px; }
+  ul.tight li { margin: 4px 0; }
+  .src { font-size: 12px; color: var(--faint); margin-top: 6px; }
+  .src a { color: var(--blue); text-decoration: none; }
+  .src a:hover { text-decoration: underline; }
+  @media (max-width: 880px) {
+    .wrap { grid-template-columns: 1fr; }
+    nav.toc { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+    main { padding: 28px 20px 80px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav class="toc">
+  <div class="brand">Fit<span>Vibe</span> · Methodology</div>
+  <h2>Overview</h2>
+  <a href="#intro">Introduction</a>
+  <a href="#conventions">Conventions &amp; units</a>
+  <a href="#validation">Validation philosophy</a>
+  <h2>Sleep</h2>
+  <a href="#sleep-score">Sleep score (0–100)</a>
+  <a href="#sleep-quality">Quality metrics</a>
+  <a href="#sleep-bands">Typical-for-age bands</a>
+  <a href="#sleep-stages">Stage totals &amp; typical mix</a>
+  <a href="#sleep-repo">Recent-nights query</a>
+  <h2>Today</h2>
+  <a href="#today">Steps · HR · nutrition</a>
+  <h2>Ingestion</h2>
+  <a href="#coercion">Number &amp; duration coercion</a>
+  <a href="#extraction">Scalar extraction</a>
+  <a href="#children">Child rows</a>
+  <h2>Health API &amp; sync</h2>
+  <a href="#healthapi">Filtering · rate limit · retry</a>
+  <a href="#cron">Cron windows</a>
+  <h2>App (client)</h2>
+  <a href="#client-format">Formatters</a>
+  <a href="#client-gauges">Gauges &amp; verdicts</a>
+  <a href="#client-geometry">Chart geometry</a>
+  <h2>Reference</h2>
+  <a href="#caveats">Caveats &amp; limits</a>
+  <a href="#changelog">Changelog</a>
+</nav>
+
+<main>
+<header class="hero">
+  <h1>Calculations &amp; Methodology Reference</h1>
+  <p class="lead">Every derived metric, score, threshold, and non-trivial transformation in FitVibe — what it computes, the exact formula, the inputs, where it lives in the code, and how well it was validated against ground truth.</p>
+  <p class="lead">This is a <b>living document</b>. When we add or change an algorithm, update it here (see the <a href="#changelog" style="color:var(--blue)">changelog</a>). The aim is that anyone — or any future AI agent — can understand and reproduce a number without reverse-engineering the source.</p>
+  <div class="meta-row">
+    Last updated <b>2026-06-18</b> · Backend <code>internal/sleep</code>, <code>internal/today</code>, <code>internal/ingestion</code>, <code>internal/healthapi</code>, <code>internal/cron</code> · App <code>appV2/src</code>
+  </div>
+</header>
+
+<section id="intro">
+<h2 class="sec">Introduction</h2>
+<p>FitVibe ingests Google Health API v4 data into PostgreSQL and serves screen-shaped read APIs to the mobile app. Most numbers the user sees are <b>derived</b> — the API rarely hands us a finished metric. This document records how each one is produced.</p>
+<p>Two recurring principles drive the methodology:</p>
+<ul class="tight">
+  <li><b>Lossless raw, derived columns.</b> The full API payload is always stored in <code>payload_json</code> (JSONB), so any derived column can be recomputed without re-fetching.</li>
+  <li><b>Validate against ground truth, label honestly.</b> Where we reverse-engineer a Google metric, we compare against real app values and state plainly whether we match <span class="pill exact">EXACT</span>, <span class="pill approx">APPROX</span>, are a <span class="pill proxy">PROXY</span>, or cannot compute it <span class="pill no">NOT POSSIBLE</span>.</li>
+</ul>
+</section>
+
+<section id="conventions">
+<h2 class="sec">Conventions &amp; units</h2>
+<table>
+  <thead><tr><th>Concept</th><th>Convention</th></tr></thead>
+  <tbody>
+    <tr><td>Time storage</td><td>UTC instants in <code>TIMESTAMPTZ</code>; local wall-clock rendered by applying <code>*_utc_offset_seconds</code>.</td></tr>
+    <tr><td>Local day</td><td>Grouped on the <code>civil_start_date</code> / <code>civil_end_date</code> DATE column, never a raw instant.</td></tr>
+    <tr><td>Night labelling</td><td><b>Important:</b> the Google app labels a night by the <b>wake morning</b>; our <code>civil_start_date</code> is the <b>bed evening</b>. App "Jun 18" = our row <code>2026-06-17</code>.</td></tr>
+    <tr><td>Data-type names</td><td>kebab-case throughout (<code>heart-rate</code>, <code>daily-resting-heart-rate</code>).</td></tr>
+    <tr><td>Number coercion</td><td>Centralized in <code>healthapi.Number</code> / <code>DurationSeconds</code> (the API returns some ints as strings and durations as <code>"600s"</code>).</td></tr>
+    <tr><td>Minutes-since-midnight</td><td>Clock values stored/derived as <code>hour*60 + minute</code> in local time; normalized to <code>[0,1440)</code>.</td></tr>
+  </tbody>
+</table>
+</section>
+
+<section id="validation">
+<h2 class="sec">Validation philosophy</h2>
+<p>The sleep metrics were reverse-engineered and then checked against <b>9 real nights</b> of this user's Google Health values (bed-dates Jun 9–17 2026). That comparison is what lets us label each metric exact / approximate / proxy rather than guessing. The same approach should be used whenever a new derived metric claims to mirror an external app.</p>
+<div class="callout note"><b>Why ground-truth fitting matters.</b> A formula that looks reasonable can still be wrong. Fitting against real values turned up that our Deep+REM <i>overcounts</i> Google's "sound sleep" on some nights and undercounts on others (so it can't be a parity metric), and that the interruptions rule matches Google to the minute. Neither was obvious a priori.</div>
+</section>
+
+<!-- ============================ SLEEP SCORE ============================ -->
+<section id="sleep-score">
+<h2 class="sec">Sleep score (0–100) <span class="pill approx">CALIBRATED</span></h2>
+<p class="file"><b>internal/sleep/score.go</b> · <code>computeSleepScore()</code></p>
+<p>A composite score modeled on Fitbit/Google's published <b>50 / 25 / 25</b> split (Duration / Composition / Restoration), then calibrated to this user's real scores. Bands mirror Fitbit/Google exactly.</p>
+
+<h4>Composite formula</h4>
+<pre><code>composite = 0.50 · durationSub(asleepMin)
+          + 0.25 · restorativeSub(deepMin + remMin)
+          + 0.25 · interruptionsSub(wasoMin, fullAwakenings)
+
+score = round( clamp( 0.8110 · composite + 4.10 , 0 , 100 ) )</code></pre>
+
+<h4>Sub-scores (each 0–100)</h4>
+<table>
+  <thead><tr><th>Sub-score</th><th>Weight</th><th>Curve</th><th>Inputs</th></tr></thead>
+  <tbody>
+    <tr><td>Duration</td><td>50%</td><td><code>clamp(asleepMin / 480 · 100, 0, 100)</code> — full at 8h</td><td>device <code>MinutesAsleep</code></td></tr>
+    <tr><td>Restorative</td><td>25%</td><td><code>clamp((deep+rem) / 180 · 100, 0, 100)</code> — target 90+90 min</td><td>Deep+REM summary minutes</td></tr>
+    <tr><td>Interruptions</td><td>25%</td><td><code>wasoPart + 20·awkFrac</code>; <code>wasoPart = 80</code> if WASO ≤ 20 min else <code>clamp(80 − (waso−20)/70·80, 0, 80)</code>; <code>awkFrac = {0,1: 1.0; 2: 0.75; 3: 0.5; 4+: 0.0}</code></td><td>mid-sleep WASO min + full-awakening count</td></tr>
+  </tbody>
+</table>
+
+<div class="callout"><b>The affine layer (<code>0.8110·x + 4.10</code>) is load-bearing.</b> A pure weighted average overshoots this user's long nights by 14+ points (Google compresses the top end via age/gender targets). The affine reproduces that compression. It is calibrated to <b>one user</b> and will drift for other users/ages — which is why we ship this as <i>FitVibe's own score with Google-standard bands</i>, not a reproduction of Google's number.</div>
+
+<h4>Bands</h4>
+<table>
+  <thead><tr><th>Band</th><th>Range</th></tr></thead>
+  <tbody>
+    <tr><td><span style="color:var(--green)">Excellent</span></td><td>90–100</td></tr>
+    <tr><td><span style="color:var(--accent)">Good</span></td><td>80–89</td></tr>
+    <tr><td><span style="color:var(--amber)">Fair</span></td><td>60–79</td></tr>
+    <tr><td><span style="color:var(--red)">Poor</span></td><td>below 60</td></tr>
+  </tbody>
+</table>
+<p class="src">Mirrors Fitbit/Google exactly (Garmin matches). Typical user averages 72–83.</p>
+
+<h4>Fit against 9 real nights</h4>
+<p>RMSE 1.56, MAE 1.33, max error 3 points. Every night within ±3; 7 of 9 within ±2.</p>
+<table>
+  <thead><tr><th>App date</th><th>Asleep</th><th>Deep+REM</th><th>Google</th><th>FitVibe</th><th>Δ</th></tr></thead>
+  <tbody class="num">
+    <tr><td>Jun 18</td><td>365</td><td>186</td><td>76</td><td>75</td><td class="diff-ok">−1</td></tr>
+    <tr><td>Jun 17</td><td>384</td><td>156</td><td>76</td><td>74</td><td class="diff-ok">−2</td></tr>
+    <tr><td>Jun 16</td><td>418</td><td>98</td><td>72</td><td>70</td><td class="diff-ok">−2</td></tr>
+    <tr><td>Jun 15</td><td>412</td><td>134</td><td>73</td><td>74</td><td class="diff-ok">+1</td></tr>
+    <tr><td>Jun 14</td><td>454</td><td>190</td><td>84</td><td>83</td><td class="diff-ok">−1</td></tr>
+    <tr><td>Jun 13</td><td>534</td><td>240</td><td>85</td><td>85</td><td class="diff-ok">0</td></tr>
+    <tr><td>Jun 12</td><td>496</td><td>225</td><td>86</td><td>85</td><td class="diff-ok">−1</td></tr>
+    <tr><td>Jun 11</td><td>232</td><td>64</td><td>50</td><td>51</td><td class="diff-ok">+1</td></tr>
+    <tr><td>Jun 10</td><td>549</td><td>197</td><td>82</td><td>85</td><td class="diff-ok">+3</td></tr>
+  </tbody>
+</table>
+<p class="src">The Restoration 25% is borrowed from Fitbit's published split, not learned: 6 of 9 nights had zero interruptions, so that pillar is essentially unconstrained by this data. We substitute our (exact) interruptions metric for Fitbit's HR-based restoration, which the v4 API doesn't expose.</p>
+</section>
+
+<!-- ============================ SLEEP QUALITY ============================ -->
+<section id="sleep-quality">
+<h2 class="sec">Sleep-quality metrics</h2>
+<p class="file"><b>internal/sleep/quality.go</b></p>
+<p>The Google Health "Sleep quality" card metrics, derived from the per-segment stage timeline (<code>sleep_stages</code>: stage_type / start / end). Validated against the same 9 nights.</p>
+
+<table>
+  <thead><tr><th>Metric</th><th>Verdict</th><th>Rule</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>Interruptions</b><br><span class="file">computeInterruptions</span></td>
+      <td><span class="pill exact">EXACT</span></td>
+      <td>AWAKE/AWAKE_IN_BED/OUT_OF_BED segments of duration <b>≥ 5 min</b> occurring <b>strictly between</b> sleep onset (first asleep segment) and final wake (last asleep segment). Returns total minutes + count (= full awakenings). Matched the app to the minute on all 9 nights (22m/1→23m/1, 5m/1→6m/1, all zeros).</td>
+    </tr>
+    <tr>
+      <td><b>Time to sound sleep</b><br><span class="file">computeTimeToSoundSleep</span></td>
+      <td><span class="pill approx">±2–3 min</span></td>
+      <td>Minutes from sleep onset to the start of the <b>first DEEP or REM</b> segment. Returns <code>(0, false)</code> if the night never reaches deep/REM. Reads a touch later than Google (which counts "steady light with calm HR" onset we can't detect), but within ±2–3 min across all nights.</td>
+    </tr>
+    <tr>
+      <td><b>Restorative</b> (Deep + REM)<br><span class="file">computeSoundSleep</span></td>
+      <td><span class="pill proxy">PROXY</span></td>
+      <td>Sum of DEEP + REM summary minutes. <b>Deliberately not labelled "sound sleep"</b> — see caveat. Diverges from Google's value by −48…+36 min, both directions.</td>
+    </tr>
+    <tr>
+      <td><b>Sleep disruptions</b> (tick timeline)<br><span class="file">computeDisruptions</span></td>
+      <td><span class="pill proxy">STAGE-BASED</span></td>
+      <td>A tick per AWAKE stretch occurring mid-sleep, positioned at its local wall-clock minute (<code>at</code>) with its duration (<code>minutes</code>, min 1). This is a stage-based "where was the night choppy" signal — <b>not</b> Google's movement-based restlessness.</td>
+    </tr>
+    <tr>
+      <td><b>Restlessness</b> (minutes value)</td>
+      <td><span class="pill no">NOT POSSIBLE</span></td>
+      <td>Google's restlessness is a 60-second accelerometer (toss-and-turn) classification the v4 API never returns. Tested against every field we store — nothing correlates. We surface the disruptions timeline instead, honestly labelled.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="callout warn"><b>Why "Restorative", not "Sound sleep".</b> Google's sound sleep = Deep + REM + steady-low-HR Light, <i>minus</i> Deep/REM epochs with elevated/variable HR — a per-30s HR-steadiness gate that is proprietary and undocumented. Our Deep+REM is therefore the wrong set on both ends. A documented HR reimplementation could only <i>add</i> steady-light minutes (never subtract restless deep/REM), so it would make over-count nights worse. We relabel to "Restorative · Deep + REM" (= Whoop's definition) and never claim parity.</div>
+<p class="src">Sources: Google Health Help <code>answer/14236513</code> &amp; <code>answer/14236712</code>; the 5-minute "memorable awakening" threshold is from the same literature Google cites.</p>
+</section>
+
+<!-- ============================ BANDS ============================ -->
+<section id="sleep-bands">
+<h2 class="sec">Typical-for-age in-range bands</h2>
+<p class="file"><b>internal/sleep/bands.go</b> · <code>bandsByAge()</code></p>
+<p>"Typical for your age" bands for the quality gauges. Google ships shaded age/gender bands but publishes no numbers; these are reconstructed from the public literature it cites (NSF 2017 consensus, Ohayon 2004, Boulos 2019). Same four age buckets as <code>typicalByAge</code>. <b>No gender split</b> (small effect, age not always known → would over-claim). Three-state verdict: In range / Pay attention / Out of range.</p>
+
+<table>
+  <thead><tr><th>Metric</th><th>&lt;18</th><th>18–44</th><th>45–64</th><th>65+</th></tr></thead>
+  <tbody class="num">
+    <tr><td>Time to sound sleep — green ≤ (min)</td><td>18</td><td>20</td><td>25</td><td>30</td></tr>
+    <tr><td>…amber ≤ (min)</td><td>28</td><td>30</td><td>35</td><td>40</td></tr>
+    <tr><td>Interruptions WASO — green ≤ (min)</td><td>20</td><td>20</td><td>25</td><td>30</td></tr>
+    <tr><td>…amber ≤ (min)</td><td>40</td><td>40</td><td>45</td><td>50</td></tr>
+    <tr><td>Full awakenings — green ≤ (count)</td><td>1</td><td>1</td><td>1</td><td>2</td></tr>
+    <tr><td>Restorative (Deep+REM) — green fraction of asleep</td><td>0.42–0.52</td><td>0.35–0.50</td><td>0.30–0.42</td><td>0.25–0.38</td></tr>
+    <tr><td>Sleep efficiency — green ≥ (%)</td><td>85</td><td>85</td><td>83</td><td>80</td></tr>
+  </tbody>
+</table>
+<div class="callout note"><b>Interruptions is NOT "must be 0".</b> One memorable awakening and ~20 min WASO is normal/healthy (NSF 2017). The earlier placeholder that required zero interruptions was wrong and has been replaced.</div>
+<p class="src">High confidence: interruptions/WASO &amp; efficiency floors (NSF 2017, same ≥5-min definition Google uses). Medium: exact per-bucket minute cuts for latency &amp; the restorative band (Google publishes no tables; the 45–64 bucket is interpolated).</p>
+</section>
+
+<!-- ============================ STAGE TOTALS ============================ -->
+<section id="sleep-stages">
+<h2 class="sec">Stage totals, efficiency &amp; typical mix</h2>
+<p class="file"><b>internal/sleep/handler.go</b>, <b>typical.go</b></p>
+
+<h4>Efficiency</h4>
+<pre><code>efficiency% = round( asleep / total · 100 )      // 0 if total ≤ 0</code></pre>
+<p>Where <code>asleep</code> and <code>total</code> prefer the device's authoritative <code>MinutesAsleep</code> / <code>MinutesInSleepPeriod</code> (matches Google Health), falling back to summed stage minutes only when absent.</p>
+
+<h4>Stage canonicalization</h4>
+<p><code>DEEP→Deep</code>, <code>REM→REM</code>, <code>LIGHT|SLEEPING→Light</code>, <code>AWAKE|AWAKE_IN_BED|OUT_OF_BED→Awake</code>, others skipped. Asleep = Deep + REM + Light (excludes Awake).</p>
+
+<h4>Stage totals &amp; percentages</h4>
+<p>Prefers the device per-stage summary; falls back to summing the chronological segments. <code>percent = round(stageMin / total · 100)</code>. Stable order: Deep → REM → Light → Awake.</p>
+
+<h4>Typical stage mix by age (<code>typicalByAge</code>) — fraction of time in bed</h4>
+<table>
+  <thead><tr><th>Stage</th><th>&lt;18</th><th>18–44</th><th>45–64</th><th>65+</th></tr></thead>
+  <tbody class="num">
+    <tr><td>Deep</td><td>0.22</td><td>0.18</td><td>0.13</td><td>0.08</td></tr>
+    <tr><td>REM</td><td>0.23</td><td>0.23</td><td>0.21</td><td>0.18</td></tr>
+    <tr><td>Light</td><td>0.50</td><td>0.54</td><td>0.59</td><td>0.66</td></tr>
+    <tr><td>Awake</td><td>0.05</td><td>0.05</td><td>0.07</td><td>0.08</td></tr>
+  </tbody>
+</table>
+<p class="src">Polysomnography norms (Sleep Foundation; Ohayon 2004). Deep declines ~2%/decade; the hypnogram draws a "typical for your age" marker on each stage bar from these.</p>
+</section>
+
+<!-- ============================ RECENT NIGHTS ============================ -->
+<section id="sleep-repo">
+<h2 class="sec">Recent-nights query</h2>
+<p class="file"><b>internal/db/repositories/sleep.go</b> · <code>RecentNights()</code></p>
+<ul class="tight">
+  <li><b>One session per civil date.</b> <code>SELECT DISTINCT ON (civil_date) … ORDER BY civil_date DESC, (end_time − start_time) DESC</code> keeps the <b>longest</b> session, so a nap + main sleep on the same day collapse to one entry. <span class="file">(Side effect: short naps don't appear separately.)</span></li>
+  <li><b>Vitals by scalar subquery, not LEFT JOIN.</b> A vital type can have several rows per civil date (e.g. <code>respiratory-rate-sleep-summary</code>); a join would fan each night into duplicates. Each vital is <code>AVG(value_avg)</code> for that <code>civil_start_date</code>: RHR, HRV, SpO₂, respiratory rate.</li>
+  <li><b>Skin-temp delta with NaN guard.</b> <code>AVG(nightlyTemperatureCelsius − baselineTemperatureCelsius)</code> from the payload, excluding rows where either is the string <code>'NaN'</code> (the baseline is NaN before the 30-day baseline establishes; a NaN delta would otherwise render as garbage like −15372).</li>
+  <li>Loads the per-segment stage timeline per night so the derived quality/score metrics work for history, not just last-night.</li>
+</ul>
+</section>
+
+<!-- ============================ TODAY ============================ -->
+<section id="today">
+<h2 class="sec">Today: steps · heart rate · nutrition</h2>
+<p class="file"><b>internal/db/repositories/today.go</b>, <b>internal/today/handler.go</b></p>
+
+<h4>Today's local date</h4>
+<p>Computed in the user's zone from the most recent known UTC offset: <code>now.In(localZone).Format("2006-01-02")</code>, falling back to UTC.</p>
+
+<h4>Steps (source de-duplication)</h4>
+<pre><code>SUM(value_count)  WHERE data_type='steps' AND civil_start_date = today
+                  AND platform != 'HEALTH_CONNECT'
+                  AND device_form_factor != 'PHONE'</code></pre>
+<p>The phone double-counts steps over windows that overlap the wearable; excluding Health Connect / phone sources keeps the wearable total (≈2083 instead of an inflated ≈3221).</p>
+
+<h4>Latest heart rate</h4>
+<p>Most recent <code>heart-rate</code> sample by <code>sample_time</code> (the "current" reading), with its UTC offset for rendering.</p>
+
+<h4>Nutrition totals (conditional aggregation, single query)</h4>
+<table>
+  <thead><tr><th>Field</th><th>Source → column</th></tr></thead>
+  <tbody>
+    <tr><td>Calories eaten</td><td><code>SUM(value_sum) FILTER (data_type='nutrition-log')</code></td></tr>
+    <tr><td>Calories burnt</td><td><code>round(SUM(value_sum) FILTER (data_type='active-energy-burned'))</code></td></tr>
+    <tr><td>Carbs / Fat (g)</td><td>promoted columns <code>nutrition_carbs_grams</code> / <code>nutrition_fat_grams</code></td></tr>
+    <tr><td>Protein (g)</td><td><code>SUM(grams)</code> from <code>nutrition_log_nutrients</code> where <code>nutrient='PROTEIN'</code> (child-table join)</td></tr>
+    <tr><td>Hydration (ml)</td><td><code>SUM(value_sum) FILTER (data_type='hydration-log')</code></td></tr>
+    <tr><td>Last updated</td><td>most recent <code>start_time|sample_time</code> across the three nutrition data types</td></tr>
+  </tbody>
+</table>
+<p class="src">The aggregate <code>GET /me/today</code> assembles activity, nutrition, timeline and last-night sleep concurrently into one response.</p>
+</section>
+
+<!-- ============================ COERCION ============================ -->
+<section id="coercion">
+<h2 class="sec">Number &amp; duration coercion</h2>
+<p class="file"><b>internal/healthapi/types.go</b></p>
+<ul class="tight">
+  <li><code>Number(v)</code> → float64 from float / int / numeric-string (the API returns some ints as strings, e.g. <code>"46"</code>).</li>
+  <li><code>DurationSeconds(v)</code> → seconds from a protobuf duration string like <code>"600s"</code> / <code>"19800s"</code> (strips the <code>s</code>, parses; 0 if unparseable). Used for UTC offsets, exercise split durations, time-in-zone, active minutes.</li>
+</ul>
+<p class="src">Always use these rather than ad-hoc parsing.</p>
+</section>
+
+<!-- ============================ EXTRACTION ============================ -->
+<section id="extraction">
+<h2 class="sec">Scalar extraction &amp; unit conversions</h2>
+<p class="file"><b>internal/ingestion/mapper.go</b></p>
+<p><code>MapDataPoint</code> classifies the type via <code>Category()</code>, stores the raw payload, extracts time coordinates + common scalars (<code>value_count/sum/avg/min/max</code>, <code>enum_value</code>) and a few promoted columns. Notable unit conversions:</p>
+<table>
+  <thead><tr><th>Data type</th><th>Field → column</th><th>Conversion</th></tr></thead>
+  <tbody>
+    <tr><td>distance / altitude / height / weight</td><td>meters or millimeters / grams or milligrams → <code>value_sum</code>/<code>value_avg</code></td><td><code>mm/1000</code>, <code>mg/1000</code> when the milli-field is used</td></tr>
+    <tr><td>heart-rate</td><td><code>beatsPerMinute</code> → <code>value_avg</code></td><td>direct (bpm); <code>motionContext</code> → <code>enum_value_secondary</code></td></tr>
+    <tr><td>heart-rate-variability</td><td><code>rootMeanSquareOfSuccessiveDifferencesMilliseconds</code> → <code>value_avg</code></td><td>RMSSD (ms)</td></tr>
+    <tr><td>time-in-heart-rate-zone</td><td><code>timeInZone</code> or <code>…Minutes</code> → <code>value_sum</code></td><td><code>DurationSeconds</code>, or <code>minutes·60</code> (seconds)</td></tr>
+    <tr><td>nutrition-log</td><td><code>energy.kcal</code> → <code>value_sum</code>; <code>totalCarbohydrate.grams</code>/<code>totalFat.grams</code> → promoted; <code>mealType</code>, <code>foodDisplayName</code> → promoted</td><td>direct</td></tr>
+    <tr><td>hydration-log</td><td><code>amountConsumed.milliliters</code> → <code>value_sum</code></td><td>ml</td></tr>
+    <tr><td>daily-* vitals</td><td>bpm / ms / % / °C / ml·kg⁻¹·min⁻¹ → <code>value_avg</code></td><td>direct</td></tr>
+  </tbody>
+</table>
+<p class="src">When adding a data type: add it to <code>Category()</code>, a case in <code>extractScalars</code> (and <code>extractChildren</code> if nested), and the relevant cron data-type list. <code>RemapPayload</code> recomputes columns from stored JSON without re-fetching.</p>
+</section>
+
+<!-- ============================ CHILDREN ============================ -->
+<section id="children">
+<h2 class="sec">Child-row derivations</h2>
+<p class="file"><b>internal/ingestion/children.go</b></p>
+<ul class="tight">
+  <li><b>Sleep stages</b> → <code>sleep_stages</code> (start/end/offset/type) from <code>stages[]</code>; per-stage <code>sleep_summary_stages</code> (type/minutes/count) from <code>summary.stagesSummary[]</code>.</li>
+  <li><b>Nutrition nutrients</b> → grams from <code>quantity.grams</code> or <code>grams</code>, keyed by nutrient name (PROTEIN, …).</li>
+  <li><b>Exercise</b> → events (type/time/offset) + splits (type/start/end, <code>activeDuration</code> via <code>DurationSeconds</code>, metrics JSON).</li>
+  <li><b>Active minutes by level</b> → minutes from <code>minutes</code>, or <code>durationMillis/60000</code>, or <code>DurationSeconds(duration)/60</code>.</li>
+  <li><b>Health-record projection</b> → one normalized row per <code>(date, metric, source)</code> with a value picked <code>value_sum → value_avg → value_count</code>; reingestion overwrites rather than duplicates.</li>
+</ul>
+</section>
+
+<!-- ============================ HEALTH API ============================ -->
+<section id="healthapi">
+<h2 class="sec">Health API filtering, rate limit &amp; retry</h2>
+<p class="file"><b>internal/healthapi/client.go</b></p>
+
+<h4>Per-category filter field paths</h4>
+<table>
+  <thead><tr><th>Category</th><th>Filter member</th><th>Time format</th></tr></thead>
+  <tbody>
+    <tr><td>interval</td><td><code>.interval.start_time</code></td><td>RFC3339</td></tr>
+    <tr><td>sample</td><td><code>.sample_time.physical_time</code></td><td>RFC3339</td></tr>
+    <tr><td>daily</td><td><code>.date</code></td><td><code>YYYY-MM-DD</code></td></tr>
+    <tr><td>session</td><td><code>.interval.civil_start_time</code></td><td>civil datetime</td></tr>
+    <tr><td>sleep <span class="file">(special)</span></td><td><code>.interval.end_time</code></td><td>RFC3339</td></tr>
+    <tr><td>electrocardiogram <span class="file">(special)</span></td><td><code>.interval.start_time</code> (≥ only)</td><td>RFC3339</td></tr>
+  </tbody>
+</table>
+
+<h4>Degenerate-window bump</h4>
+<p>When start/end format to the same string (same civil date for daily types, or a zero-width webhook interval), the upper bound is bumped — <code>+1 day</code> for civil-date format, else <code>+1 second</code> — so the API doesn't reject it with <code>INVALID_TIME_RANGE</code>.</p>
+
+<h4>Rate limiting &amp; retries</h4>
+<ul class="tight">
+  <li>Limiter: <b>250 req/min</b>, burst 5 (Google quota is 300/min per user — leaves a buffer; shared across goroutines).</li>
+  <li>Retries 429 / 5xx up to 5 attempts: <code>Retry-After</code> header if present, else exponential <code>min(2^attempt s, 30 s)</code>. Other 4xx fail immediately.</li>
+</ul>
+</section>
+
+<!-- ============================ CRON ============================ -->
+<section id="cron">
+<h2 class="sec">Cron sync windows</h2>
+<p class="file"><b>internal/cron/</b></p>
+<table>
+  <thead><tr><th>Syncer</th><th>Window</th></tr></thead>
+  <tbody>
+    <tr><td>Catch-up</td><td>First run: last <code>DefaultBackfillDays</code>. After: fixed <code>CATCHUP_LOOKBACK_HOURS</code> (default 48h) back from now — <b>deliberately overlaps</b> the last window; dedup via the unique index recovers webhooks missed during downtime.</td></tr>
+    <tr><td>Reconcile</td><td>First run: backfill days. After: resumes from the exact <code>last_end</code> (no overlap) and uses the <code>:reconcile</code> endpoint to detect upstream changes/deletes.</td></tr>
+    <tr><td>Rollup (intraday)</td><td><code>now − 2h</code> truncated to the hour → +1h (a settled hourly bucket).</td></tr>
+    <tr><td>Rollup (daily)</td><td><code>now − 48h</code> truncated to the day → +1 day (a settled daily bucket).</td></tr>
+  </tbody>
+</table>
+<p class="src">Overlapping windows are safe because of the upsert/dedupe contract (<code>INSERT … ON CONFLICT DO UPDATE … RETURNING id</code> with a <code>NULLS NOT DISTINCT</code> unique index), which preserves row ids so child FKs stay valid.</p>
+</section>
+
+<!-- ============================ CLIENT FORMATTERS ============================ -->
+<section id="client-format">
+<h2 class="sec">App formatters</h2>
+<p class="file"><b>appV2/src/screens/sleep/data.ts</b>, <b>src/data/mock.ts</b>, <b>src/data/today.ts</b></p>
+<table>
+  <thead><tr><th>Function</th><th>Does</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr><td><code>clk(c)</code></td><td>minutes-since-midnight → "11:24 PM"</td><td>uppercase, zero-padded</td></tr>
+    <tr><td><code>fmtH(min)</code></td><td>minutes → "7h 12m"</td><td>zero-padded minutes</td></tr>
+    <tr><td><code>fmtClock(min)</code> (mock.ts)</td><td>minutes → "11:10pm" / "8am"</td><td><b>differs from <code>clk</code></b>: lowercase, drops <code>:00</code></td></tr>
+    <tr><td><code>fmtMin(min)</code> (mock.ts)</td><td>minutes → "7h 12m"</td><td>same output as <code>fmtH</code></td></tr>
+    <tr><td><code>clockDeltaMinutes(a,t)</code></td><td>signed clock difference wrapped to <code>[−720,+720]</code></td><td>shortest direction on a 24h circle</td></tr>
+    <tr><td><code>delta(a,t)</code></td><td>"+1h 54m" / "−25m" / "on time"</td><td>—</td></tr>
+    <tr><td><code>fmtStampClock(s)</code> (today.ts)</td><td>RFC3339 instant + <code>offsetSeconds</code> → local 12h clock</td><td>renders in the reading's own zone</td></tr>
+  </tbody>
+</table>
+<div class="callout note"><b>Known duplication.</b> The two clock formatters produce <i>different</i> text by design (Today screen uses lowercase "11:10pm"; Sleep uses "11:24 PM"). They are intentionally not unified — changing either changes rendered copy.</div>
+
+<h4>Buckets &amp; hues</h4>
+<ul class="tight">
+  <li><code>ratingFor(eff)</code>: ≥92 Great · ≥87 Good · else Fair (efficiency→rating; distinct from the sleep <i>score</i>).</li>
+  <li><code>scoreBandHue(label)</code>: Excellent→green, Good→accent, Fair→amber, Poor→red.</li>
+</ul>
+</section>
+
+<!-- ============================ CLIENT GAUGES ============================ -->
+<section id="client-gauges">
+<h2 class="sec">Sleep-quality gauges &amp; verdicts</h2>
+<p class="file"><b>appV2/src/screens/sleep/SleepQualityCard.tsx</b></p>
+<ul class="tight">
+  <li><b>Three-state verdict.</b> Lower-is-better metrics: <code>in</code> if ≤ greenMax, <code>amber</code> if ≤ amberMax, else <code>out</code>. Higher-is-better (restorative, efficiency): green floors. Interruptions takes <code>worst(wasoVerdict, awakeVerdict)</code> (out &gt; amber &gt; in).</li>
+  <li><b>Track scaling.</b> Lower-is-better fills against <code>amberMax · 1.4</code> (40% headroom); the dashed band runs <code>[0, greenMax/(amberMax·1.4)]</code>. Restorative scales against <code>asleep · 0.6</code> and converts the fraction band to minutes (<code>fraction · asleep</code>). Efficiency band runs <code>[greenMin/100, 1]</code>.</li>
+  <li><b>Disruptions timeline.</b> Night span <code>((wake − onset + 1440) mod 1440) || 1440</code> (handles past-midnight); each tick at <code>((at − onset + 1440) mod 1440) / span</code>.</li>
+</ul>
+
+<h4>Vitals grid deltas</h4>
+<p class="file"><b>VitalsGrid.tsx</b></p>
+<p>Window = trailing 7 nights from the selected index. Delta = <code>current − mean(prior)</code>, shown only if <code>|diff| ≥ (digits ? 0.05 : 0.5)</code> (noise floor). When the selected night's vital is null, falls back to the window average (labelled "avg"). Color: good if <code>(diff &gt; 0) === higherIsBetter</code>.</p>
+</section>
+
+<!-- ============================ CLIENT GEOMETRY ============================ -->
+<section id="client-geometry">
+<h2 class="sec">Chart geometry</h2>
+<p class="file"><b>appV2/src/components/data/</b></p>
+<table>
+  <thead><tr><th>Component</th><th>Key math</th></tr></thead>
+  <tbody>
+    <tr><td>ProgressRing</td><td><code>r = cx − stroke/2 − i·(stroke+gap)</code>; <code>circ = 2πr</code>; <code>strokeDashoffset = circ·(1 − value)</code>.</td></tr>
+    <tr><td>GaugeArc (270°)</td><td><code>SWEEP=270</code>, <code>START=−135</code>; point <code>(cx + r·sin θ, cx − r·cos θ)</code>; <code>arcLen = 2πr·SWEEP/360</code>; offset <code>arcLen·(1 − value)</code>.</td></tr>
+    <tr><td>Sparkline</td><td>scale to <code>[pad, h−pad]</code> by <code>(v − min)/(max − min || 1)</code>; smooth via Catmull-Rom → cubic Bézier (control points at ±⅙ of the neighbor delta).</td></tr>
+    <tr><td>BarChart</td><td><code>max = max(data, goal) || 1</code>; bar <code>pct = max(0.02, d/max)</code>; tooltip centered at <code>((selected+0.5)/n)·100%</code> with <code>translateX(−50%)</code>.</td></tr>
+    <tr><td>Hypnogram</td><td>4 lanes (Awake/REM/Light/Deep), <code>laneH = plotH/4</code>; <code>x = plotL + (offset/total)·plotW</code>; hour ticks every 2h that sit ≥8 min from the edges.</td></tr>
+    <tr><td>CalorieBudget</td><td><code>remaining = goal − food + exercise</code>; bar <code>eatenPct = food/(goal+exercise)·100</code>.</td></tr>
+    <tr><td>useAnimatedFraction</td><td>shared value eases 0→target over <code>durSlow</code> (380ms, easeOut); jumps when reduced-motion.</td></tr>
+  </tbody>
+</table>
+</section>
+
+<!-- ============================ CAVEATS ============================ -->
+<section id="caveats">
+<h2 class="sec">Caveats &amp; limits (read before trusting a number)</h2>
+<ul class="tight">
+  <li><b>Sleep score</b> is calibrated to one user; its affine constants will drift for other users/ages. It's FitVibe's own score on Google-standard bands, not a reproduction of Google's number.</li>
+  <li><b>Restorative (Deep+REM)</b> is a proxy, not Google's sound sleep — diverges ±30–48 min, both directions. Never relabel it "sound sleep".</li>
+  <li><b>Restlessness minutes</b> are not computable from the v4 API (no movement signal). Only the stage-based disruptions timeline is honest.</li>
+  <li><b>Time to sound sleep</b> runs ~2–3 min later than Google (no steady-light-with-calm-HR onset detection).</li>
+  <li><b>In-range bands</b> are population age norms, not Google's exact (undisclosed) tables, and not personalized by gender.</li>
+  <li><b>Recent-nights</b> shows one session per civil date (longest); naps on a main-sleep day don't appear separately.</li>
+  <li><b>Readiness</b> (Today hero) is not yet computed — the page currently shows a fixed placeholder. See the readiness research note.</li>
+  <li><b>Steps</b> exclude phone/Health-Connect sources to avoid double-counting against the wearable.</li>
+</ul>
+</section>
+
+<!-- ============================ CHANGELOG ============================ -->
+<section id="changelog">
+<h2 class="sec">Changelog</h2>
+<table>
+  <thead><tr><th>Date</th><th>Change</th></tr></thead>
+  <tbody>
+    <tr><td>2026-06-18</td><td>Initial document. Covers sleep score (calibrated, ±3 vs 9 real nights), sleep-quality metrics (interruptions exact, time-to-sound-sleep ±2–3min, restorative proxy, disruptions timeline, restlessness not-possible), typical-for-age bands, stage totals/efficiency/typical mix, recent-nights query, Today aggregations, ingestion coercion/extraction/children, Health API filtering/rate-limit/retry, cron windows, and the full app-side formatter/gauge/geometry inventory.</td></tr>
+  </tbody>
+</table>
+<p class="src"><b>How to update:</b> when you add or change a calculation, edit the relevant section (quote the new constants/curve and cite <code>file</code>), refresh the validation table if you have ground truth, and add a changelog row. Keep the honest-labelling discipline: state exact / approx / proxy / not-possible.</p>
+</section>
+
+</main>
+</div>
+</body>
+</html>

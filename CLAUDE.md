@@ -16,6 +16,8 @@ The Go backend lives under `backend/`; the Expo/React Native app lives under `ap
 
 > **Migration note:** the backend was moved off Turso/libSQL SQLite onto PostgreSQL (pgx). If you find any lingering SQLite/Turso/`?`-placeholder/`json_extract` code, it's stale — flag it. Design docs: `backend/docs/postgres-migration-plan.html`.
 
+> **Calculations reference:** every derived metric/score/threshold in the app (sleep score + quality metrics, bands, Today aggregations, ingestion coercion, sync windows, client gauges) is documented with exact formulas, inputs, file refs, and validation in `backend/docs/calculations-methodology.html`. **It is a living document — update it whenever you add or change an algorithm** (there's a changelog section at the bottom).
+
 ## Commands
 
 All commands run from `backend/`.
