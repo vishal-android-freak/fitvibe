@@ -1,5 +1,6 @@
 import {
   getAuth,
+  getIdToken as fbGetIdToken,
   onAuthStateChanged as fbOnAuthStateChanged,
   signInWithCustomToken as fbSignInWithCustomToken,
   signOut as fbSignOut,
@@ -25,7 +26,7 @@ export async function signInWithCustomToken(customToken: string): Promise<void> 
 export async function getIdToken(forceRefresh = false): Promise<string | null> {
   const user = getAuth().currentUser;
   if (!user) return null;
-  return user.getIdToken(forceRefresh);
+  return fbGetIdToken(user, forceRefresh);
 }
 
 /** Whether a Firebase user is currently signed in. */
