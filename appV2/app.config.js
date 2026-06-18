@@ -5,12 +5,13 @@
 // and local dev builds.
 //
 // EAS dashboard → Environment Variables (Secret, type File):
-//   GOOGLE_SERVICES_JSON   → google-services.json
-//   GOOGLE_SERVICES_PLIST  → GoogleService-Info.plist
+//   FITVIBE_GOOGLE_SERVICES_JSON   → google-services.json
+//   FITVIBE_GOOGLE_SERVICES_PLIST  → GoogleService-Info.plist
+// (app-scoped names so they don't collide with other projects' vars)
 
 module.exports = ({ config }) => {
-  const androidGoogleServices = process.env.GOOGLE_SERVICES_JSON ?? './google-services.json';
-  const iosGoogleServices = process.env.GOOGLE_SERVICES_PLIST ?? './GoogleService-Info.plist';
+  const androidGoogleServices = process.env.FITVIBE_GOOGLE_SERVICES_JSON ?? './google-services.json';
+  const iosGoogleServices = process.env.FITVIBE_GOOGLE_SERVICES_PLIST ?? './GoogleService-Info.plist';
 
   return {
     ...config,
