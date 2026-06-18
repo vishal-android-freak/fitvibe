@@ -112,6 +112,8 @@ type LastNightResponse struct {
 	// Derived "Sleep quality" metrics (validated against Google Health). See
 	// quality.go for formulas and caveats.
 	Quality sleepQuality `json:"quality"`
+	// "Typical for your age" in-range bands for the quality gauges (bands.go).
+	Bands SleepBands `json:"bands"`
 	// Per-stage breakdown with the typical-for-age target each bar marks against.
 	Stages  []stageTotal  `json:"stages"`
 	Typical TypicalStages `json:"typical"`
@@ -186,6 +188,7 @@ type nightSummary struct {
 	Efficiency      int          `json:"efficiency"`      // asleep/total %
 	Awakenings      int          `json:"awakenings"`      // raw AWAKE count (back-compat)
 	Quality         sleepQuality `json:"quality"`         // derived sleep-quality metrics
+	Bands           SleepBands   `json:"bands"`           // typical-for-age in-range bands
 	Stages          []stageTotal `json:"stages"`
 	Vitals          nightVitals  `json:"vitals"`
 }
@@ -217,16 +220,17 @@ func (h *Handler) nights(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	age := h.userAge(r.Context(), userID)
 	resp := nightsResponse{Nights: make([]nightSummary, 0, len(nights))}
 	for i := range nights {
-		resp.Nights = append(resp.Nights, buildNight(&nights[i]))
+		resp.Nights = append(resp.Nights, buildNight(&nights[i], age))
 	}
 	writeJSON(w, http.StatusOK, resp)
 }
 
 // buildNight renders a single SleepNightDetail into the API shape, reusing the
 // stage-total / efficiency / clock helpers shared with buildLastNight.
-func buildNight(n *repositories.SleepNightDetail) nightSummary {
+func buildNight(n *repositories.SleepNightDetail, age int) nightSummary {
 	loc := time.FixedZone("local", n.OffsetSeconds)
 
 	// No chronological segments here, so totals come straight from the summary.
@@ -272,6 +276,7 @@ func buildNight(n *repositories.SleepNightDetail) nightSummary {
 		Efficiency:      efficiency(asleep, total),
 		Awakenings:      awakenings,
 		Quality:         buildQuality(loc, n.Segments, n.Summary),
+		Bands:           bandsByAge(age),
 		Stages:          stages,
 		Vitals: nightVitals{
 			RHR:             nullable(n.RestingHeartRate),
@@ -361,6 +366,7 @@ func buildLastNight(n *repositories.SleepNight, age int) LastNightResponse {
 		Efficiency:    eff,
 		Awakenings:    awakenings,
 		Quality:       buildQuality(loc, n.Segments, n.Summary),
+		Bands:         bandsByAge(age),
 		Stages:        stages,
 		Typical:       typicalByAge(age),
 	}

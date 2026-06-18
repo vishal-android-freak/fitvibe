@@ -117,6 +117,29 @@ func TestComputeDisruptions(t *testing.T) {
 	}
 }
 
+func TestBandsByAge(t *testing.T) {
+	// Unknown age falls back to the 18–44 adult bucket.
+	if b := bandsByAge(0); b.AgeBucket != "18–44" || b.TimeToSoundSleep.GreenMax != 20 {
+		t.Fatalf("unknown age = %q ttss %v; want 18–44 / 20", b.AgeBucket, b.TimeToSoundSleep.GreenMax)
+	}
+	// Interruptions are NOT required to be zero — green WASO is 20 min for adults.
+	if b := bandsByAge(30); b.InterruptionsMinutes.GreenMax != 20 || b.FullAwakenings.GreenMax != 1 {
+		t.Fatalf("adult interruptions band = %v/%v; want 20/1", b.InterruptionsMinutes.GreenMax, b.FullAwakenings.GreenMax)
+	}
+	// 65+ relaxes latency, WASO, and awakenings.
+	if b := bandsByAge(70); b.AgeBucket != "65+" || b.InterruptionsMinutes.GreenMax != 30 || b.FullAwakenings.GreenMax != 2 {
+		t.Fatalf("65+ band = %q waso %v awk %v; want 65+ / 30 / 2", b.AgeBucket, b.InterruptionsMinutes.GreenMax, b.FullAwakenings.GreenMax)
+	}
+	// Efficiency green floor is 85% for adults.
+	if b := bandsByAge(40); b.Efficiency.GreenMin != 85 {
+		t.Fatalf("efficiency floor = %v; want 85", b.Efficiency.GreenMin)
+	}
+	// Teens get a higher restorative band than older adults.
+	if bandsByAge(15).SoundSleepFraction.GreenHi <= bandsByAge(70).SoundSleepFraction.GreenHi {
+		t.Fatal("teen restorative band should exceed 65+ band")
+	}
+}
+
 func TestComputeSoundSleep(t *testing.T) {
 	summary := []repositories.SleepStageSummary{
 		{StageType: "DEEP", Minutes: 102},

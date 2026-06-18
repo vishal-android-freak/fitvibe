@@ -117,6 +117,36 @@ export interface SleepQuality {
   disruptions: SleepDisruption[];
 }
 
+/** A "lower is better" band: in range ≤greenMax, pay-attention ≤amberMax. */
+export interface RangeBand {
+  greenMax: number;
+  amberMax: number;
+}
+/** Deep+REM as a fraction of asleep: in range within [greenLo, greenHi]. */
+export interface FractionBand {
+  greenLo: number;
+  greenHi: number;
+  amberLo: number;
+}
+/** A "higher is better" band with a green floor (efficiency %). */
+export interface FloorBand {
+  greenMin: number;
+  amberMin: number;
+}
+
+/**
+ * "Typical for your age" in-range bands (mirrors backend SleepBands). Grounded
+ * in NSF 2017 / Ohayon 2004 norms — typical-for-age, not medical thresholds.
+ */
+export interface SleepBands {
+  ageBucket: string; // e.g. "18–44"
+  timeToSoundSleep: RangeBand;
+  interruptionsMinutes: RangeBand;
+  fullAwakenings: RangeBand;
+  soundSleepFraction: FractionBand;
+  efficiency: FloorBand;
+}
+
 /** One night's summary (mirrors backend nightSummary). */
 export interface SleepNight {
   date: string; // local civil date, "2006-01-02"
@@ -126,6 +156,7 @@ export interface SleepNight {
   efficiency: number;
   awakenings: number;
   quality: SleepQuality;
+  bands: SleepBands;
   stages: SleepStageTotal[];
   vitals: NightVitals;
 }
