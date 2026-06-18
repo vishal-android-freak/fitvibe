@@ -10,6 +10,7 @@ import { ScoreHero } from './ScoreHero';
 import { SleepInsight } from './SleepInsight';
 import { VitalsGrid } from './VitalsGrid';
 import { ScheduleCard } from './ScheduleCard';
+import { SleepQualityCard } from './SleepQualityCard';
 import { WeeklyTrend } from './WeeklyTrend';
 import { toNightViews } from './data';
 
@@ -67,6 +68,9 @@ function SleepBody() {
 
             <SectionLabel>Stages</SectionLabel>
             <SleepCard />
+
+            <SectionLabel>Sleep quality</SectionLabel>
+            <SleepQualityCard night={night} />
 
             <SectionLabel>Overnight vitals</SectionLabel>
             <VitalsGrid nights={nights} idx={safeIdx} />

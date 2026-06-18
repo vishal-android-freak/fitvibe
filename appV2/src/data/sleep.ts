@@ -97,6 +97,26 @@ export interface NightVitals {
   skinTempDelta: number | null;
 }
 
+/** One mid-sleep disturbance on the night timeline (stage-based, NOT movement). */
+export interface SleepDisruption {
+  at: number; // local wall-clock minutes-since-midnight
+  minutes: number; // how long it lasted (>=1)
+}
+
+/**
+ * Derived "Sleep quality" metrics (mirrors backend sleepQuality). Validated vs
+ * Google Health: interruptions are exact; time-to-sound-sleep is ~±2min;
+ * soundSleep is a Deep+REM proxy (NOT Google's value); disruptions is a
+ * stage-based "where was the night choppy" timeline, NOT movement restlessness.
+ */
+export interface SleepQuality {
+  timeToSoundSleepMinutes: number | null; // null when no deep/REM that night
+  interruptionsMinutes: number;
+  fullAwakenings: number;
+  soundSleepMinutes: number; // Deep + REM proxy
+  disruptions: SleepDisruption[];
+}
+
 /** One night's summary (mirrors backend nightSummary). */
 export interface SleepNight {
   date: string; // local civil date, "2006-01-02"
@@ -105,6 +125,7 @@ export interface SleepNight {
   durationMinutes: number; // asleep
   efficiency: number;
   awakenings: number;
+  quality: SleepQuality;
   stages: SleepStageTotal[];
   vitals: NightVitals;
 }
