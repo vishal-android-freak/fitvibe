@@ -36,7 +36,7 @@ export function StatTile({
         {icon ? (
           <View style={[styles.iconBox, { backgroundColor: tint(hue, 0.16) }]}>{icon}</View>
         ) : null}
-        <Text style={styles.label} numberOfLines={2}>
+        <Text style={styles.label} numberOfLines={1}>
           {label}
         </Text>
       </View>
@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
     flex: 1,
   },
-  head: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  head: { gap: 7 },
   iconBox: { width: 20, height: 20, borderRadius: radius.xs, alignItems: 'center', justifyContent: 'center' },
   label: { flex: 1, fontFamily: font.sansSemibold, fontSize: fontSize.xs, color: text.muted },
   valueRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, flexWrap: 'wrap' },
