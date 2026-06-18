@@ -217,6 +217,13 @@ func extractScalars(rec *repositories.DataPointRecord, dataType string, value ma
 				rec.ValueCount = sql.NullInt32{Int32: int32(number(n)), Valid: true}
 			}
 		}
+		// metadata.nap marks naps (absent for the main/overnight sleep). Promote
+		// it so the read API can tell a nap from a proper night.
+		if meta, ok := value["metadata"].(map[string]interface{}); ok {
+			if nap, ok := meta["nap"].(bool); ok {
+				rec.IsNap = sql.NullBool{Bool: nap, Valid: true}
+			}
+		}
 	case "exercise":
 		if n, ok := value["exerciseType"].(string); ok {
 			rec.EnumValue = sql.NullString{String: n, Valid: true}

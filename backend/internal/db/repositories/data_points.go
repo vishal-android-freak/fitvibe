@@ -54,6 +54,7 @@ type DataPointRecord struct {
 	NutritionFatGrams   sql.NullFloat64
 	MealType            sql.NullString
 	FoodDisplayName     sql.NullString
+	IsNap               sql.NullBool // sleep metadata.nap (true = nap, null/false = main sleep)
 
 	PayloadJSON           string
 	FetchedVia            string
@@ -190,10 +191,10 @@ func (r *DataPointRepo) Insert(ctx context.Context, rec *DataPointRecord) (int64
 			start_utc_offset_seconds, end_utc_offset_seconds,
 			value_count, value_sum, value_avg, value_min, value_max,
 			enum_value, enum_value_secondary,
-			nutrition_carbs_grams, nutrition_fat_grams, meal_type, food_display_name,
+			nutrition_carbs_grams, nutrition_fat_grams, meal_type, food_display_name, is_nap,
 			payload_json, fetched_via, webhook_notification_id
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35
+			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36
 		)
 		RETURNING id
 	`, rec.UserID, rec.DataType, rec.DataPointCategory,
@@ -203,7 +204,7 @@ func (r *DataPointRepo) Insert(ctx context.Context, rec *DataPointRecord) (int64
 		rec.StartUTCOffsetSeconds, rec.EndUTCOffsetSeconds,
 		rec.ValueCount, rec.ValueSum, rec.ValueAvg, rec.ValueMin, rec.ValueMax,
 		rec.EnumValue, rec.EnumValueSecondary,
-		rec.NutritionCarbsGrams, rec.NutritionFatGrams, rec.MealType, rec.FoodDisplayName,
+		rec.NutritionCarbsGrams, rec.NutritionFatGrams, rec.MealType, rec.FoodDisplayName, rec.IsNap,
 		rec.PayloadJSON, rec.FetchedVia, rec.WebhookNotificationID).Scan(&id)
 	if err != nil {
 		return 0, fmt.Errorf("insert data point: %w", err)
@@ -238,9 +239,9 @@ func (r *DataPointRepo) InsertMany(ctx context.Context, recs []*DataPointRecord)
 			start_utc_offset_seconds, end_utc_offset_seconds,
 			value_count, value_sum, value_avg, value_min, value_max,
 			enum_value, enum_value_secondary,
-			nutrition_carbs_grams, nutrition_fat_grams, meal_type, food_display_name,
+			nutrition_carbs_grams, nutrition_fat_grams, meal_type, food_display_name, is_nap,
 			payload_json, fetched_via, webhook_notification_id
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36)
 		ON CONFLICT (user_id, data_type, sample_time, start_time, end_time)
 		DO UPDATE SET
 			data_point_category = EXCLUDED.data_point_category,
@@ -270,6 +271,7 @@ func (r *DataPointRepo) InsertMany(ctx context.Context, recs []*DataPointRecord)
 			nutrition_fat_grams = EXCLUDED.nutrition_fat_grams,
 			meal_type = EXCLUDED.meal_type,
 			food_display_name = EXCLUDED.food_display_name,
+			is_nap = EXCLUDED.is_nap,
 			payload_json = EXCLUDED.payload_json,
 			fetched_via = EXCLUDED.fetched_via,
 			webhook_notification_id = EXCLUDED.webhook_notification_id
@@ -293,7 +295,7 @@ func (r *DataPointRepo) InsertMany(ctx context.Context, recs []*DataPointRecord)
 			rec.StartUTCOffsetSeconds, rec.EndUTCOffsetSeconds,
 			rec.ValueCount, rec.ValueSum, rec.ValueAvg, rec.ValueMin, rec.ValueMax,
 			rec.EnumValue, rec.EnumValueSecondary,
-			rec.NutritionCarbsGrams, rec.NutritionFatGrams, rec.MealType, rec.FoodDisplayName,
+			rec.NutritionCarbsGrams, rec.NutritionFatGrams, rec.MealType, rec.FoodDisplayName, rec.IsNap,
 			rec.PayloadJSON, rec.FetchedVia, rec.WebhookNotificationID).Scan(&dpID); err != nil {
 			return fmt.Errorf("upsert data point: %w", err)
 		}

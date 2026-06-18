@@ -189,6 +189,7 @@ type nightSummary struct {
 	OnsetClock      int          `json:"onsetClock"`
 	WakeClock       int          `json:"wakeClock"`
 	DurationMinutes int          `json:"durationMinutes"` // asleep minutes
+	IsNap           bool         `json:"isNap"`           // true = nap, false = main/overnight sleep
 	Efficiency      int          `json:"efficiency"`      // asleep/total %
 	Awakenings      int          `json:"awakenings"`      // raw AWAKE count (back-compat)
 	Score           int          `json:"score"`           // FitVibe sleep score 0-100
@@ -282,6 +283,7 @@ func buildNight(n *repositories.SleepNightDetail, age int) nightSummary {
 		OnsetClock:      clockOf(loc, n.Start),
 		WakeClock:       clockOf(loc, n.End),
 		DurationMinutes: asleep,
+		IsNap:           n.IsNap,
 		Efficiency:      efficiency(asleep, total),
 		Awakenings:      awakenings,
 		Score:           score,

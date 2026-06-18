@@ -48,7 +48,10 @@ type SleepNight struct {
 	MinutesInSleepPeriod sql.NullInt64
 }
 
-// LatestNight returns the most recent sleep session for a user, or nil if none.
+// LatestNight returns the user's most recent MAIN (non-nap) sleep session, or
+// nil if none. It prefers a proper night over a nap so the Today card and the
+// Sleep-tab default never show a 30-minute nap as "last night"; it falls back to
+// a nap only when there is no main sleep at all.
 func (r *SleepRepo) LatestNight(ctx context.Context, userID int64) (*SleepNight, error) {
 	var night SleepNight
 	var offset sql.NullInt64
@@ -58,7 +61,7 @@ func (r *SleepRepo) LatestNight(ctx context.Context, userID int64) (*SleepNight,
 		       (payload_json->'sleep'->'summary'->>'minutesInSleepPeriod')::int
 		FROM data_points
 		WHERE user_id = $1 AND data_type = 'sleep' AND start_time IS NOT NULL AND end_time IS NOT NULL
-		ORDER BY end_time DESC
+		ORDER BY COALESCE(is_nap, false) ASC, end_time DESC
 		LIMIT 1`, userID).Scan(&night.DataPointID, &night.Start, &night.End, &offset,
 		&night.MinutesAsleep, &night.MinutesInSleepPeriod)
 	if err == sql.ErrNoRows {
@@ -94,6 +97,7 @@ type SleepNightDetail struct {
 	End           time.Time // session end (UTC instant)
 	OffsetSeconds int       // local UTC offset, for rendering wall-clock times
 	CivilDate     string    // local civil date "2006-01-02" (civil_end_date or date(end_time))
+	IsNap         bool      // Google's nap flag — true = nap, false = main/overnight sleep
 	AsleepMinutes int       // deep + rem + light, summed from stages (fallback)
 
 	// Device's own summary minutes (Fitbit-authoritative); null when the payload
@@ -111,40 +115,35 @@ type SleepNightDetail struct {
 	Summary  []SleepStageSummary // per-stage minutes + counts
 }
 
-// RecentNights returns up to limit recent sleep nights (most recent first), each
-// with its stage summary and per-night vitals joined by local civil date.
+// RecentNights returns up to limit recent sleep SESSIONS (most recent first) —
+// ALL of them, including naps, so the Sleep tab can render a separate entry +
+// hypnogram per sleep. Each carries IsNap so the UI can label naps. Per-night
+// vitals are joined by the session's local civil date (a nap and its day's main
+// sleep share that day's vitals).
 func (r *SleepRepo) RecentNights(ctx context.Context, userID int64, limit int) ([]SleepNightDetail, error) {
 	if limit <= 0 {
 		return nil, nil
 	}
-	// One query: pull the recent sleep sessions and LEFT JOIN each per-night
-	// vital data point on the night's civil date. The vitals live in separate
-	// data_points rows keyed by civil_start_date (a DATE), with value_avg set.
-	// Skin temp is a delta computed from the payload JSON.
 	rows, err := r.db.QueryContext(ctx, `
-		WITH per_day AS (
-			-- One night per civil date: keep the MAIN session (longest), so a nap
-			-- plus the main sleep on the same day collapse to a single entry.
-			SELECT DISTINCT ON (COALESCE(civil_end_date, date(end_time)))
-			       id, start_time, end_time,
+		WITH nights AS (
+			-- Every sleep session (naps included), newest first. No per-day
+			-- collapse: multiple sleeps in a day each become their own entry.
+			SELECT id, start_time, end_time,
 			       COALESCE(start_utc_offset_seconds, end_utc_offset_seconds, 0) AS offset_seconds,
 			       COALESCE(civil_end_date, date(end_time)) AS civil_date,
+			       COALESCE(is_nap, false) AS is_nap,
 			       (payload_json->'sleep'->'summary'->>'minutesAsleep')::int AS minutes_asleep,
 			       (payload_json->'sleep'->'summary'->>'minutesInSleepPeriod')::int AS minutes_in_period
 			FROM data_points
 			WHERE user_id = $1 AND data_type = 'sleep'
 			  AND start_time IS NOT NULL AND end_time IS NOT NULL
-			ORDER BY COALESCE(civil_end_date, date(end_time)) DESC, (end_time - start_time) DESC
-		),
-		nights AS (
-			SELECT * FROM per_day
-			ORDER BY civil_date DESC
+			ORDER BY end_time DESC
 			LIMIT $2
 		)
 		-- Scalar subqueries (not LEFT JOINs): a vital type can have several rows
 		-- per civil date (e.g. respiratory-rate-sleep-summary), and joining would
 		-- fan each night into duplicate rows. Aggregate to one value per date.
-		SELECT n.id, n.start_time, n.end_time, n.offset_seconds, n.civil_date,
+		SELECT n.id, n.start_time, n.end_time, n.offset_seconds, n.civil_date, n.is_nap,
 		       n.minutes_asleep, n.minutes_in_period,
 		       (SELECT AVG(value_avg) FROM data_points v
 		          WHERE v.user_id = $1 AND v.data_type = 'daily-resting-heart-rate'
@@ -168,7 +167,7 @@ func (r *SleepRepo) RecentNights(ctx context.Context, userID int64, limit int) (
 		            AND v.payload_json->'dailySleepTemperatureDerivations'->>'nightlyTemperatureCelsius' <> 'NaN'
 		            AND v.payload_json->'dailySleepTemperatureDerivations'->>'baselineTemperatureCelsius' <> 'NaN') AS skin_temp_delta
 		FROM nights n
-		ORDER BY n.civil_date DESC`, userID, limit)
+		ORDER BY n.end_time DESC`, userID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("query recent sleep nights: %w", err)
 	}
@@ -179,7 +178,7 @@ func (r *SleepRepo) RecentNights(ctx context.Context, userID int64, limit int) (
 		var d SleepNightDetail
 		var offset sql.NullInt64
 		var civilDate time.Time
-		if err := rows.Scan(&d.DataPointID, &d.Start, &d.End, &offset, &civilDate,
+		if err := rows.Scan(&d.DataPointID, &d.Start, &d.End, &offset, &civilDate, &d.IsNap,
 			&d.MinutesAsleep, &d.MinutesInSleepPeriod,
 			&d.RestingHeartRate, &d.HRV, &d.SpO2, &d.RespiratoryRate, &d.SkinTempDelta); err != nil {
 			return nil, fmt.Errorf("scan recent sleep night: %w", err)
