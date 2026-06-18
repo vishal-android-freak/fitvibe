@@ -1,66 +1,119 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Badge, EcgTrace, Icon, StatTileGrid, type StatTileSpec } from '@/components';
-import { border, font, fontSize, hue, radius, surface, text } from '@/theme';
+import { Badge, EcgTrace, Icon } from '@/components';
+import { border, font, fontSize, hue, radius, status, surface, text } from '@/theme';
+import type { VitalsBlock, BodyComposition } from '@/data/body';
 import { Eyebrow } from './parts';
+import { VitalCard } from './VitalCard';
 
-const HEART: StatTileSpec[] = [
-  { label: 'Resting HR', value: '54', unit: 'bpm', hue: hue.heart, icon: 'heart', delta: '3 bpm', deltaDir: 'down', spark: [58, 57, 57, 56, 55, 54, 54] },
-  { label: 'HRV', value: '62', unit: 'ms', hue: hue.mind, icon: 'activity', delta: '12%', deltaDir: 'up', spark: [52, 55, 54, 58, 60, 61, 62] },
-  { label: 'Blood pressure', value: '118/76', unit: 'mmHg', hue: hue.heart, icon: 'gauge', spark: [120, 119, 121, 118, 117, 119, 118] },
-  { label: 'VO₂ max', value: '44', unit: 'ml/kg', hue: hue.move, icon: 'gauge', delta: '1', deltaDir: 'up', spark: [42, 42, 43, 43, 43, 44, 44] },
-];
+const BMI_HUE: Record<string, string> = {
+  normal: status.positive,
+  underweight: status.warning,
+  overweight: status.warning,
+  obese: status.danger,
+};
 
-const OXYGEN: StatTileSpec[] = [
-  { label: 'SpO₂', value: '97', unit: '%', hue: hue.oxygen, icon: 'wind', spark: [96, 97, 96, 97, 98, 97, 97] },
-  { label: 'Respiratory rate', value: '14.2', unit: 'br/min', hue: hue.sky, icon: 'wind', spark: [14.5, 14.2, 14.4, 14.1, 14.0, 14.3, 14.2] },
-];
-
-const BODY: StatTileSpec[] = [
-  { label: 'Weight', value: '68.4', unit: 'kg', hue: hue.sky, icon: 'scale', delta: '0.7 kg', deltaDir: 'down', spark: [69.1, 69.0, 68.8, 68.7, 68.6, 68.5, 68.4] },
-  { label: 'Body fat', value: '22.1', unit: '%', hue: hue.nutrition, icon: 'user', delta: '0.4%', deltaDir: 'down', spark: [23.0, 22.8, 22.6, 22.5, 22.3, 22.2, 22.1] },
-  { label: 'Body temp', value: '36.6', unit: '°C', hue: hue.energy, icon: 'thermometer', spark: [36.5, 36.6, 36.7, 36.6, 36.5, 36.6, 36.6] },
-  { label: 'Blood glucose', value: '5.4', unit: 'mmol/L', hue: hue.mind, icon: 'droplet', spark: [5.6, 5.5, 5.7, 5.4, 5.3, 5.5, 5.4] },
-];
-
-/** Full vitals catalog: heart & circulation (+ ECG), oxygen, body composition. */
-export function BodyVitals() {
+/** Vitals: heart & circulation, oxygen/respiration, body composition, ECG. */
+export function BodyVitals({ vitals, body }: { vitals: VitalsBlock; body: BodyComposition }) {
   return (
     <>
       <Eyebrow>Heart &amp; circulation</Eyebrow>
-      <StatTileGrid tiles={HEART} />
-
-      <View style={styles.ecg}>
-        <View style={styles.ecgHead}>
-          <Icon name="heart-pulse" size={18} color={hue.heart} />
-          <Text style={styles.ecgTitle}>ECG · heart rhythm</Text>
-          <Badge tone="positive">Normal sinus</Badge>
-        </View>
-        <EcgTrace color={hue.heart} />
-        <Text style={styles.ecgSub}>Last reading 2 days ago · 62 bpm average</Text>
+      <View style={styles.row}>
+        <VitalCard label="Resting HR" card={vitals.restingHeartRate} hue={hue.heart} icon="heart" />
+        <VitalCard label="HRV" card={vitals.hrv} hue={hue.mind} icon="activity" />
+      </View>
+      <View style={[styles.row, styles.rowGap]}>
+        <VitalCard label="VO₂ max" card={vitals.vo2Max} hue={hue.move} icon="gauge" digits={1} />
+        <View style={styles.cell} />
       </View>
 
       <Eyebrow>Oxygen &amp; respiration</Eyebrow>
-      <StatTileGrid tiles={OXYGEN} />
+      <View style={styles.row}>
+        <VitalCard label="Blood oxygen" card={vitals.spo2} hue={hue.oxygen} icon="wind" />
+        <VitalCard label="Respiratory rate" card={vitals.respiratoryRate} hue={hue.sky} icon="wind" digits={1} />
+      </View>
 
-      <Eyebrow>Body</Eyebrow>
-      <StatTileGrid tiles={BODY} />
+      <Eyebrow>Body composition</Eyebrow>
+      <View style={styles.row}>
+        <VitalCard label="Weight" card={body.weight} hue={hue.sky} icon="scale" digits={1} />
+        <VitalCard label="Body fat" card={body.bodyFat} hue={hue.nutrition} icon="user" digits={1} />
+      </View>
+      <View style={[styles.row, styles.rowGap]}>
+        <VitalCard label="Skin temp" card={vitals.skinTempDelta} hue={hue.energy} icon="thermometer" digits={1} signed />
+        {body.bmi ? (
+          <View style={styles.bmiCard}>
+            <View style={styles.head}>
+              <Text style={styles.bmiLabel}>BMI</Text>
+            </View>
+            <Text style={styles.bmiValue}>{body.bmi.value}</Text>
+            <Badge tone="neutral" hue={BMI_HUE[body.bmi.category] ?? text.muted}>
+              {body.bmi.category}
+            </Badge>
+          </View>
+        ) : (
+          <View style={styles.cell} />
+        )}
+      </View>
+
+      <Eyebrow>Heart rhythm</Eyebrow>
+      <View style={styles.ecg}>
+        {vitals.ecg ? (
+          <>
+            <View style={styles.ecgHead}>
+              <Icon name="heart-pulse" size={18} color={hue.heart} />
+              <Text style={styles.ecgTitle}>ECG</Text>
+              <Badge tone={vitals.ecg.result === 'SINUS_RHYTHM' ? 'positive' : 'warning'}>
+                {ecgLabel(vitals.ecg.result)}
+              </Badge>
+            </View>
+            <EcgTrace color={hue.heart} />
+            <Text style={styles.ecgSub}>{vitals.ecg.bpm} bpm average</Text>
+          </>
+        ) : (
+          <View style={styles.ecgEmpty}>
+            <Icon name="heart-pulse" size={18} color={text.tertiary} />
+            <Text style={styles.ecgEmptyText}>No ECG recordings yet. Take one from your watch to see results here.</Text>
+          </View>
+        )}
+      </View>
 
       <View style={styles.disclaimer}>
         <Icon name="info" size={14} color={text.tertiary} />
         <Text style={styles.disclaimerText}>
-          ECG, blood pressure and glucose readings are for wellness tracking only and are not medical advice.
+          Vitals and ECG readings are for wellness tracking only and are not medical advice.
         </Text>
       </View>
     </>
   );
 }
 
+function ecgLabel(result: string): string {
+  switch (result) {
+    case 'SINUS_RHYTHM':
+      return 'Normal sinus';
+    case 'ATRIAL_FIBRILLATION':
+      return 'AFib detected';
+    case 'INCONCLUSIVE':
+      return 'Inconclusive';
+    default:
+      return result || 'Unknown';
+  }
+}
+
 const styles = StyleSheet.create({
-  ecg: { marginTop: 12, paddingHorizontal: 16, paddingVertical: 14, borderRadius: radius.xl, backgroundColor: surface.card, borderWidth: 1, borderColor: border.subtle },
+  row: { flexDirection: 'row', gap: 12 },
+  rowGap: { marginTop: 12 },
+  cell: { flex: 1, minWidth: 0 },
+  bmiCard: { flex: 1, minWidth: 0, gap: 8, padding: 16, borderRadius: radius.lg, backgroundColor: surface.card, borderWidth: 1, borderColor: border.subtle },
+  head: { flexDirection: 'row', alignItems: 'center' },
+  bmiLabel: { fontFamily: font.sansSemibold, fontSize: fontSize.sm, color: text.muted },
+  bmiValue: { fontFamily: font.display, fontSize: fontSize['2xl'], color: text.primary, lineHeight: Math.round(fontSize['2xl'] * 1.15) },
+  ecg: { marginTop: 4, paddingHorizontal: 16, paddingVertical: 14, borderRadius: radius.xl, backgroundColor: surface.card, borderWidth: 1, borderColor: border.subtle },
   ecgHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
   ecgTitle: { flex: 1, fontFamily: font.sansBold, fontSize: fontSize.sm, color: text.primary },
   ecgSub: { fontFamily: font.sansRegular, fontSize: fontSize.xs, color: text.muted, marginTop: 8 },
+  ecgEmpty: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  ecgEmptyText: { flex: 1, fontFamily: font.sansRegular, fontSize: fontSize.sm, color: text.muted },
   disclaimer: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', marginTop: 14 },
   disclaimerText: { flex: 1, fontFamily: font.sansRegular, fontSize: fontSize.xs, lineHeight: fontSize.xs * 1.5, color: text.tertiary },
 });

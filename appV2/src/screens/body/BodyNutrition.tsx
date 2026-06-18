@@ -1,65 +1,93 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import { CalorieBudget, MacroRings, MealsList, MicroBars, type Meal } from '@/components';
-import { border, hue, radius, surface } from '@/theme';
-import { Eyebrow, Tile } from './parts';
+import { StyleSheet, Text, View } from 'react-native';
+import { CalorieBudget } from '@/components';
+import { border, font, fontSize, hue, radius, surface, text } from '@/theme';
+import type { NutritionBlock, NutrientTotal } from '@/data/body';
+import { Eyebrow } from './parts';
 
-const MEALS: Meal[] = [
-  { meal: 'Breakfast', item: 'Oatmeal, berries & coffee', time: '8:10 AM', kcal: 320, icon: 'sunrise' },
-  { meal: 'Lunch', item: 'Grilled chicken salad', time: '1:05 PM', kcal: 540, icon: 'sun' },
-  { meal: 'Snack', item: 'Greek yogurt & almonds', time: '4:00 PM', kcal: 284, icon: 'cookie' },
-  { meal: 'Dinner', item: 'Salmon, rice & greens', time: '7:30 PM', kcal: 294, icon: 'moon' },
-];
+/** Default daily calorie goal until the user sets one (no goal endpoint yet). */
+const DEFAULT_CALORIE_GOAL = 2000;
 
-const MACROS = [
-  { label: 'Protein', value: 96, goal: 120, hue: hue.move },
-  { label: 'Carbs', value: 180, goal: 240, hue: hue.energy },
-  { label: 'Fat', value: 52, goal: 68, hue: hue.mind },
-];
+/** Pretty label + display unit for a Google nutrient enum. Sodium is shown in
+ *  mg (stored as grams); others in g. */
+const NUTRIENT_META: Record<string, { label: string; unit: 'g' | 'mg'; hue: string }> = {
+  PROTEIN: { label: 'Protein', unit: 'g', hue: hue.move },
+  CARBOHYDRATES: { label: 'Carbs', unit: 'g', hue: hue.energy },
+  DIETARY_FIBER: { label: 'Fiber', unit: 'g', hue: hue.nutrition },
+  SUGAR: { label: 'Sugar', unit: 'g', hue: hue.nutrition },
+  SATURATED_FAT: { label: 'Saturated fat', unit: 'g', hue: hue.mind },
+  TOTAL_FAT: { label: 'Fat', unit: 'g', hue: hue.mind },
+  SODIUM: { label: 'Sodium', unit: 'mg', hue: hue.energy },
+  POTASSIUM: { label: 'Potassium', unit: 'mg', hue: hue.move },
+  CALCIUM: { label: 'Calcium', unit: 'mg', hue: hue.sky },
+  CHOLESTEROL: { label: 'Cholesterol', unit: 'mg', hue: hue.heart },
+  CAFFEINE: { label: 'Caffeine', unit: 'mg', hue: hue.heart },
+};
 
-const MICROS = [
-  { label: 'Sugar', value: 38, goal: 50, unit: 'g', hue: hue.nutrition },
-  { label: 'Sodium', value: 1850, goal: 2300, unit: 'mg', hue: hue.energy },
-  { label: 'Potassium', value: 2600, goal: 3400, unit: 'mg', hue: hue.move },
-  { label: 'Calcium', value: 820, goal: 1000, unit: 'mg', hue: hue.sky },
-  { label: 'Iron', value: 12, goal: 18, unit: 'mg', hue: hue.heart },
-];
+function metaFor(nutrient: string) {
+  return (
+    NUTRIENT_META[nutrient] ?? {
+      label: nutrient.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase()),
+      unit: 'g' as const,
+      hue: hue.sky,
+    }
+  );
+}
 
-/** Calorie budget, macro rings, hydration/fiber, micronutrients, today's meals. */
-export function BodyNutrition() {
+function fmtGrams(grams: number, unit: 'g' | 'mg'): string {
+  if (unit === 'mg') return `${Math.round(grams * 1000)} mg`;
+  return `${grams >= 10 ? Math.round(grams) : grams.toFixed(1)} g`;
+}
+
+/**
+ * Calorie balance + the dynamic micronutrient breakdown. Nutrients are whatever
+ * the day's logged foods carried (from nutrition_log_nutrients) — the list grows
+ * as logging gets richer; we don't fabricate a fixed micro list.
+ */
+export function BodyNutrition({ nutrition }: { nutrition: NutritionBlock }) {
+  const n = nutrition;
   return (
     <>
       <Eyebrow>Calories</Eyebrow>
       <View style={styles.card}>
-        <CalorieBudget goal={2050} food={1438} exercise={612} />
+        <CalorieBudget goal={DEFAULT_CALORIE_GOAL} food={n.caloriesEaten} exercise={n.caloriesBurnt} />
       </View>
 
-      <Eyebrow>Macros</Eyebrow>
-      <View style={[styles.card, styles.macros]}>
-        <MacroRings macros={MACROS} />
-      </View>
-
-      <Eyebrow>Hydration &amp; fiber</Eyebrow>
-      <View style={styles.grid}>
-        <View style={styles.cell}><Tile label="Hydration" value="1.6" unit="L" hue={hue.hydration} icon="glass-water" goal="/ 2.5L" spark={[2.1, 2.4, 1.9, 2.6, 2.2, 1.4, 1.6]} /></View>
-        <View style={styles.cell}><Tile label="Fiber" value="22" unit="g" hue={hue.nutrition} icon="wheat" goal="/ 30g" spark={[18, 24, 20, 28, 26, 19, 22]} /></View>
-      </View>
-
-      <Eyebrow>Micronutrients</Eyebrow>
-      <View style={[styles.card, styles.micros]}>
-        <MicroBars items={MICROS} />
-      </View>
-
-      <Eyebrow note="1,438 kcal">Today's meals</Eyebrow>
-      <MealsList meals={MEALS} />
+      <Eyebrow note="from logged foods">Nutrients</Eyebrow>
+      {n.nutrients.length > 0 ? (
+        <View style={styles.card}>
+          {n.nutrients.map((nt, i) => (
+            <NutrientRow key={nt.nutrient} item={nt} divider={i > 0} />
+          ))}
+        </View>
+      ) : (
+        <Text style={styles.empty}>Log a meal to see its nutrient breakdown here.</Text>
+      )}
+      <Text style={styles.note}>
+        Totals reflect only foods you logged with nutrient details, so they may understate your full intake.
+      </Text>
     </>
   );
 }
 
+function NutrientRow({ item, divider }: { item: NutrientTotal; divider: boolean }) {
+  const m = metaFor(item.nutrient);
+  return (
+    <View style={[styles.row, divider && styles.rowDivider]}>
+      <View style={[styles.dot, { backgroundColor: m.hue }]} />
+      <Text style={styles.label}>{m.label}</Text>
+      <Text style={styles.amount}>{fmtGrams(item.grams, m.unit)}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  card: { paddingHorizontal: 18, paddingVertical: 16, borderRadius: radius.xl, backgroundColor: surface.card, borderWidth: 1, borderColor: border.subtle },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  cell: { width: '47%', flexGrow: 1 },
-  macros: { paddingHorizontal: 14 },
-  micros: { paddingVertical: 10 },
+  card: { paddingHorizontal: 16, paddingVertical: 4, borderRadius: radius.xl, backgroundColor: surface.card, borderWidth: 1, borderColor: border.subtle },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 13 },
+  rowDivider: { borderTopWidth: 1, borderTopColor: border.subtle },
+  dot: { width: 9, height: 9, borderRadius: 999 },
+  label: { flex: 1, fontFamily: font.sansSemibold, fontSize: fontSize.sm, color: text.primary },
+  amount: { fontFamily: font.mono, fontSize: fontSize.sm, color: text.secondary },
+  empty: { fontFamily: font.sansRegular, fontSize: fontSize.sm, color: text.muted, paddingVertical: 8, paddingHorizontal: 2 },
+  note: { fontFamily: font.sansRegular, fontSize: fontSize['2xs'], color: text.tertiary, marginTop: 10, paddingHorizontal: 2, lineHeight: fontSize['2xs'] * 1.5 },
 });

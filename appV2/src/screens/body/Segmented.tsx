@@ -6,8 +6,8 @@ export type BodySeg = 'vitals' | 'nutrition' | 'activity';
 
 const SEGS: { id: BodySeg; label: string }[] = [
   { id: 'vitals', label: 'Vitals' },
-  { id: 'nutrition', label: 'Nutrition' },
   { id: 'activity', label: 'Activity' },
+  { id: 'nutrition', label: 'Nutrition' },
 ];
 
 /** Pill segmented control for the Body sub-sections. */
