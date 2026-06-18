@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Icon } from '@/components';
-import { accent, border, font, fontSize, surface, text, tint } from '@/theme';
+import { border, font, fontSize, surface, text } from '@/theme';
 import { type NightView } from './data';
 
 interface DayScrollerProps {
@@ -39,15 +39,10 @@ export function DayScroller({ idx, setIdx, nights }: DayScrollerProps) {
       <View style={styles.scroller}>
         <Chevron dir="left" disabled={atOldest} onPress={() => setIdx(Math.min(nights.length - 1, idx + 1))} />
         <View style={styles.label}>
-          <View style={styles.relRow}>
-            <Text style={styles.rel}>{night.rel}</Text>
-            {night.isNap ? (
-              <View style={styles.napBadge}>
-                <Text style={styles.napBadgeText}>NAP</Text>
-              </View>
-            ) : null}
-          </View>
-          <Text style={styles.date}>{night.isNap ? night.date : `${night.day}, ${night.date}`}</Text>
+          <Text style={styles.rel}>{night.rel}</Text>
+          <Text style={styles.date}>
+            {night.day}, {night.date}
+          </Text>
         </View>
         <Chevron dir="right" disabled={atNewest} onPress={() => setIdx(Math.max(0, idx - 1))} />
       </View>
@@ -62,10 +57,7 @@ const styles = StyleSheet.create({
   calBtn: { width: 40, height: 40, borderRadius: 999, borderWidth: 1, borderColor: border.strong, backgroundColor: surface.card, alignItems: 'center', justifyContent: 'center' },
   scroller: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 14 },
   chevron: { width: 40, height: 40, borderRadius: 999, borderWidth: 1, borderColor: border.strong, backgroundColor: surface.card, alignItems: 'center', justifyContent: 'center' },
-  label: { alignItems: 'center', flex: 1, minWidth: 0 },
-  relRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  label: { alignItems: 'center' },
   rel: { fontFamily: font.display, fontSize: fontSize.md, color: text.primary },
-  napBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999, backgroundColor: tint(accent.base, 0.18) },
-  napBadgeText: { fontFamily: font.sansBold, fontSize: fontSize['2xs'], letterSpacing: 0.6, color: accent.base },
   date: { fontFamily: font.sansRegular, fontSize: fontSize.xs, color: text.muted, marginTop: 2 },
 });

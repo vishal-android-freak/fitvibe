@@ -97,7 +97,6 @@ type SleepNightDetail struct {
 	End           time.Time // session end (UTC instant)
 	OffsetSeconds int       // local UTC offset, for rendering wall-clock times
 	CivilDate     string    // local civil date "2006-01-02" (civil_end_date or date(end_time))
-	IsNap         bool      // Google's nap flag — true = nap, false = main/overnight sleep
 	AsleepMinutes int       // deep + rem + light, summed from stages (fallback)
 
 	// Device's own summary minutes (Fitbit-authoritative); null when the payload
@@ -113,37 +112,50 @@ type SleepNightDetail struct {
 
 	Segments []SleepStageSegment // chronological stage timeline (for derived metrics)
 	Summary  []SleepStageSummary // per-stage minutes + counts
+	Naps     []Nap               // naps recorded on the same civil date (hypnogram only)
 }
 
-// RecentNights returns up to limit recent sleep SESSIONS (most recent first) —
-// ALL of them, including naps, so the Sleep tab can render a separate entry +
-// hypnogram per sleep. Each carries IsNap so the UI can label naps. Per-night
-// vitals are joined by the session's local civil date (a nap and its day's main
-// sleep share that day's vitals).
+// Nap is a same-day nap shown as an extra hypnogram on the night — just its
+// timeline + duration/time, no score/quality (those are for the main sleep).
+type Nap struct {
+	Start         time.Time
+	End           time.Time
+	OffsetSeconds int
+	AsleepMinutes int                 // device minutesAsleep (fallback to summed stages)
+	Segments      []SleepStageSegment // stage timeline for the nap hypnogram
+}
+
+// RecentNights returns up to limit recent NIGHTS (one main/overnight sleep per
+// civil date, most recent first), each with its per-night vitals and any naps
+// recorded on the same date (attached as Naps — hypnogram only, no score). Naps
+// are NOT separate entries; they ride along on their day's main sleep.
 func (r *SleepRepo) RecentNights(ctx context.Context, userID int64, limit int) ([]SleepNightDetail, error) {
 	if limit <= 0 {
 		return nil, nil
 	}
 	rows, err := r.db.QueryContext(ctx, `
-		WITH nights AS (
-			-- Every sleep session (naps included), newest first. No per-day
-			-- collapse: multiple sleeps in a day each become their own entry.
-			SELECT id, start_time, end_time,
+		WITH per_day AS (
+			-- One main (non-nap) sleep per civil date: the longest. Naps are
+			-- excluded here and attached separately below.
+			SELECT DISTINCT ON (COALESCE(civil_end_date, date(end_time)))
+			       id, start_time, end_time,
 			       COALESCE(start_utc_offset_seconds, end_utc_offset_seconds, 0) AS offset_seconds,
 			       COALESCE(civil_end_date, date(end_time)) AS civil_date,
-			       COALESCE(is_nap, false) AS is_nap,
 			       (payload_json->'sleep'->'summary'->>'minutesAsleep')::int AS minutes_asleep,
 			       (payload_json->'sleep'->'summary'->>'minutesInSleepPeriod')::int AS minutes_in_period
 			FROM data_points
 			WHERE user_id = $1 AND data_type = 'sleep'
 			  AND start_time IS NOT NULL AND end_time IS NOT NULL
-			ORDER BY end_time DESC
-			LIMIT $2
+			  AND COALESCE(is_nap, false) = false
+			ORDER BY COALESCE(civil_end_date, date(end_time)) DESC, (end_time - start_time) DESC
+		),
+		nights AS (
+			SELECT * FROM per_day ORDER BY civil_date DESC LIMIT $2
 		)
 		-- Scalar subqueries (not LEFT JOINs): a vital type can have several rows
 		-- per civil date (e.g. respiratory-rate-sleep-summary), and joining would
 		-- fan each night into duplicate rows. Aggregate to one value per date.
-		SELECT n.id, n.start_time, n.end_time, n.offset_seconds, n.civil_date, n.is_nap,
+		SELECT n.id, n.start_time, n.end_time, n.offset_seconds, n.civil_date,
 		       n.minutes_asleep, n.minutes_in_period,
 		       (SELECT AVG(value_avg) FROM data_points v
 		          WHERE v.user_id = $1 AND v.data_type = 'daily-resting-heart-rate'
@@ -167,7 +179,7 @@ func (r *SleepRepo) RecentNights(ctx context.Context, userID int64, limit int) (
 		            AND v.payload_json->'dailySleepTemperatureDerivations'->>'nightlyTemperatureCelsius' <> 'NaN'
 		            AND v.payload_json->'dailySleepTemperatureDerivations'->>'baselineTemperatureCelsius' <> 'NaN') AS skin_temp_delta
 		FROM nights n
-		ORDER BY n.end_time DESC`, userID, limit)
+		ORDER BY n.civil_date DESC`, userID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("query recent sleep nights: %w", err)
 	}
@@ -178,7 +190,7 @@ func (r *SleepRepo) RecentNights(ctx context.Context, userID int64, limit int) (
 		var d SleepNightDetail
 		var offset sql.NullInt64
 		var civilDate time.Time
-		if err := rows.Scan(&d.DataPointID, &d.Start, &d.End, &offset, &civilDate, &d.IsNap,
+		if err := rows.Scan(&d.DataPointID, &d.Start, &d.End, &offset, &civilDate,
 			&d.MinutesAsleep, &d.MinutesInSleepPeriod,
 			&d.RestingHeartRate, &d.HRV, &d.SpO2, &d.RespiratoryRate, &d.SkinTempDelta); err != nil {
 			return nil, fmt.Errorf("scan recent sleep night: %w", err)
@@ -213,9 +225,61 @@ func (r *SleepRepo) RecentNights(ctx context.Context, userID int64, limit int) (
 			return nil, err
 		}
 		out[i].Segments = segs
+
+		naps, err := r.napsForDate(ctx, userID, out[i].CivilDate)
+		if err != nil {
+			return nil, err
+		}
+		out[i].Naps = naps
 	}
 
 	return out, nil
+}
+
+// napsForDate returns the naps recorded on a given local civil date (newest
+// first), each with its stage timeline for the hypnogram. No score/quality.
+func (r *SleepRepo) napsForDate(ctx context.Context, userID int64, civilDate string) ([]Nap, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, start_time, end_time,
+		       COALESCE(start_utc_offset_seconds, end_utc_offset_seconds, 0),
+		       (payload_json->'sleep'->'summary'->>'minutesAsleep')::int
+		FROM data_points
+		WHERE user_id = $1 AND data_type = 'sleep' AND is_nap = true
+		  AND COALESCE(civil_end_date, date(end_time)) = $2::date
+		  AND start_time IS NOT NULL AND end_time IS NOT NULL
+		ORDER BY end_time DESC`, userID, civilDate)
+	if err != nil {
+		return nil, fmt.Errorf("query naps: %w", err)
+	}
+	defer rows.Close()
+
+	var naps []Nap
+	var ids []int64
+	for rows.Next() {
+		var n Nap
+		var id int64
+		var off sql.NullInt64
+		var asleep sql.NullInt64
+		if err := rows.Scan(&id, &n.Start, &n.End, &off, &asleep); err != nil {
+			return nil, fmt.Errorf("scan nap: %w", err)
+		}
+		n.OffsetSeconds = int(off.Int64)
+		n.AsleepMinutes = int(asleep.Int64)
+		naps = append(naps, n)
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// Attach each nap's stage timeline for the hypnogram.
+	for i := range naps {
+		segs, err := r.stages(ctx, ids[i])
+		if err != nil {
+			return nil, err
+		}
+		naps[i].Segments = segs
+	}
+	return naps, nil
 }
 
 func (r *SleepRepo) stages(ctx context.Context, dpID int64) ([]SleepStageSegment, error) {

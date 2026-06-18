@@ -153,13 +153,20 @@ export interface ScoreBand {
   max: number;
 }
 
-/** One sleep session's summary (mirrors backend nightSummary). May be a nap. */
+/** A same-day nap shown as an extra hypnogram on the night (no score/quality). */
+export interface Nap {
+  onsetClock: number;
+  wakeClock: number;
+  durationMinutes: number;
+  segments: { stage: SleepStage; minutes: number }[];
+}
+
+/** One night's summary (mirrors backend nightSummary). */
 export interface SleepNight {
   date: string; // local civil date, "2006-01-02"
   onsetClock: number; // minutes since local midnight
   wakeClock: number;
   durationMinutes: number; // asleep
-  isNap: boolean; // true = nap, false = main/overnight sleep
   efficiency: number;
   awakenings: number;
   score: number; // FitVibe sleep score 0-100
@@ -168,6 +175,7 @@ export interface SleepNight {
   bands: SleepBands;
   stages: SleepStageTotal[];
   vitals: NightVitals;
+  naps: Nap[]; // same-day naps (hypnogram only); empty for most nights
 }
 
 interface NightsWire {

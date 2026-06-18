@@ -189,7 +189,6 @@ type nightSummary struct {
 	OnsetClock      int          `json:"onsetClock"`
 	WakeClock       int          `json:"wakeClock"`
 	DurationMinutes int          `json:"durationMinutes"` // asleep minutes
-	IsNap           bool         `json:"isNap"`           // true = nap, false = main/overnight sleep
 	Efficiency      int          `json:"efficiency"`      // asleep/total %
 	Awakenings      int          `json:"awakenings"`      // raw AWAKE count (back-compat)
 	Score           int          `json:"score"`           // FitVibe sleep score 0-100
@@ -198,6 +197,17 @@ type nightSummary struct {
 	Bands           SleepBands   `json:"bands"`           // typical-for-age in-range bands
 	Stages          []stageTotal `json:"stages"`
 	Vitals          nightVitals  `json:"vitals"`
+	// Naps on the same civil date — shown as extra hypnograms on this night, no
+	// score/quality of their own. Empty for most nights.
+	Naps []napView `json:"naps"`
+}
+
+// napView is a same-day nap: its hypnogram segments + duration and clock times.
+type napView struct {
+	OnsetClock      int            `json:"onsetClock"`
+	WakeClock       int            `json:"wakeClock"`
+	DurationMinutes int            `json:"durationMinutes"`
+	Segments        []stageSegment `json:"segments"`
 }
 
 type nightsResponse struct {
@@ -283,7 +293,6 @@ func buildNight(n *repositories.SleepNightDetail, age int) nightSummary {
 		OnsetClock:      clockOf(loc, n.Start),
 		WakeClock:       clockOf(loc, n.End),
 		DurationMinutes: asleep,
-		IsNap:           n.IsNap,
 		Efficiency:      efficiency(asleep, total),
 		Awakenings:      awakenings,
 		Score:           score,
@@ -291,6 +300,7 @@ func buildNight(n *repositories.SleepNightDetail, age int) nightSummary {
 		Quality:         q,
 		Bands:           bandsByAge(age),
 		Stages:          stages,
+		Naps:            buildNaps(loc, n.Naps),
 		Vitals: nightVitals{
 			RHR:             nullable(n.RestingHeartRate),
 			HRV:             nullable(n.HRV),
@@ -387,6 +397,39 @@ func buildLastNight(n *repositories.SleepNight, age int) LastNightResponse {
 		Stages:        stages,
 		Typical:       typicalByAge(age),
 	}
+}
+
+// segmentsOf converts a raw stage timeline into the app's [stage, minutes]
+// blocks (canonicalized lanes, sub-minute blocks dropped).
+func segmentsOf(raw []repositories.SleepStageSegment) []stageSegment {
+	out := make([]stageSegment, 0, len(raw))
+	for _, s := range raw {
+		stage := canonStage(s.StageType)
+		if stage == "" {
+			continue
+		}
+		mins := int(s.End.Sub(s.Start).Round(time.Minute).Minutes())
+		if mins <= 0 {
+			continue
+		}
+		out = append(out, stageSegment{Stage: stage, Minutes: mins})
+	}
+	return out
+}
+
+// buildNaps converts same-day naps into hypnogram-only views (segments + clocks
+// + duration). No score/quality — those belong to the main sleep.
+func buildNaps(loc *time.Location, naps []repositories.Nap) []napView {
+	out := make([]napView, 0, len(naps))
+	for _, n := range naps {
+		out = append(out, napView{
+			OnsetClock:      clockOf(loc, n.Start),
+			WakeClock:       clockOf(loc, n.End),
+			DurationMinutes: n.AsleepMinutes,
+			Segments:        segmentsOf(n.Segments),
+		})
+	}
+	return out
 }
 
 // buildQuality assembles the derived sleep-quality metrics from the segment

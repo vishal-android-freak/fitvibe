@@ -67,10 +67,9 @@ export function scoreBandHue(label: string): string {
  */
 export interface NightView {
   raw: SleepNight;
-  rel: string; // "Last night", "Sat night", "Nap", ...
-  day: string; // "Sun" (or "Nap" for a nap)
+  rel: string; // "Last night", "Sat night", ...
+  day: string; // "Sun"
   date: string; // "Jun 15"
-  isNap: boolean;
   rating: Rating;
   dur: number;
   bed: number;
@@ -94,28 +93,16 @@ function ratingFor(eff: number): Rating {
   return 'Fair';
 }
 
-/** Adapt API sleep sessions (newest first, naps included) into view models with
- *  relative labels. Naps read "Nap" + their wake time; the first MAIN sleep is
- *  "Last night", other main sleeps "{Day} night". */
+/** Adapt API nights (newest first, one per date) into view models with labels. */
 export function toNightViews(nights: SleepNight[]): NightView[] {
-  let mainSeen = false;
-  return nights.map((n) => {
+  return nights.map((n, i) => {
     const d = parseDate(n.date);
-    let rel: string;
-    if (n.isNap) {
-      rel = `Nap · ${clk(n.onsetClock)}`;
-    } else if (!mainSeen) {
-      rel = 'Last night';
-      mainSeen = true;
-    } else {
-      rel = `${DOW[d.getDay()]} night`;
-    }
+    const rel = i === 0 ? 'Last night' : `${DOW[d.getDay()]} night`;
     return {
       raw: n,
       rel,
-      day: n.isNap ? 'Nap' : DOW[d.getDay()],
+      day: DOW[d.getDay()],
       date: `${MON[d.getMonth()]} ${d.getDate()}`,
-      isNap: n.isNap,
       rating: ratingFor(n.efficiency),
       dur: n.durationMinutes,
       bed: n.onsetClock,

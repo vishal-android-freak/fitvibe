@@ -9,6 +9,7 @@ import { DayScroller } from './DayScroller';
 import { ScoreHero } from './ScoreHero';
 import { SleepInsight } from './SleepInsight';
 import { VitalsGrid } from './VitalsGrid';
+import { NapCards } from './NapCards';
 import { ScheduleCard } from './ScheduleCard';
 import { SleepQualityCard } from './SleepQualityCard';
 import { WeeklyTrend } from './WeeklyTrend';
@@ -68,6 +69,7 @@ function SleepBody() {
 
             <SectionLabel>Stages</SectionLabel>
             <SleepCard />
+            <NapCards naps={night.raw.naps} />
 
             <SectionLabel>Sleep quality</SectionLabel>
             <SleepQualityCard night={night} />
