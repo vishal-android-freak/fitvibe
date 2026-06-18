@@ -36,7 +36,7 @@ export function StatTile({
         {icon ? (
           <View style={[styles.iconBox, { backgroundColor: tint(hue, 0.16) }]}>{icon}</View>
         ) : null}
-        <Text style={styles.label} numberOfLines={1}>
+        <Text style={styles.label} numberOfLines={2}>
           {label}
         </Text>
       </View>
@@ -84,7 +84,7 @@ function MiniSpark({ data, hue }: { data: number[]; hue: string }) {
 const styles = StyleSheet.create({
   base: {
     gap: 10,
-    padding: space[5],
+    padding: space[4],
     borderRadius: radius.lg,
     backgroundColor: surface.card,
     borderWidth: 1,
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   },
   head: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   iconBox: { width: 24, height: 24, borderRadius: radius.sm, alignItems: 'center', justifyContent: 'center' },
-  label: { flex: 1, fontFamily: font.sansSemibold, fontSize: fontSize.sm, color: text.muted },
+  label: { flex: 1, fontFamily: font.sansSemibold, fontSize: fontSize.xs, color: text.muted },
   valueRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, flexWrap: 'wrap' },
   value: { fontFamily: font.display, fontSize: fontSize.xl, color: text.primary, lineHeight: Math.round(fontSize.xl * 1.18) },
   unit: { fontFamily: font.sansSemibold, fontSize: fontSize.sm, color: text.muted, marginBottom: 4 },
