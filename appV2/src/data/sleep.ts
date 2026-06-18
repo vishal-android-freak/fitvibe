@@ -210,8 +210,8 @@ export interface SleepScheduleState {
 
 /** Loads + saves the user's sleep-schedule target (GET/PUT /me/sleep/schedule). */
 export function useSleepSchedule(): SleepScheduleState {
-  const { session } = useAuth();
-  const userId = session?.userId;
+  const { status } = useAuth();
+  const signedIn = status === 'signedIn';
   const [schedule, setSchedule] = useState<SleepSchedule>({ targetBedMinutes: null, targetWakeMinutes: null });
   const [loading, setLoading] = useState(true);
   const mounted = useRef(true);
@@ -223,7 +223,7 @@ export function useSleepSchedule(): SleepScheduleState {
   }, []);
 
   useEffect(() => {
-    if (!userId) {
+    if (!signedIn) {
       setLoading(false);
       return;
     }
@@ -239,15 +239,15 @@ export function useSleepSchedule(): SleepScheduleState {
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [signedIn]);
 
   const save = useCallback(
     async (next: SleepSchedule) => {
-      if (!userId) return;
+      if (!signedIn) return;
       setSchedule(next); // optimistic
       await apiSend('PUT', `/me/sleep/schedule`, next);
     },
-    [userId],
+    [signedIn],
   );
 
   return { schedule, loading, save };

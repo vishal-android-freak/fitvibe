@@ -25,6 +25,7 @@ import (
 	"github.com/vishal-android-freak/fitvibe/internal/db/repositories"
 	"github.com/vishal-android-freak/fitvibe/internal/firebaseauth"
 	"github.com/vishal-android-freak/fitvibe/internal/oauth"
+	"github.com/vishal-android-freak/fitvibe/internal/profile"
 	"github.com/vishal-android-freak/fitvibe/internal/sleep"
 	"github.com/vishal-android-freak/fitvibe/internal/today"
 	"github.com/vishal-android-freak/fitvibe/internal/webhooks"
@@ -61,6 +62,7 @@ func main() {
 	todayHandler := today.NewHandler(todayRepo, sleepHandler, database.DB)
 	bodyRepo := repositories.NewBodyRepo(database.DB)
 	bodyHandler := body.NewHandler(bodyRepo, userRepo, database.DB)
+	profileHandler := profile.NewHandler(userRepo)
 
 	// Firebase Auth: mint custom tokens after OAuth (no extra app step) and
 	// verify the app's ID tokens in /me/* middleware (uid = google_user_id).
@@ -127,6 +129,7 @@ func main() {
 	// client-supplied user_id. Grouped so the middleware wraps only these.
 	r.Group(func(pr chi.Router) {
 		pr.Use(authMiddleware.Require)
+		profileHandler.Register(pr)
 		sleepHandler.Register(pr)
 		todayHandler.Register(pr)
 		bodyHandler.Register(pr)

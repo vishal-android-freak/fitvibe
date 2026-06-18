@@ -3,9 +3,9 @@ import * as WebBrowser from 'expo-web-browser';
 import { parse } from 'expo-linking';
 import { makeRedirectUri } from 'expo-auth-session';
 import { APP_SCHEME, config, REDIRECT_PATH } from './config';
-import { redeemSession, toSession } from './session';
-import { signInWithCustomToken, firebaseSignOut } from './firebase';
-import { clearSession, loadSession, saveSession, type Session } from './storage';
+import { redeemSession, fetchProfile } from './session';
+import { signInWithCustomToken, firebaseSignOut, onAuthState } from './firebase';
+import { type Session } from './storage';
 
 // Ensures any lingering auth browser session is completed on cold start.
 WebBrowser.maybeCompleteAuthSession();
@@ -36,16 +36,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const redirectUri = useMemo(() => makeRedirectUri({ scheme: APP_SCHEME, path: REDIRECT_PATH }), []);
 
-  // Restore any persisted session on boot.
+  // Firebase auth state is the source of truth for "logged in". The listener
+  // fires on boot with the restored user (or null) and on every sign-in/out.
+  // When signed in we pull the display profile from the backend (/me/profile).
   useEffect(() => {
     let active = true;
-    loadSession().then((s) => {
+    const unsub = onAuthState(async (profile) => {
       if (!active) return;
-      setSession(s);
-      setStatus(s ? 'signedIn' : 'signedOut');
+      if (!profile) {
+        setSession(null);
+        setStatus('signedOut');
+        return;
+      }
+      // Logged in — fetch the authoritative profile from the backend.
+      try {
+        const s = await fetchProfile();
+        if (active) setSession(s);
+      } catch {
+        // Profile fetch can fail transiently; still treat as signed in and let
+        // the UI fall back to defaults (greeting "there").
+        if (active) setSession(null);
+      }
+      if (active) setStatus('signedIn');
     });
     return () => {
       active = false;
+      unsub();
     };
   }, []);
 
@@ -69,14 +85,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!params.token) throw new Error('No session token returned');
 
       const data = await redeemSession(params.token);
-      // Sign into Firebase with the backend-minted custom token so subsequent
-      // API requests carry a verifiable Bearer ID token (no extra user step).
-      if (data.firebase_token) {
-        await signInWithCustomToken(data.firebase_token);
-      }
-      await saveSession(toSession(data));
-      setSession(toSession(data));
-      setStatus('signedIn');
+      if (!data.firebase_token) throw new Error('No sign-in token returned');
+      // Sign into Firebase with the backend-minted custom token. The
+      // onAuthState listener then flips status to signedIn and loads the
+      // profile — no local persistence.
+      await signInWithCustomToken(data.firebase_token);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Sign-in failed');
       setStatus('signedOut');
@@ -108,10 +121,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [busy, redirectUri, completeSignIn]);
 
   const signOut = useCallback(async () => {
+    // The onAuthState listener flips status to signedOut and clears the session.
     await firebaseSignOut();
-    await clearSession();
-    setSession(null);
-    setStatus('signedOut');
   }, []);
 
   const value = useMemo<AuthContextValue>(

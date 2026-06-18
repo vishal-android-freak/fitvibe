@@ -22,11 +22,11 @@ export interface Resource<T> {
  * Pass any extra inputs the fetcher closes over (e.g. a limit) in `deps`.
  */
 export function useResource<T>(
-  fetcher: (userId: number) => Promise<T | null>,
+  fetcher: () => Promise<T | null>,
   deps: readonly unknown[] = [],
 ): Resource<T> {
-  const { session } = useAuth();
-  const userId = session?.userId;
+  const { status } = useAuth();
+  const signedIn = status === 'signedIn';
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +42,7 @@ export function useResource<T>(
   }, []);
 
   const load = useCallback(async () => {
-    if (!userId) {
+    if (!signedIn) {
       if (mounted.current) {
         setData(null);
         setLoading(false);
@@ -52,7 +52,7 @@ export function useResource<T>(
     const isInitial = !hasLoaded.current;
     if (mounted.current && isInitial) setLoading(true);
     try {
-      const result = await fetcher(userId);
+      const result = await fetcher();
       if (mounted.current) {
         hasLoaded.current = true;
         setData(result);
@@ -68,7 +68,7 @@ export function useResource<T>(
     }
     // `fetcher` is recreated each render by callers; track the real inputs via deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, ...deps]);
+  }, [signedIn, ...deps]);
 
   useEffect(() => {
     void load();

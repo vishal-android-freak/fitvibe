@@ -71,8 +71,8 @@ interface TodayWire extends Omit<Today, 'sleep'> {
 }
 
 /** Fetch the whole Today screen in one request. The signed-in user is derived
- *  from the auth token, not a query param; userId only gates the call. */
-export async function fetchToday(_userId: number): Promise<Today> {
+ *  from the auth token (no query param). */
+export async function fetchToday(): Promise<Today> {
   const w = await apiGet<TodayWire>(`/me/today`);
   return { ...w, sleep: decodeSleep(w.sleep) };
 }
@@ -96,7 +96,7 @@ function emit() {
   for (const l of listeners) l();
 }
 
-async function loadToday(userId: number): Promise<void> {
+async function loadToday(): Promise<void> {
   // Dedup: if a load is already running, await it instead of starting another.
   if (inFlight) return inFlight;
   // Show the loading state only on the first load; on refresh keep old data.
@@ -105,7 +105,7 @@ async function loadToday(userId: number): Promise<void> {
 
   inFlight = (async () => {
     try {
-      const d = await fetchToday(userId);
+      const d = await fetchToday();
       todayState = { data: d, loading: false, error: null };
     } catch (e: unknown) {
       // Keep old data on a failed refresh; surface the error only with nothing to show.
@@ -128,8 +128,8 @@ async function loadToday(userId: number): Promise<void> {
  * read `data.summary`, `data.nutrition`, `data.timeline`, `data.sleep`.
  */
 export function useToday(): Resource<Today> {
-  const { session } = useAuth();
-  const userId = session?.userId;
+  const { status } = useAuth();
+  const signedIn = status === 'signedIn';
   const [, force] = useState(0);
 
   useEffect(() => {
@@ -141,13 +141,13 @@ export function useToday(): Resource<Today> {
   }, []);
 
   const reload = useCallback(async () => {
-    if (userId) await loadToday(userId);
-  }, [userId]);
+    if (signedIn) await loadToday();
+  }, [signedIn]);
 
-  // Initial load when the user becomes known.
+  // Initial load once signed in.
   useEffect(() => {
-    if (userId) void loadToday(userId);
-  }, [userId]);
+    if (signedIn) void loadToday();
+  }, [signedIn]);
 
   useRefreshRegister(reload);
 
