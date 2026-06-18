@@ -272,6 +272,26 @@ func (r *UserRepo) UpdateIdentity(ctx context.Context, id int64, googleUserID, h
 	return nil
 }
 
+// UpdateGoogleProfile refreshes the Google display name / email / picture /
+// gender from a fresh login. Each field updates only when this login actually
+// returned a value (NULLIF ” → COALESCE keeps the existing one), so a login
+// that omits a field never wipes a previously-stored value.
+func (r *UserRepo) UpdateGoogleProfile(ctx context.Context, id int64, displayName, email, picture, gender string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE users SET
+			google_display_name = COALESCE(NULLIF($1, ''), google_display_name),
+			email               = COALESCE(NULLIF($2, ''), email),
+			google_picture      = COALESCE(NULLIF($3, ''), google_picture),
+			google_gender       = COALESCE(NULLIF($4, ''), google_gender),
+			updated_at          = $5
+		WHERE id = $6
+	`, displayName, email, picture, gender, time.Now().UTC(), id)
+	if err != nil {
+		return fmt.Errorf("update google profile: %w", err)
+	}
+	return nil
+}
+
 // UpdateTokensByID updates tokens for a specific user by ID.
 func (r *UserRepo) UpdateTokensByID(ctx context.Context, id int64, accessToken, refreshToken string, expiry time.Time, scopes string) error {
 	_, err := r.db.ExecContext(ctx, `

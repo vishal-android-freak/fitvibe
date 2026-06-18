@@ -111,6 +111,12 @@ func (s *Service) Exchange(ctx context.Context, req ExchangeRequest) (*ExchangeR
 		if err := s.users.UpdateIdentity(ctx, existing.ID, googleUserID, identity.HealthUserID, identity.LegacyUserID); err != nil {
 			return nil, fmt.Errorf("update existing user identity: %w", err)
 		}
+		// Refresh the Google profile fields (name/email/picture/gender) from this
+		// login — they're only set on first StoreTokens otherwise, so re-logins
+		// would never pick up a newly-available picture.
+		if err := s.users.UpdateGoogleProfile(ctx, existing.ID, displayName, email, picture, gender); err != nil {
+			return nil, fmt.Errorf("update existing user profile: %w", err)
+		}
 		u = existing
 	} else {
 		u, err = s.users.StoreTokens(ctx, googleUserID, identity.HealthUserID, email, displayName, picture, gender, 0, 0, token.AccessToken, token.RefreshToken, token.Expiry, scopes)
