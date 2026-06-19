@@ -118,7 +118,7 @@ Expo / React Native. The Today tab consumes the unified `GET /me/today` endpoint
 
 ## Roadmap
 
-- **Vaidya** — an AI health coach (the answer to Google's "Ask Coach"), planned as a standalone Node.js service querying PostgreSQL directly via OpenCode Zen. Design + research: `backend/docs/vaidya-coach-research.html`.
+- **Vaidya** — an AI health coach (the answer to Google's "Ask Coach"): a standalone Node.js/TypeScript service that embeds the **Pi agent SDK** as its engine, querying the shared PostgreSQL DB read-only via 5 SQL tools, with a curated wellness Pi Skill (in place of RAG) and runtime self-extension. Runtime model is Claude Opus 4.8 for now, switching to OpenCode Go/Zen later. Design + research: `backend/docs/vaidya-coach-research.html` (see the 2026-06-19 architecture update at the top).
 
 ## License
 

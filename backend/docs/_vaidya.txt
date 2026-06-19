@@ -1,13 +1,37 @@
  
- Vaidya — AI Health Coach: Research & Design Reference 
- FitVibe · Research & Design Reference 
- Building Vaidya — How Google/Fitbit's AI Coach Works, and How to Build Our Own 
- A hand-off document for Pi — the coding agent that will write FitVibe's Vaidya insights & chat service. Synthesizes deep research into Google Health's Ask Coach , the PH-LLM & PHIA papers, and competitor coaches (WHOOP, Oura, GPTCoach), mapped onto FitVibe's existing Go + PostgreSQL schema, plus how to drive Pi to build it ( §9 ). 
- Source: multi-agent research workflow · Jun 2026 
- Runtime model: OpenCode Zen · deepseek-v4-pro 
- Built by: Pi (OpenCode Go) 
- DOCUMENTED = cited source 
- INFERRED = our reasoning 
+ Vaidya — AI Health Coach: Research & Design Reference
+ FitVibe · Research & Design Reference
+ Building Vaidya — How Google/Fitbit's AI Coach Works, and How to Build Our Own
+ Design reference for FitVibe's Vaidya AI health coach. Synthesizes deep research into Google Health's Ask Coach, the PH-LLM & PHIA papers, and competitor coaches (WHOOP, Oura, GPTCoach), mapped onto FitVibe's Go + PostgreSQL schema. READ THE DATED UPDATE BELOW FIRST — it supersedes the original §6/§9 architecture.
+ Source: multi-agent research workflow · Jun 2026
+ Engine: Pi SDK (embedded) | Runtime model: Claude Opus 4.8 (now) → Zen later | Built by: us (not Pi)
+ DOCUMENTED = cited source
+ INFERRED = our reasoning
+
+========================================================================
+ ARCHITECTURE UPDATE — 2026-06-19 (AUTHORITATIVE; supersedes §6 and §9)
+========================================================================
+ The research and the §7 prompt still stand; the how-we-build-it and a few schema facts changed. Where this conflicts with anything below, THIS WINS.
+
+ WHAT CHANGED
+ - WE build the Vaidya service (this repo, now) — NOT the Pi coding agent. The §9 "Pi writes the Node service" framing is retired.
+ - Pi is the EMBEDDED RUNTIME ENGINE via its SDK: npm @earendil-works/pi-coding-agent. The service calls createAgentSession({ customTools }), drives turns with session.prompt(), streams via session.subscribe() (text_delta) into our SSE. The 5 read-only SQL tools are defineTool({...}); the LLM provider is set with pi.registerProvider(...). We do NOT hand-roll an OpenAI tool-call loop — Pi runs it. Headless RPC (stdin/stdout JSONL) + JSON-event modes also exist.
+ - RUNTIME MODEL: Claude Opus 4.8 now, OpenCode Go/Zen (deepseek-v4-pro) later. Pi is provider-neutral → one config switch (VAIDYA_PROVIDER/VAIDYA_MODEL). Anthropic prompt-caching of the byte-stable prefix applies now; re-verify when switching to Zen.
+ - RAG → a curated Pi SKILL at .pi/skills/vaidya-wellness/ (Agent-Skills standard: SKILL.md + references/, same format as Claude Code skills, model-loaded on demand). We curate + grow it via deep research; runtime ships a DISTILLED snapshot baked into versioned prompt/knowledge files (no live vector store). Retires §6 "3 · RAG" and the §8 "RAG sourcing" open question.
+ - RUNTIME SELF-EXTENSION is an end-user feature: through chat the user can ask the coach to gain a new capability; Pi writes a new tool to .pi/extensions/*.ts (pi.registerTool) and /reloads it into the live session. This is the whole reason to embed Pi vs. calling a model directly.
+ - READINESS — decided. Defined HRV + recent-sleep + RHR → /100 (HRV-dominant), each scored vs the user's own 30-day baseline, explicit missing-data fallback. Documented in calculations-methodology.html; until built, tools return "not yet available" (it's implemented NOWHERE today — the app hardcodes 86).
+ - TIMEZONE — decided. data_points-offset trick (latest start_utc_offset_seconds applied to now(), mirroring internal/today/handler.go:186-196) for query day-boundaries; users.time_zone only for human-readable cron scheduling. Retires the §8 "Proactive cadence" caveat.
+
+ SCHEMA CORRECTIONS (DDL is source of truth — 001_initial_schema.sql)
+ - rollup_data_points has count_sum/count_avg/count_min/count_max + distance_meters_sum/energy_kcal_sum/duration_seconds_sum — NOT value_*. The value_count/sum/avg/min/max columns live on data_points, not rollups.
+ - users has age (INT, no birth_date) and google_gender (no plain gender); height/weight are height_meters/weight_kg; Google tokens are BYTEA-encrypted (read-only service must never touch them).
+ - health_data_records exists as described (clean per-day metric_name/value/unit) — correct.
+ - REPO GOTCHA: root .gitignore is a WHITELIST (/* then !/backend …). A new vaidya/ dir is SILENTLY git-ignored until the whitelist is extended (!/vaidya, !/vaidya/**, re-ignore node_modules/dist).
+
+ BUILD SEQUENCE (we execute)
+ Scaffold + db + healthz (+ gitignore fix) → vaidya_* tables + identity (google_user_id→users.id) + localDate → readiness + baseline + summary builder → the 5 SQL defineTools (MILESTONE 0 ends here — fully unit-testable vs dev Postgres, no LLM) → embed Pi SDK + provider (Opus) + system prompt + first coached turn → endpoints (/vaidya/chat SSE, /vaidya/insights/today, /vaidya/memories) + cron → curate vaidya-wellness skill + enable self-extension. The Node SQL MIRRORS the existing Go queries (today/sleep/body repos); only net-new algorithms are the readiness formula and delta-vs-baseline.
+========================================================================
+
  Contents 
  1 What Ask Coach does 
  2 Model & architecture 
