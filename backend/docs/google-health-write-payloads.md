@@ -141,22 +141,25 @@ Field notes:
 
 ---
 
-## Confirm-before-shipping (during MCP Part 5)
+## Verified against a live write (2026-06-19/20)
 
-These shapes are reconstructed from **read** fixtures — high confidence (the API round-trips the
-same JSON), but verify against a live write before relying on them:
-1. **`dataSource.platform` for FitVibe-originated writes.** Stored records show `"FITBIT"` because
-   they came from the Fitbit device; a third-party app write may need a different platform/origin
-   value (or be rejected if it must match a registered data source). Test with one live
-   `log_hydration`.
-2. **Civil-time requirement on write** — whether the API derives civil times from the RFC3339 +
-   offset, or requires the structured `civilStartTime`/`civilEndTime` too.
-3. **Sync-back latency** — after a successful write, how long until Go ingests it (webhook vs. the
-   catch-up cron). The tool's return text should set expectations ("…will appear on your Today
-   screen shortly").
-4. **Exact `mealType` / `userProvidedUnit` / `nutrient` enum vocabularies** — the read data shows
-   `DINNER`, `KILOCALORIE`, `MILLILITER`, `PROTEIN`, `DIETARY_FIBER`; enumerate the rest from the v4
-   `DataPoint` reference when adding more fields.
+A live `log_hydration` (250 ml, then 200 ml via the MCP tool) returned **HTTP 200 / `"done": true`**
+and created real data points. Confirmed:
+1. **`dataSource: {platform:"FITBIT", recordingMethod:"MANUAL"}` is accepted.** Google rewrites
+   `platform` to `GOOGLE_WEB_API` on its side (it doesn't have to match a registered source) — send
+   the envelope as-is.
+2. **Civil times are derived by the API** from `startTime`/`endTime` (RFC3339) + the `*UtcOffset`.
+   Do **not** send `civilStartTime`/`civilEndTime` on write — the API computes them.
+3. **Token path:** the stored access token expires; refresh via the stored refresh token works
+   non-interactively (no consent screen) and the granted scopes include `nutrition.writeonly`. In
+   production the MCP server gets a fresh token from the Go internal token provider (Go refreshes +
+   persists), so it never touches the refresh token itself.
+4. A point-in-time log uses a short interval (we send a 30s span); a zero-width interval is rejected.
+
+Still to watch (non-blocking): exact `mealType` / `userProvidedUnit` / `nutrient` / `exerciseType`
+enum vocabularies beyond the ones seen in real data (`DINNER`, `KILOCALORIE`, `MILLILITER`,
+`PROTEIN`, `DIETARY_FIBER`), and the sync-back latency (webhook vs. catch-up cron) before a write
+shows on `/me/today`.
 
 ## Verification
 

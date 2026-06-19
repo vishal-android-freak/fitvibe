@@ -51,4 +51,14 @@ pytest -q
 | `get_sleep(user_id)` | read | latest main sleep + stage breakdown |
 | `query_health_db(sql)` | read | generic read-only SQL escape hatch (single SELECT/WITH, read-only txn, 200-row cap). Pair with the `vaidya-health-schema` skill so the LLM writes accurate SQL. |
 | `get_readiness` / `get_metric_trend` | read | _planned_ |
-| `log_nutrition` / `log_hydration` / `log_weight` | write | _planned — via Google Health API_ |
+| `log_hydration(user_id, milliliters, when?)` | write | water/fluid intake |
+| `log_nutrition(user_id, calories?, carbs_g?, fat_g?, protein_g?, meal_type?, food_name?, when?)` | write | a meal/food |
+| `log_weight(user_id, weight_kg, when?)` | write | body weight |
+| `log_body_fat(user_id, percent, when?)` | write | body-fat % |
+| `log_height(user_id, height_cm, when?)` | write | height |
+| `log_exercise(user_id, exercise_type, start, duration_minutes, calories?, distance_km?, display_name?)` | write | a workout |
+| `log_sleep(user_id, start, end, minutes_asleep?)` | write | a sleep session (usually device-recorded) |
+
+Writes go to the Google Health API (the 7 manually-loggable v4 types) using a
+fresh token from the Go provider; data syncs back into Postgres via Go ingestion.
+Verified end-to-end (live `log_hydration` returned 200 + created a data point).
