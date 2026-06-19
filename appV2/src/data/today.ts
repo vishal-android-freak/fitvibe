@@ -45,6 +45,14 @@ export interface TimelineEvent {
   items?: string[]; // meal contents, when grouped
 }
 
+/** Readiness score for the Today center ring (mirrors backend readiness.Score). */
+export interface Readiness {
+  value: number | null; // 0-100; null until warmed up (≥7 HRV days)
+  band: string; // High | Moderate | Low (empty when value is null)
+  date?: string; // civil date the score reflects (may lag today by a day)
+  calibrated: boolean; // false until ~30 days of baseline
+}
+
 /** The whole Today screen in one payload (mirrors GET /me/today). */
 export interface Today {
   date: string;
@@ -52,6 +60,7 @@ export interface Today {
   nutrition: NutritionToday;
   timeline: TimelineEvent[];
   sleep: LastNight | null; // null if no sleep recorded
+  readiness: Readiness;
 }
 
 /**

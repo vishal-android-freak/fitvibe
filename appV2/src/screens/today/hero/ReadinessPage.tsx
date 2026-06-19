@@ -11,6 +11,8 @@ export function ReadinessPage() {
   const today = data?.summary ?? null;
   const night = data?.sleep ?? null;
 
+  const readiness = data?.readiness ?? null;
+
   const factors: ReadinessFactor[] = [
     {
       icon: 'chart-no-axes-column',
@@ -38,6 +40,42 @@ export function ReadinessPage() {
     },
   ];
 
-  // Score still TODO (no readiness endpoint yet) — keep the sample value for now.
-  return <ReadinessCard score={86} factors={factors} />;
+  const score = readiness?.value ?? null;
+  return (
+    <ReadinessCard
+      score={score ?? 0}
+      hue={readinessHue(readiness?.band)}
+      caption={readinessCaption(score, readiness?.band)}
+      factors={factors}
+    />
+  );
+}
+
+/** Band → ring hue. Falls back to the neutral accent while warming up. */
+function readinessHue(band?: string): string | undefined {
+  switch (band) {
+    case 'High':
+      return hue.move;
+    case 'Moderate':
+      return hue.energy;
+    case 'Low':
+      return hue.heart;
+    default:
+      return undefined; // ReadinessCard's default accent
+  }
+}
+
+/** Caption under the ring: band-driven, or a warming-up note when no score yet. */
+function readinessCaption(score: number | null, band?: string): string {
+  if (score === null) return 'WARMING UP';
+  switch (band) {
+    case 'High':
+      return 'READY TO PUSH';
+    case 'Moderate':
+      return 'TAKE IT STEADY';
+    case 'Low':
+      return 'PRIORITIZE RECOVERY';
+    default:
+      return 'READINESS';
+  }
 }

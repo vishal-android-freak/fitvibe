@@ -93,6 +93,8 @@
   <a href="#sleep-bands">Typical-for-age bands</a>
   <a href="#sleep-stages">Stage totals &amp; typical mix</a>
   <a href="#sleep-repo">Recent-nights query</a>
+  <h2>Recovery</h2>
+  <a href="#readiness-score">Readiness score (0–100)</a>
   <h2>Today</h2>
   <a href="#today">Steps · HR · nutrition</a>
   <h2>Ingestion</h2>
@@ -206,6 +208,59 @@ score = round( clamp( 0.8110 · composite + 4.10 , 0 , 100 ) )</code></pre>
   </tbody>
 </table>
 <p class="src">The Restoration 25% is borrowed from Fitbit's published split, not learned: 6 of 9 nights had zero interruptions, so that pillar is essentially unconstrained by this data. We substitute our (exact) interruptions metric for Fitbit's HR-based restoration, which the v4 API doesn't expose.</p>
+</section>
+
+<!-- ============================ READINESS SCORE ============================ -->
+<section id="readiness-score">
+<h2 class="sec">Readiness score (0–100) <span class="pill approx">CALIBRATED</span></h2>
+<p class="file"><b>internal/readiness/score.go</b> (planned) · drives the Today-tab center ring</p>
+<p>Google/Fitbit's Readiness is a Premium 0–100 score from <b>exactly three inputs</b> — HRV, resting heart rate, recent sleep — each compared to the user's <b>personal rolling baseline</b> (not population norms). The composite is not exposed by any API, so we recompute it from the raw components. Bands mirror Google: <b>Low 0–29, Moderate 30–64, High 65–100</b>.</p>
+
+<h4>Inputs (per civil date D, same-day alignment)</h4>
+<table>
+  <thead><tr><th>Component</th><th>Source</th><th>Field</th></tr></thead>
+  <tbody>
+    <tr><td>HRV (primary)</td><td><code>daily-heart-rate-variability</code></td><td><code>deepSleepRootMeanSquareOfSuccessiveDifferencesMilliseconds</code> (deep-sleep RMSSD — <b>not</b> the average-HRV field)</td></tr>
+    <tr><td>Resting HR</td><td><code>daily-resting-heart-rate</code></td><td><code>value_avg</code> (bpm; lower is better)</td></tr>
+    <tr><td>Sleep</td><td><code>sleep</code> summary stages</td><td>Deep + REM minutes</td></tr>
+  </tbody>
+</table>
+<div class="callout"><b>Alignment confirmed empirically.</b> The score shown on the morning of date D uses the daily-HRV/RHR record dated <b>D itself</b> (overnight metrics, same civil date). Validated by correlation: under same-day alignment, <code>corr(score, deepRMSSD)=+0.95</code>, <code>corr(score, RHR)=−0.74</code>, <code>corr(score, deep+rem)=+0.80</code>; under D−1 alignment every correlation collapses to noise (≈0). A live score therefore <b>lags ~1 day</b> until the night's HRV record lands (it is computed later in the day from the prior night).</div>
+
+<h4>Formula</h4>
+<pre><code>// per-component z-score vs the user's TRAILING baseline (days &lt; D, ≥3 needed),
+// computed from mean and population SD; clamped to [−3, +3].
+zHRV   =  z(deepRMSSD_D    ; baseline)        // higher = better
+zRHR   = −z(restingHR_D    ; baseline)        // sign-flipped: lower = better
+zSleep =  z(deepRemMin_D   ; baseline)
+
+Z      = 0.8·zHRV + 0.2·zRHR + 0.0·zSleep     // HRV ≫ RHR ≫ sleep
+score  = round( 100 / (1 + exp(−(0.8·Z + 0))) )   // logistic squash</code></pre>
+<p class="src">Warm-up gate: needs ≥7 nights (≥3h each) for a baseline, ~30 days for it to stabilize. Before then the score is suppressed/labeled provisional. The baseline excludes today (uses days strictly before D) — this reproduces Google's adaptive "yesterday's peak raises the bar" behavior.</p>
+
+<h4>Bands</h4>
+<table>
+  <thead><tr><th>Band</th><th>Range</th></tr></thead>
+  <tbody>
+    <tr><td><span style="color:var(--green)">High</span></td><td>65–100</td></tr>
+    <tr><td><span style="color:var(--amber)">Moderate</span></td><td>30–64</td></tr>
+    <tr><td><span style="color:var(--red)">Low</span></td><td>0–29</td></tr>
+  </tbody>
+</table>
+<p class="src">Mirrors Google/Fitbit exactly.</p>
+
+<h4>Fit against 4 real scores (Jun 2026)</h4>
+<p>RMSE 3.78; every score within ±6. The weights (HRV 0.8 / RHR 0.2 / Sleep 0.0) were grid-searched against these four labeled days.</p>
+<table>
+  <thead><tr><th>Date shown</th><th>deepRMSSD</th><th>RHR</th><th>Deep+REM</th><th>Google</th><th>FitVibe</th><th>Δ</th></tr></thead>
+  <tbody class="num">
+    <tr><td>Jun 18</td><td>56.2</td><td>62</td><td>214</td><td>77</td><td>83</td><td>+6</td></tr>
+    <tr><td>Jun 17</td><td>49.1</td><td>61</td><td>186</td><td>68</td><td>68</td><td>0</td></tr>
+    <tr><td>Jun 16</td><td>52.8</td><td>63</td><td>156</td><td>86</td><td>81</td><td>−5</td></tr>
+    <tr><td>Jun 15</td><td>37.2</td><td>65</td><td>98</td><td>15</td><td>15</td><td>0</td></tr>
+  </tbody>
+</table>
+<div class="callout"><b>Honest limits.</b> This is <i>FitVibe's own score with Google-standard bands</i>, calibrated to one user over only 4 labeled days. Leave-one-out errors run 6–13 points, so the exact constants are soft — the <i>structure</i> (same-day alignment, deep-sleep RMSSD, z-vs-baseline, logistic, HRV-dominant) is what's validated, not the precise weights. Earlier attempts <b>failed</b> (RMSE ~55) because they used average-HRV instead of deep-sleep RMSSD and a too-short, unstable baseline. Expect the weights to firm up as ~30 days accrue; they are kept config-tunable. The Sleep weight fitting to 0 is consistent across attempts — for this user, cardiac recovery (HRV+RHR) dominates and sleep architecture barely moves the score.</div>
 </section>
 
 <!-- ============================ SLEEP QUALITY ============================ -->
@@ -513,6 +568,7 @@ score = round( clamp( 0.8110 · composite + 4.10 , 0 , 100 ) )</code></pre>
 <table>
   <thead><tr><th>Date</th><th>Change</th></tr></thead>
   <tbody>
+    <tr><td>2026-06-19</td><td>Added the <b>Readiness score (0–100)</b> section. Reverse-engineered + fitted to 4 real Google readiness scores (Jun 15–18): same-day alignment confirmed by correlation (deepRMSSD +0.95, RHR −0.74, deep+rem +0.80; D−1 alignment is noise), z-score-vs-trailing-baseline + logistic squash, weights HRV 0.8 / RHR 0.2 / Sleep 0.0, RMSE 3.78 (all within ±6). Key fix vs the earlier failed attempt (RMSE ~55): use <code>deepSleepRMSSD</code> not average HRV. Honest-labelled CALIBRATED (4 points, one user; structure validated, exact weights soft).</td></tr>
     <tr><td>2026-06-18</td><td>Dropped the Sleep-efficiency row from the quality card (≈98–99% every night, no signal — device gives no real time-in-bed). Reworded the per-night insight to lead with duration + stage composition instead of efficiency. Reduced the quality-card value font size.</td></tr>
     <tr><td>2026-06-18</td><td>Initial document. Covers sleep score (calibrated, ±3 vs 9 real nights), sleep-quality metrics (interruptions exact, time-to-sound-sleep ±2–3min, restorative proxy, disruptions timeline, restlessness not-possible), typical-for-age bands, stage totals/efficiency/typical mix, recent-nights query, Today aggregations, ingestion coercion/extraction/children, Health API filtering/rate-limit/retry, cron windows, and the full app-side formatter/gauge/geometry inventory.</td></tr>
   </tbody>

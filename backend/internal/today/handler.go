@@ -16,6 +16,7 @@ import (
 
 	"github.com/vishal-android-freak/fitvibe/internal/authmw"
 	"github.com/vishal-android-freak/fitvibe/internal/db/repositories"
+	"github.com/vishal-android-freak/fitvibe/internal/readiness"
 	"github.com/vishal-android-freak/fitvibe/internal/sleep"
 )
 
@@ -76,7 +77,8 @@ type todayResponse struct {
 	Summary   summaryBlock             `json:"summary"`
 	Nutrition nutritionBlock           `json:"nutrition"`
 	Timeline  []timelineEvent          `json:"timeline"`
-	Sleep     *sleep.LastNightResponse `json:"sleep"` // null if no sleep recorded
+	Sleep     *sleep.LastNightResponse `json:"sleep"`     // null if no sleep recorded
+	Readiness readiness.Score          `json:"readiness"` // center-ring score; Value null until warmed up
 }
 
 // today assembles the whole screen. The four sections are independent reads, so
@@ -95,17 +97,19 @@ func (h *Handler) today(w http.ResponseWriter, r *http.Request) {
 		nutErr   error
 		tlErr    error
 		sleepErr error
+		rdyErr   error
 	)
 
 	var wg sync.WaitGroup
-	wg.Add(4)
+	wg.Add(5)
 	go func() { defer wg.Done(); resp.Summary, sumErr = h.buildSummary(ctx, userID, localDate) }()
 	go func() { defer wg.Done(); resp.Nutrition, nutErr = h.buildNutrition(ctx, userID, localDate) }()
 	go func() { defer wg.Done(); resp.Timeline, tlErr = h.buildTimeline(ctx, userID, localDate) }()
 	go func() { defer wg.Done(); resp.Sleep, sleepErr = h.sleep.LastNight(ctx, userID) }()
+	go func() { defer wg.Done(); resp.Readiness, rdyErr = readiness.Compute(ctx, h.db, userID, localDate) }()
 	wg.Wait()
 
-	if err := firstErr(sumErr, nutErr, tlErr, sleepErr); err != nil {
+	if err := firstErr(sumErr, nutErr, tlErr, sleepErr, rdyErr); err != nil {
 		writeErr(w, http.StatusInternalServerError, "failed to load today")
 		return
 	}
