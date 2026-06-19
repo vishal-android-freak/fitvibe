@@ -5,6 +5,10 @@
 !/backend/**
 !/appV2
 !/appV2/**
+!/vaidya-mcp
+!/vaidya-mcp/**
+!/.pi
+!/.pi/**
 !/design_handoff_fitvibe_app
 !/design_handoff_fitvibe_app/**
 !/README.md
@@ -13,6 +17,10 @@
 
 # Re-ignore heavy/generated dirs inside the re-included folders.
 /appV2/node_modules
+/vaidya-mcp/.venv
+/vaidya-mcp/__pycache__
+/vaidya-mcp/**/__pycache__
+/vaidya-mcp/.env
 /appV2/.expo
 /appV2/dist
 /appV2/web-build

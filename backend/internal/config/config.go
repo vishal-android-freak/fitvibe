@@ -41,6 +41,14 @@ type Config struct {
 	FirebaseProjectID       string `env:"FIREBASE_PROJECT_ID"`
 	FirebaseCredentialsFile string `env:"FIREBASE_CREDENTIALS_FILE"`
 
+	// Internal token provider — serves fresh Google access tokens to the local
+	// Vaidya MCP server, off the public router. Prefer the Unix socket (prod/Pi);
+	// the loopback addr is a dev fallback (e.g. Windows). Empty socket + empty
+	// addr disables it. The secret is a defense-in-depth bearer check.
+	InternalTokenSocket string `env:"INTERNAL_TOKEN_SOCKET"`
+	InternalTokenAddr   string `env:"INTERNAL_TOKEN_ADDR"`
+	InternalTokenSecret string `env:"INTERNAL_TOKEN_SECRET"`
+
 	// Sync
 	DefaultBackfillDays     int    `env:"DEFAULT_BACKFILL_DAYS" envDefault:"30"`
 	CronIntradayRollup      string `env:"CRON_INTRADAY_ROLLUP" envDefault:"0 * * * *"`

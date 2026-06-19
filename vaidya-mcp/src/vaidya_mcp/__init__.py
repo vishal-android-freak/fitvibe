@@ -1,0 +1,1 @@
+"""FitVibe Vaidya MCP server."""

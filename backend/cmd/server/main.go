@@ -24,6 +24,7 @@ import (
 	"github.com/vishal-android-freak/fitvibe/internal/db"
 	"github.com/vishal-android-freak/fitvibe/internal/db/repositories"
 	"github.com/vishal-android-freak/fitvibe/internal/firebaseauth"
+	"github.com/vishal-android-freak/fitvibe/internal/internaltoken"
 	"github.com/vishal-android-freak/fitvibe/internal/oauth"
 	"github.com/vishal-android-freak/fitvibe/internal/profile"
 	"github.com/vishal-android-freak/fitvibe/internal/sleep"
@@ -271,6 +272,20 @@ func main() {
 		}
 	}()
 
+	// Internal token provider for the local Vaidya MCP server (off the public
+	// router). Started only when a socket or loopback addr is configured.
+	var tokenServer *internaltoken.Server
+	if cfg.InternalTokenSocket != "" || cfg.InternalTokenAddr != "" {
+		tokenServer = internaltoken.New(
+			tokenResolver{oauth: oauthService, users: userRepo},
+			cfg.InternalTokenSecret, logger,
+		)
+		if err := tokenServer.Start(cfg.InternalTokenSocket, cfg.InternalTokenAddr); err != nil {
+			logger.Error("internal token server failed to start", "error", err)
+			os.Exit(1)
+		}
+	}
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
@@ -281,6 +296,34 @@ func main() {
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		logger.Error("server shutdown error", "error", err)
 	}
+	if tokenServer != nil {
+		if err := tokenServer.Shutdown(shutdownCtx); err != nil {
+			logger.Error("internal token server shutdown error", "error", err)
+		}
+	}
+}
+
+// tokenResolver adapts the OAuth service + user repo to internaltoken.Resolver,
+// so the internal token endpoint reuses the existing refresh logic (Go stays the
+// sole Google-token authority).
+type tokenResolver struct {
+	oauth *oauth.Service
+	users *repositories.UserRepo
+}
+
+func (t tokenResolver) TokenForUserID(userID int64) func(context.Context) (string, error) {
+	return t.oauth.TokenProvider(userID)
+}
+
+func (t tokenResolver) UserIDByGoogleUserID(ctx context.Context, googleUserID string) (int64, bool, error) {
+	u, err := t.users.GetByGoogleUserID(ctx, googleUserID)
+	if err != nil {
+		return 0, false, err
+	}
+	if u == nil {
+		return 0, false, nil
+	}
+	return u.ID, true, nil
 }
 
 func decodeJSON(r *http.Request, v any) error {
