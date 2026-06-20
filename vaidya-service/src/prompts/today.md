@@ -9,6 +9,7 @@ two lines max. Pull the live signals you need (readiness, last night's sleep,
 today's activity/steps, recent HRV/RHR trend) with the read tools before writing.
 
 ## Output (strict)
+Load the `vaidya-ui-blocks` skill first for the exact block shape, then:
 1. Call `emit_block` exactly once with a `today_headline` block:
    `{ title: <≤6 words>, body: <ONE sentence, ≤22 words>, badges: [{text, hue}] (0–2) }`
    - `title`: the takeaway (e.g. "Recovery's trending up", "Ease off today").

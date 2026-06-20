@@ -15,7 +15,8 @@ signals — recovery, sleep, activity, nutrition, a notable trend or correlation
 not an exhaustive dump.
 
 ## Output (a sequence of emit_block calls, interleaved with brief narrative)
-Compose the report as an ordered series of blocks. Typical shape:
+Load the `vaidya-ui-blocks` skill first for the exact block shapes. Compose the
+report as an ordered series of blocks. Typical shape:
 1. `emit_block` `day_summary` — `{ headline: <≤8 words>, body: [<Seg>...] }`: the
    day's top-line story in 2–4 rich-text sentences (bold the metrics).
 2. Then 2–4 supporting blocks, each chosen to fit the point:

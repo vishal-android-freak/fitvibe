@@ -14,6 +14,7 @@ wake-ups, vs. their baseline). Don't compute a sleep score (the app already does
 interpret the night.
 
 ## Output (strict)
+Load the `vaidya-ui-blocks` skill first for the exact block shapes, then:
 1. Call `emit_block` once with a `sleep_insight` block:
    `{ title: <≤6 words>, body: [<Seg>...], badges: [{text, hue}] }`
    - `title`: a one-line characterization ("A solid night", "Restful, a few wake-ups").
