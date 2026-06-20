@@ -34,12 +34,16 @@ export const surface = {
   hover: '#232D45',
 } as const;
 
-/* ---- Text ---- */
+/* ---- Text ----
+ * Tuned for legibility on the dark surfaces (card #131A2B). Contrast ratios:
+ * primary ~16.6, secondary ~7.3, tertiary ~5.4, muted ~4.3 — a clear hierarchy
+ * where even the faintest tier stays readable (the old tertiary/muted were
+ * ~3.6 / ~2.3 and effectively illegible). */
 export const text = {
   primary: '#F8FAFC', // strong
-  secondary: '#94A3B8', // body
-  tertiary: '#64748B', // faint
-  muted: '#475569',
+  secondary: '#9CA9BD', // body
+  tertiary: '#8390A6', // faint captions / labels
+  muted: '#737F95', // least emphasis — still legible
   onAccent: '#1a0b33', // aurora on-accent
 } as const;
 
