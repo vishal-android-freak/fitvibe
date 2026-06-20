@@ -7,42 +7,51 @@ import { accent, font, fontSize, text } from '@/theme';
 
 /**
  * The Insights feed — Vaidya's nightly detailed day report, rendered live as a
- * sequence of generative blocks (insight cards with correlations/trends/flags +
- * supporting charts). Empty/loading states until the nightly report is generated.
+ * sequence of generative blocks. The data hook lives INSIDE <Screen> (in
+ * InsightsBody) so its reload registers with the screen's RefreshScope —
+ * otherwise pull-to-refresh wouldn't refetch.
  */
 export function InsightsScreen() {
+  return (
+    <ScreenContainer>
+      <Screen>
+        <InsightsBody />
+      </Screen>
+    </ScreenContainer>
+  );
+}
+
+function InsightsBody() {
   const { data, loading } = useDayInsight();
   const blocks = data?.blocks ?? [];
 
   return (
-    <ScreenContainer>
-      <Screen>
-        <View style={styles.header}>
-          <Text style={styles.title}>Insights</Text>
-          <Text style={styles.subtitle}>
-            {data?.date ? `Your day, analyzed · ${data.date}` : 'Derived from your Google Health data'}
-          </Text>
-        </View>
+    <>
+      <View style={styles.header}>
+        <Text style={styles.title}>Insights</Text>
+        <Text style={styles.subtitle}>
+          {data?.date ? `Your day, analyzed · ${data.date}` : 'Derived from your Google Health data'}
+        </Text>
+      </View>
 
-        {blocks.length > 0 ? (
-          <BlockList blocks={blocks} />
-        ) : (
-          <View style={styles.placeholder}>
-            {loading ? (
-              <ActivityIndicator color={accent.base} />
-            ) : (
-              <>
-                <Text style={styles.emptyTitle}>Your daily report is being prepared</Text>
-                <Text style={styles.emptyBody}>
-                  Vaidya analyzes your day each evening — correlations, trends, and what to act on.
-                  Check back tonight.
-                </Text>
-              </>
-            )}
-          </View>
-        )}
-      </Screen>
-    </ScreenContainer>
+      {blocks.length > 0 ? (
+        <BlockList blocks={blocks} />
+      ) : (
+        <View style={styles.placeholder}>
+          {loading ? (
+            <ActivityIndicator color={accent.base} />
+          ) : (
+            <>
+              <Text style={styles.emptyTitle}>Your daily report is being prepared</Text>
+              <Text style={styles.emptyBody}>
+                Vaidya analyzes your day each evening — correlations, trends, and what to act on.
+                Check back tonight.
+              </Text>
+            </>
+          )}
+        </View>
+      )}
+    </>
   );
 }
 
