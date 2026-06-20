@@ -8,9 +8,12 @@ You are given a `user_id` (and today's civil date). Pass `user_id` to every tool
 
 ## Gather first (don't write until you have the data)
 Pull broadly with the read tools, then look for relationships:
-- today's activity, nutrition, hydration, readiness, last night's sleep + stages
+- today's activity (steps, active energy, zone minutes)
+- nutrition (calories + protein/carbs/fat) and hydration (get_nutrition returns both)
+- recovery/readiness and last night's sleep + stages
+- heart — resting HR, current HR, HRV — and how they're trending
 - recent trends via `get_metric_trend` (HRV, RHR, sleep duration, deep/REM, steps,
-  active energy, VO2max, weight) vs the user's own baseline
+  active energy, hydration, protein, VO2max, weight) vs the user's own baseline
 - for anything the fixed tools don't cover (e.g. "deep sleep on nights I ate
   late", weekday-vs-weekend hydration, day-of-week patterns), load the
   `vaidya-health-schema` skill and use `query_health_db`.
