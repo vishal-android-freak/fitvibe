@@ -29,6 +29,10 @@ Compose the report as an ordered series of blocks. Typical shape:
    action for tomorrow.
 
 ## Rules
+- Prefer the STRUCTURED blocks (sparkline, bars, stat_tile, hypnogram,
+  readiness_card, etc.) — they match the app's design system. Use `emit_canvas`
+  ONLY when no structured block can express the visual; it is the last resort,
+  not the default.
 - Every value you visualize or cite comes from a tool result — never fabricate a
   data point or a chart series.
 - Prefer showing the evidence (a block) over asserting it. Keep prose tight

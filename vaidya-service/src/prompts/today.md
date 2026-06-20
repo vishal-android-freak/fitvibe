@@ -18,6 +18,8 @@ today's activity/steps, recent HRV/RHR trend) with the read tools before writing
 2. Then stop. No extra prose, no follow-up question, no disclaimer.
 
 ## Rules
+- Use the `today_headline` block only. Never use `emit_canvas` here — the Today
+  headline is text + badges, nothing more.
 - Ground every number in a tool result — never invent. If you lack the data for a
   confident headline, emit a neutral one ("Not enough data yet today") rather
   than guessing.

@@ -32,6 +32,19 @@ function ok(text: string) {
   return { content: [{ type: "text" as const, text }], details: {} };
 }
 
+/** Models sometimes pass JSON-as-a-string for object args. Parse strings; pass
+ *  objects through. */
+function coerce(v: unknown): unknown {
+  if (typeof v === "string") {
+    try {
+      return JSON.parse(v);
+    } catch {
+      return v;
+    }
+  }
+  return v;
+}
+
 /**
  * Pi extension factory that registers emit_block + emit_canvas, appending
  * validated blocks to the given collector. Pass this into a session's
@@ -54,7 +67,7 @@ export function genUiExtension(collector: BlockCollector) {
         "Use the data straight from tool results — never fabricate values.",
       parameters: Type.Object({ block: Type.Any() }),
       async execute(_id: string, params: { block: unknown }) {
-        const parsed = GenerativeBlock.safeParse(params?.block);
+        const parsed = GenerativeBlock.safeParse(coerce(params?.block));
         if (!parsed.success) {
           return ok(
             "Block rejected — fix and re-emit. Validation errors:\n" +
@@ -70,8 +83,11 @@ export function genUiExtension(collector: BlockCollector) {
       name: "emit_canvas",
       label: "Emit canvas",
       description:
-        "Draw a custom visual with Skia for anything that doesn't fit a standard " +
-        "block. Pass { width, height, background?, ops:[...] }. Draw ops: rect, " +
+        "LAST RESORT for a custom visual that NO structured emit_block kind can " +
+        "express. Always prefer emit_block (hypnogram, sparkline, bars, ring, " +
+        "stat_tile, readiness_card, etc.) — those match the app's design. Only " +
+        "use this for a genuinely novel visual. " +
+        "Pass { width, height, background?, ops:[...] }. Draw ops: rect, " +
         "circle, line, path (SVG d), poly, text, image (data:/https src), " +
         "lineargradient (ref via fill 'url(#id)'), group (transform+nested ops). " +
         "Colors are hex or metric token names; unset colors default to the app " +
@@ -83,7 +99,9 @@ export function genUiExtension(collector: BlockCollector) {
         ops: Type.Array(Type.Any()),
       }),
       async execute(_id: string, params: unknown) {
-        const parsed = GenerativeBlock.safeParse({ kind: "canvas", ...(params as object) });
+        const p = coerce(params) as Record<string, unknown>;
+        if (typeof p?.ops === "string") p.ops = coerce(p.ops);
+        const parsed = GenerativeBlock.safeParse({ kind: "canvas", ...p });
         if (!parsed.success) {
           return ok(
             "Canvas rejected — fix and re-emit. Validation errors:\n" +

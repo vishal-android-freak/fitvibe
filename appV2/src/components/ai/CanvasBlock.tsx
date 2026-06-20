@@ -47,28 +47,55 @@ function color(c: string | undefined, fallback: string): string {
   return (hues as Record<string, string>)[c] ?? c;
 }
 
-function paintProps(
-  fill: string | undefined,
-  stroke: string | undefined,
-  strokeWidth: number | undefined,
-  opacity: number | undefined,
-  defaultFill: string,
-) {
-  // Skia: a shape with `color` fills; with `style="stroke"` it strokes. We
-  // render fill and stroke as needed via two elements where both are present.
-  return { fill, stroke, strokeWidth, opacity, defaultFill };
+type GradientDef = Extract<DrawOp, { op: 'lineargradient' }>;
+
+/** Walk the op tree and index every lineargradient def by id, so shapes can
+ *  reference one via fill "url(#id)". */
+function collectGradients(ops: DrawOp[], into: Map<string, GradientDef> = new Map()): Map<string, GradientDef> {
+  for (const op of ops) {
+    if (op.op === 'lineargradient') into.set(op.id, op);
+    else if (op.op === 'group') collectGradients(op.ops, into);
+  }
+  return into;
 }
 
-function OpView({ op, k }: { op: DrawOp; k: string }): React.ReactElement | null {
+const URL_REF = /^url\(#(.+)\)$/;
+
+/** A Skia <LinearGradient> child element when `fill` is a url(#id) reference and
+ *  the gradient exists; otherwise null (shape uses a solid color instead). */
+function gradientChild(fill: string | undefined, grads: Map<string, GradientDef>): React.ReactElement | null {
+  if (!fill) return null;
+  const m = URL_REF.exec(fill);
+  if (!m) return null;
+  const g = grads.get(m[1]);
+  if (!g) return null;
+  return (
+    <LinearGradient
+      start={vec(g.x1, g.y1)}
+      end={vec(g.x2, g.y2)}
+      colors={g.stops.map((s) => color(s.color, textTok.secondary))}
+      positions={g.stops.map((s) => s.offset)}
+    />
+  );
+}
+
+/** True when a fill is a gradient reference (so we shouldn't also set `color`). */
+function isGradientRef(fill: string | undefined): boolean {
+  return !!fill && URL_REF.test(fill);
+}
+
+function OpView({ op, k, grads }: { op: DrawOp; k: string; grads: Map<string, GradientDef> }): React.ReactElement | null {
   switch (op.op) {
     case 'rect': {
-      const fill = color(op.fill, op.stroke ? 'transparent' : textTok.secondary);
+      const grad = gradientChild(op.fill, grads);
+      const fillColor = isGradientRef(op.fill) ? undefined : color(op.fill, op.stroke ? 'transparent' : textTok.secondary);
       const els: React.ReactElement[] = [];
       if (op.fill || !op.stroke) {
+        const fp = { x: op.x, y: op.y, width: op.w, height: op.h, opacity: op.opacity ?? 1, ...(fillColor ? { color: fillColor } : {}) };
         els.push(
           op.rx
-            ? <RoundedRect key={`${k}f`} x={op.x} y={op.y} width={op.w} height={op.h} r={op.rx} color={fill} opacity={op.opacity ?? 1} />
-            : <Rect key={`${k}f`} x={op.x} y={op.y} width={op.w} height={op.h} color={fill} opacity={op.opacity ?? 1} />,
+            ? <RoundedRect key={`${k}f`} {...fp} r={op.rx}>{grad}</RoundedRect>
+            : <Rect key={`${k}f`} {...fp}>{grad}</Rect>,
         );
       }
       if (op.stroke) {
@@ -82,8 +109,10 @@ function OpView({ op, k }: { op: DrawOp; k: string }): React.ReactElement | null
       return <Group key={k}>{els}</Group>;
     }
     case 'circle': {
+      const grad = gradientChild(op.fill, grads);
+      const fillColor = isGradientRef(op.fill) ? undefined : color(op.fill, textTok.secondary);
       const els: React.ReactElement[] = [];
-      if (op.fill || !op.stroke) els.push(<Circle key={`${k}f`} cx={op.cx} cy={op.cy} r={op.r} color={color(op.fill, textTok.secondary)} opacity={op.opacity ?? 1} />);
+      if (op.fill || !op.stroke) els.push(<Circle key={`${k}f`} cx={op.cx} cy={op.cy} r={op.r} opacity={op.opacity ?? 1} {...(fillColor ? { color: fillColor } : {})}>{grad}</Circle>);
       if (op.stroke) els.push(<Circle key={`${k}s`} cx={op.cx} cy={op.cy} r={op.r} color={color(op.stroke, textTok.secondary)} style="stroke" strokeWidth={op.strokeWidth ?? 1} opacity={op.opacity ?? 1} />);
       return <Group key={k}>{els}</Group>;
     }
@@ -103,7 +132,11 @@ function OpView({ op, k }: { op: DrawOp; k: string }): React.ReactElement | null
       const path = Skia.Path.MakeFromSVGString(op.d);
       if (!path) return null;
       const els: React.ReactElement[] = [];
-      if (op.fill) els.push(<Path key={`${k}f`} path={path} color={color(op.fill, textTok.secondary)} opacity={op.opacity ?? 1} />);
+      if (op.fill) {
+        const grad = gradientChild(op.fill, grads);
+        const fc = isGradientRef(op.fill) ? undefined : color(op.fill, textTok.secondary);
+        els.push(<Path key={`${k}f`} path={path} opacity={op.opacity ?? 1} {...(fc ? { color: fc } : {})}>{grad}</Path>);
+      }
       if (op.stroke || !op.fill) els.push(<Path key={`${k}s`} path={path} color={color(op.stroke, textTok.secondary)} style="stroke" strokeWidth={op.strokeWidth ?? 1.5} opacity={op.opacity ?? 1} />);
       return <Group key={k}>{els}</Group>;
     }
@@ -112,11 +145,12 @@ function OpView({ op, k }: { op: DrawOp; k: string }): React.ReactElement | null
       if (op.closed && pts.length) pts.push(pts[0]);
       const els: React.ReactElement[] = [];
       if (op.fill) {
-        // Build a closed path for fill.
         const p = Skia.Path.Make();
         op.points.forEach(([x, y], i) => (i === 0 ? p.moveTo(x, y) : p.lineTo(x, y)));
         p.close();
-        els.push(<Path key={`${k}f`} path={p} color={color(op.fill, textTok.secondary)} opacity={op.opacity ?? 1} />);
+        const grad = gradientChild(op.fill, grads);
+        const fc = isGradientRef(op.fill) ? undefined : color(op.fill, textTok.secondary);
+        els.push(<Path key={`${k}f`} path={p} opacity={op.opacity ?? 1} {...(fc ? { color: fc } : {})}>{grad}</Path>);
       }
       els.push(<Points key={`${k}s`} points={pts} mode="polygon" color={color(op.stroke, op.fill ? 'transparent' : textTok.secondary)} style="stroke" strokeWidth={op.strokeWidth ?? 1.5} opacity={op.opacity ?? 1} />);
       return <Group key={k}>{els}</Group>;
@@ -152,16 +186,14 @@ function OpView({ op, k }: { op: DrawOp; k: string }): React.ReactElement | null
       return (
         <Group key={k} transform={transform as never}>
           {op.ops.map((child, i) => (
-            <OpView key={`${k}.${i}`} op={child} k={`${k}.${i}`} />
+            <OpView key={`${k}.${i}`} op={child} k={`${k}.${i}`} grads={grads} />
           ))}
         </Group>
       );
     }
     case 'lineargradient':
-      // Gradients are referenced by fill "url(#id)" on shapes; we don't render a
-      // standalone element. Skia gradients attach as children of a painted shape,
-      // which our flat op model doesn't wire — treat as a no-op for now and let
-      // shapes use solid colors. (Kept in the schema for forward-compat.)
+      // Defs are collected up front (collectGradients) and attached to the
+      // shapes that reference them via fill "url(#id)". Nothing to render inline.
       return null;
     default:
       return null;
@@ -188,6 +220,7 @@ export function CanvasBlock({ block, maxWidth }: { block: CanvasBlockSpec; maxWi
   const scale = Math.min(1, maxWidth / block.width);
   const w = block.width * scale;
   const h = block.height * scale;
+  const grads = collectGradients(block.ops);
   return (
     <View style={{ width: w, height: h, borderRadius: radius.lg, overflow: 'hidden' }}>
       <Canvas style={{ width: w, height: h }}>
@@ -196,7 +229,7 @@ export function CanvasBlock({ block, maxWidth }: { block: CanvasBlockSpec; maxWi
             <Rect x={0} y={0} width={block.width} height={block.height} color={color(block.background, surface.card)} />
           ) : null}
           {block.ops.map((op, i) => (
-            <OpView key={String(i)} op={op} k={String(i)} />
+            <OpView key={String(i)} op={op} k={String(i)} grads={grads} />
           ))}
         </Group>
       </Canvas>
