@@ -12,8 +12,17 @@ import {
   Sora_700Bold,
 } from '@expo-google-fonts/sora';
 import { JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
-import { AuthProvider } from '@/auth';
+import { AuthProvider, useAuth } from '@/auth';
+import { useNotificationRouting } from '@/data/useNotificationRouting';
 import { surface } from '@/theme';
+
+/** Inside AuthProvider + router context: wires notification-tap routing + token
+ *  re-registration once the user is signed in. Renders nothing. */
+function NotificationRouter() {
+  const { status } = useAuth();
+  useNotificationRouting(status === 'signedIn');
+  return null;
+}
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -38,6 +47,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: surface.bgApp }}>
       <SafeAreaProvider>
         <AuthProvider>
+          <NotificationRouter />
           <StatusBar style="light" />
           <Stack
             screenOptions={{

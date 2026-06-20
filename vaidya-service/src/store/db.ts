@@ -49,6 +49,22 @@ export async function ensureTables(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_vaidya_insights_lookup
       ON vaidya_insights (user_id, type, civil_date DESC);
   `);
+  // Expo push tokens — multiple per user (one per device). UNIQUE on the token
+  // so re-registering the same device upserts rather than duplicating.
+  await db().query(`
+    CREATE TABLE IF NOT EXISTS vaidya_push_tokens (
+      id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token TEXT NOT NULL UNIQUE,
+      platform TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+  await db().query(`
+    CREATE INDEX IF NOT EXISTS idx_vaidya_push_tokens_user
+      ON vaidya_push_tokens (user_id);
+  `);
 }
 
 /** Resolve a Firebase/Google uid to the internal user id. */

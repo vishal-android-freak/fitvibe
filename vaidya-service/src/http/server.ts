@@ -11,6 +11,7 @@ import { authUserId, bearer } from "../auth/firebase.js";
 import { latestInsight, type InsightType } from "../store/insights.js";
 import { replaySession } from "../pi/replay.js";
 import { listConversations, conversationMessages } from "../pi/conversations.js";
+import { registerToken, unregisterToken } from "../push/notify.js";
 
 /** Resolve the authenticated user id from the request, or 401. */
 async function requireUser(req: FastifyRequest, reply: FastifyReply): Promise<number | null> {
@@ -90,6 +91,34 @@ export function buildHttpServer(cfg: Config, cwd: string): FastifyInstance {
       reply.send({ messages: await conversationMessages(cwd, req.params.id, limit) });
     },
   );
+
+  // --- push notification token registration (opt-in) ---
+
+  app.post<{ Body: { token?: string; platform?: string } }>(
+    "/vaidya/push/register",
+    async (req, reply) => {
+      const userId = await requireUser(req, reply);
+      if (userId == null) return;
+      const token = req.body?.token;
+      if (!token) {
+        reply.code(400).send({ error: "token required" });
+        return;
+      }
+      try {
+        await registerToken(userId, token, req.body?.platform);
+        reply.send({ ok: true });
+      } catch (e) {
+        reply.code(400).send({ error: String(e) });
+      }
+    },
+  );
+
+  app.post<{ Body: { token?: string } }>("/vaidya/push/unregister", async (req, reply) => {
+    const userId = await requireUser(req, reply);
+    if (userId == null) return;
+    if (req.body?.token) await unregisterToken(req.body.token);
+    reply.send({ ok: true });
+  });
 
   return app;
 }

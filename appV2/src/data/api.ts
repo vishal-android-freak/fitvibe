@@ -28,12 +28,12 @@ export async function apiGetOrNull<T>(path: string, baseUrl?: string): Promise<T
 
 /** PUT/POST `path` with a JSON `body`, authenticated with the Firebase ID
  *  token. Throws on non-2xx. Use for writes (e.g. the sleep schedule). */
-export async function apiSend<T>(method: 'PUT' | 'POST', path: string, body: unknown): Promise<T | null> {
+export async function apiSend<T>(method: 'PUT' | 'POST', path: string, body: unknown, baseUrl?: string): Promise<T | null> {
   let idToken = await getIdToken(false);
-  let res = await doSend(method, path, body, idToken);
+  let res = await doSend(method, path, body, idToken, baseUrl);
   if (res.status === 401) {
     idToken = await getIdToken(true);
-    if (idToken) res = await doSend(method, path, body, idToken);
+    if (idToken) res = await doSend(method, path, body, idToken, baseUrl);
   }
   if (res.status !== 204 && !res.ok) {
     throw new Error(`Request failed (HTTP ${res.status})`);
@@ -42,13 +42,13 @@ export async function apiSend<T>(method: 'PUT' | 'POST', path: string, body: unk
   return (await res.json()) as T;
 }
 
-async function doSend(method: string, path: string, body: unknown, idToken: string | null): Promise<Response> {
+async function doSend(method: string, path: string, body: unknown, idToken: string | null, baseUrl?: string): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (idToken) headers.Authorization = `Bearer ${idToken}`;
   try {
-    return await fetch(`${config.apiBaseUrl}${path}`, { method, headers, body: JSON.stringify(body), signal: controller.signal });
+    return await fetch(`${baseUrl ?? config.apiBaseUrl}${path}`, { method, headers, body: JSON.stringify(body), signal: controller.signal });
   } catch (e: unknown) {
     if (e instanceof Error && e.name === 'AbortError') throw new Error('Request timed out — is the server reachable?');
     throw e instanceof Error ? e : new Error('Network request failed');

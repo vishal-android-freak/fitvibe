@@ -8,6 +8,7 @@ import type { Config } from "../config.js";
 import { activeUserIds, localDate, sleepSessionsForDate } from "../store/db.js";
 import { sleepInsightDataPointIds, latestInsight } from "../store/insights.js";
 import { generateInsight } from "./generate.js";
+import { notifyInsight } from "../push/notify.js";
 
 type Ctx = { cfg: Config; cwd: string; log: (m: string) => void };
 
@@ -27,6 +28,7 @@ export async function runSleepWatch({ cfg, cwd, log }: Ctx): Promise<void> {
           task: `Generate the per-sleep insight for user_id ${userId}, for the sleep session with data_point_id ${dpId} (civil date ${date}). Use real data.`,
         });
         log(`sleep insight u${userId} dp${dpId}: ${r.blockCount} blocks (${r.sessionId})`);
+        await notifyInsight(userId, "sleep", log);
       } catch (err) {
         log(`sleep insight u${userId} dp${dpId} FAILED: ${String(err)}`);
       }
@@ -44,6 +46,7 @@ export async function runTodayInsight({ cfg, cwd, log }: Ctx): Promise<void> {
         task: `Generate the Today headline for user_id ${userId} for ${date}. Use real, current data.`,
       });
       log(`today insight u${userId}: ${r.blockCount} blocks (${r.sessionId})`);
+      await notifyInsight(userId, "today_insight", log);
     } catch (err) {
       log(`today insight u${userId} FAILED: ${String(err)}`);
     }
@@ -65,6 +68,7 @@ export async function runDayInsight({ cfg, cwd, log }: Ctx): Promise<void> {
         task: `Generate the detailed end-of-day report for user_id ${userId} for ${date}. Use real data.`,
       });
       log(`day insight u${userId}: ${r.blockCount} blocks (${r.sessionId})`);
+      await notifyInsight(userId, "day_insight", log);
     } catch (err) {
       log(`day insight u${userId} FAILED: ${String(err)}`);
     }

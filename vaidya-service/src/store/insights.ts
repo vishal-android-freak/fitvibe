@@ -39,11 +39,24 @@ function mapRow(r: any): InsightRow {
     id: Number(r.id),
     userId: Number(r.user_id),
     type: r.type,
-    civilDate: r.civil_date instanceof Date ? r.civil_date.toISOString().slice(0, 10) : String(r.civil_date),
+    civilDate: dateOnly(r.civil_date),
     sleepDataPointId: r.sleep_data_point_id == null ? null : Number(r.sleep_data_point_id),
     piSessionId: r.pi_session_id,
     createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
   };
+}
+
+/** Format a pg DATE as YYYY-MM-DD. pg returns DATE as a JS Date at LOCAL
+ *  midnight, so toISOString() (UTC) shifts it back a day in +TZ offsets — use
+ *  the local calendar components instead. */
+function dateOnly(v: unknown): string {
+  if (v instanceof Date) {
+    const y = v.getFullYear();
+    const m = String(v.getMonth() + 1).padStart(2, "0");
+    const d = String(v.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+  return String(v).slice(0, 10);
 }
 
 /** Latest insight of a type for a user, optionally pinned to a civil date.

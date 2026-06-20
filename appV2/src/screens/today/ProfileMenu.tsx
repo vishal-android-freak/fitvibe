@@ -1,9 +1,14 @@
-import React from 'react';
-import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Alert, Modal, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar, Icon } from '@/components';
 import { useAuth } from '@/auth';
-import { border, font, fontSize, radius, shadow, status, surface, text, tint } from '@/theme';
+import {
+  disableNotifications,
+  enableNotifications,
+  getNotificationsOptIn,
+} from '@/data/notifications';
+import { accent, border, font, fontSize, radius, shadow, status, surface, text, tint } from '@/theme';
 
 /**
  * Profile dropdown shown when the top-right avatar is tapped: account header +
@@ -13,6 +18,38 @@ import { border, font, fontSize, radius, shadow, status, surface, text, tint } f
 export function ProfileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
   const insets = useSafeAreaInsets();
   const { session, signOut } = useAuth();
+  const [notifOn, setNotifOn] = useState(false);
+  const [notifBusy, setNotifBusy] = useState(false);
+
+  useEffect(() => {
+    if (open) void getNotificationsOptIn().then(setNotifOn);
+  }, [open]);
+
+  const toggleNotifications = async (next: boolean) => {
+    setNotifBusy(true);
+    try {
+      if (next) {
+        const ok = await enableNotifications();
+        setNotifOn(ok);
+        if (!ok) {
+          onClose();
+          setTimeout(
+            () =>
+              Alert.alert(
+                'Notifications unavailable',
+                'Enable notification permission for FitVibe (a dev/standalone build on a physical device is required).',
+              ),
+            250,
+          );
+        }
+      } else {
+        await disableNotifications();
+        setNotifOn(false);
+      }
+    } finally {
+      setNotifBusy(false);
+    }
+  };
 
   const confirmSignOut = () => {
     // Close the menu FIRST, then show the alert — an Alert fired while this
@@ -45,6 +82,21 @@ export function ProfileMenu({ open, onClose }: { open: boolean; onClose: () => v
                 </Text>
               ) : null}
             </View>
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.item}>
+            <View style={[styles.itemIcon, { backgroundColor: tint(accent.base, 0.16) }]}>
+              <Icon name="bell" size={16} color={accent.base} />
+            </View>
+            <Text style={[styles.itemLabel, { color: text.primary, flex: 1 }]}>Notifications</Text>
+            <Switch
+              value={notifOn}
+              disabled={notifBusy}
+              onValueChange={(v) => void toggleNotifications(v)}
+              trackColor={{ true: accent.base, false: surface.hover }}
+            />
           </View>
 
           <View style={styles.divider} />
