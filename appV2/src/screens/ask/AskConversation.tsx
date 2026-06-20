@@ -250,7 +250,7 @@ function Welcome() {
   return (
     <View style={styles.welcome}>
       <AIGradient style={styles.welcomeIcon}>
-        <Icon name="sparkles" size={26} color={ai.onGradient} />
+        <Icon name="heart-pulse" size={26} color={ai.onGradient} />
       </AIGradient>
       <Text style={styles.welcomeTitle}>Ask Vaidya</Text>
       <Text style={styles.welcomeBody}>

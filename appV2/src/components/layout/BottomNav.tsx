@@ -18,7 +18,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { key: 'index', icon: 'house', label: 'Today' },
   { key: 'sleep', icon: 'moon', label: 'Sleep' },
-  { key: 'ask', icon: 'sparkles', label: 'Ask', ai: true },
+  { key: 'ask', icon: 'heart-pulse', label: 'Ask', ai: true },
   { key: 'body', icon: 'activity', label: 'Body' },
   { key: 'insights', icon: 'lightbulb', label: 'Insights' },
 ];

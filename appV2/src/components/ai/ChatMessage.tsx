@@ -1,9 +1,9 @@
 import React from 'react';
 import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { AIGradient } from './AIGradient';
-import { Sparkle } from './Sparkle';
+import { Icon } from '@/components/Icon';
 import { MarkdownText } from './MarkdownText';
-import { accent, border, font, fontSize, glow, surface, text } from '@/theme';
+import { ai, accent, border, font, fontSize, glow, surface, text } from '@/theme';
 
 export interface ChatMessageProps {
   role?: 'user' | 'assistant';
@@ -27,10 +27,10 @@ export function ChatMessage({ role = 'assistant', text: body, generative, avatar
         <View style={[styles.row, { flexDirection: isUser ? 'row-reverse' : 'row' }]}>
           {avatar && !isUser && (
             <AIGradient style={styles.avatar}>
-              <Sparkle size={13} />
+              <Icon name="heart-pulse" size={11} color={ai.onGradient} />
             </AIGradient>
           )}
-          <View style={[styles.col, { alignItems: isUser ? 'flex-end' : 'flex-start' }]}>
+          <View style={[isUser ? styles.colUser : styles.colAssistant, { alignItems: isUser ? 'flex-end' : 'stretch' }]}>
             <View
               style={[
                 styles.bubble,
@@ -60,11 +60,14 @@ export function ChatMessage({ role = 'assistant', text: body, generative, avatar
 
 const styles = StyleSheet.create({
   wrap: { gap: 8 },
-  row: { gap: 9, alignItems: 'flex-end' },
-  avatar: { width: 28, height: 28, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
-  col: { maxWidth: '84%', gap: 8 },
+  row: { gap: 8, alignItems: 'flex-end' },
+  avatar: { width: 22, height: 22, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  // Assistant bubble fills the available width (room for markdown); user bubble
+  // hugs its content and stays right-aligned.
+  colAssistant: { flex: 1, gap: 8 },
+  colUser: { maxWidth: '84%', gap: 8 },
   bubble: { paddingVertical: 11, paddingHorizontal: 15, borderRadius: 20 },
   text: { fontSize: fontSize.md, lineHeight: fontSize.md * 1.5 },
   gen: { width: '100%' },
-  genIndent: { paddingLeft: 37 }, // 28 avatar + 9 gap, so blocks align with the bubble
+  genIndent: { paddingLeft: 30 }, // 22 avatar + 8 gap, so blocks align with the bubble
 });

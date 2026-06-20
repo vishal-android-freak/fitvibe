@@ -31,7 +31,7 @@ export function TypingBubble() {
   return (
     <View style={styles.row}>
       <AIGradient style={styles.avatar}>
-        <Icon name="sparkles" size={13} color={ai.onGradient} />
+        <Icon name="heart-pulse" size={11} color={ai.onGradient} />
       </AIGradient>
       <View style={styles.bubble}>
         <Dot delay={0} reduced={reduced} />

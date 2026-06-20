@@ -26,7 +26,7 @@ export function ChatTopBar({
       </Pressable>
       <View style={styles.titleWrap}>
         <AIGradient style={styles.icon}>
-          <Icon name="sparkles" size={13} color={ai.onGradient} />
+          <Icon name="heart-pulse" size={13} color={ai.onGradient} />
         </AIGradient>
         <Text style={styles.title}>{title}</Text>
       </View>
