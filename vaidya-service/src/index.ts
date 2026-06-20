@@ -1,32 +1,39 @@
 /**
- * Vaidya agent service entrypoint.
- *
- * Part A: config + a Fastify /healthz that confirms the model/OAuth resolves.
- * WebSocket chat, insight endpoints, and crons are layered in later parts.
+ * Vaidya agent service entrypoint. Wires the DB, Firebase auth, the HTTP pull
+ * API, the WebSocket chat, and the insight crons.
  */
 
-import Fastify from "fastify";
+// Load .env (Node built-in) before anything reads process.env.
+try {
+  process.loadEnvFile();
+} catch {
+  /* no .env — rely on real env */
+}
+
 import { loadConfig } from "./config.js";
-import { buildProvider } from "./pi/provider.js";
+import { initDb, ensureTables } from "./store/db.js";
+import { initFirebase } from "./auth/firebase.js";
+import { buildHttpServer } from "./http/server.js";
+import { attachChatWs } from "./ws/chat.js";
+import { startCrons } from "./cron/index.js";
 
 async function main() {
   const cfg = loadConfig();
-  const app = Fastify({ logger: true });
+  const cwd = process.cwd();
 
-  app.get("/healthz", async () => {
-    // Confirm the model + OAuth are resolvable (cheap, no LLM call).
-    let model = "unresolved";
-    try {
-      const p = await buildProvider(cfg);
-      model = `${p.model.provider}/${p.model.id}`;
-    } catch (err) {
-      return { ok: false, error: String(err) };
-    }
-    return { ok: true, model };
-  });
+  initDb(cfg.databaseUrl);
+  await ensureTables();
+  initFirebase(cfg);
 
+  const app = buildHttpServer(cfg, cwd);
   await app.listen({ port: cfg.port, host: "0.0.0.0" });
-  app.log.info(`vaidya-service listening on ${cfg.port}`);
+  app.log.info(`vaidya-service HTTP on ${cfg.port}`);
+
+  // WebSocket chat shares the same HTTP server.
+  attachChatWs(app.server, cfg, cwd);
+
+  // Insight cron jobs.
+  startCrons(cfg, cwd);
 }
 
 main().catch((err) => {
