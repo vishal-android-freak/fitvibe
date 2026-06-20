@@ -19,6 +19,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import type { Config } from "../config.js";
 import { buildProvider, type Provider } from "./provider.js";
+import { genUiExtension, type BlockCollector } from "../tools/genui.js";
 
 // The pi-mcp-adapter extension entry (installed via `pi install npm:pi-mcp-adapter`).
 // Its package.json declares pi.extensions = ["./index.ts"]. We load it explicitly
@@ -43,6 +44,9 @@ export interface BuildSessionOpts {
   cwd?: string;
   /** Persist the session (so it can be reopened by id). Defaults to in-memory. */
   sessionManager?: ReturnType<typeof SessionManager.inMemory>;
+  /** Collector for emit_block/emit_canvas output. When provided, the gen-UI
+   *  tools are registered and append validated blocks here in order. */
+  blockCollector?: BlockCollector;
 }
 
 let cachedProvider: Provider | null = null;
@@ -66,6 +70,11 @@ export async function buildSession(cfg: Config, opts: BuildSessionOpts) {
     additionalExtensionPaths: [MCP_ADAPTER_ENTRY],
     // Discover the vaidya-health-schema skill from the service's own .pi/skills.
     additionalSkillPaths: [LOCAL_SKILLS_DIR],
+    // Register the generative-UI tools (emit_block/emit_canvas) when a collector
+    // is provided, so the agent can render blocks into the response.
+    extensionFactories: opts.blockCollector
+      ? [genUiExtension(opts.blockCollector)]
+      : [],
   });
   await resourceLoader.reload();
 
@@ -81,11 +90,14 @@ export async function buildSession(cfg: Config, opts: BuildSessionOpts) {
     // session_start handler that connects to our MCP server. Without this the
     // adapter's `mcp` tool registers but never initializes ("not initialized").
     settingsManager: SettingsManager.create(cwd),
-    // Restrict built-in tools to what the coach needs: `read` (to load the
-    // schema skill / reference files) and `mcp` (the pi-mcp-adapter proxy that
-    // exposes our vaidya-mcp tools — get_sleep, query_health_db, log_*). No
-    // bash/write/edit, so the coach can't shell out or mutate the filesystem.
-    tools: ["read", "mcp"],
+    // Restrict tools to what the coach needs: `read` (to load the schema skill),
+    // `mcp` (the pi-mcp-adapter proxy exposing our vaidya-mcp tools), and the
+    // gen-UI tools when a collector is active. No bash/write/edit so the coach
+    // can't shell out or mutate the filesystem. (The allowlist gates custom
+    // tools too, so the emit_* names must be listed here to be available.)
+    tools: opts.blockCollector
+      ? ["read", "mcp", "emit_block", "emit_canvas"]
+      : ["read", "mcp"],
     sessionManager: opts.sessionManager ?? SessionManager.inMemory(cwd),
   });
 
