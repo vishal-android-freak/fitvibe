@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { KeyboardAvoidingView, useKeyboardState } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AIGradient, ChatMessage, FieldGlow, Icon, type IconName } from '@/components';
 import { BlockList } from '@/components/ai/BlockRenderer';
@@ -46,6 +46,7 @@ export function AskConversation({
   onHistory?: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const keyboardVisible = useKeyboardState().isVisible;
   const [msgs, setMsgs] = useState<Turn[]>(() => (seed ? [{ role: 'user', text: seed }] : []));
   const [typing, setTyping] = useState(false);
   const [input, setInput] = useState('');
@@ -214,7 +215,14 @@ export function AskConversation({
           </View>
         )}
 
-        <View style={[styles.composer, { paddingBottom: Math.max(8, insets.bottom / 2) }]}>
+        <View
+          style={[
+            styles.composer,
+            // Full safe-area inset at rest (clears the home indicator); halved
+            // while the keyboard is open (no home indicator to clear then).
+            { paddingBottom: keyboardVisible ? Math.max(8, insets.bottom / 2) : Math.max(16, insets.bottom) },
+          ]}
+        >
           <Pressable onPress={openAttachMenu} accessibilityLabel="Attach" style={styles.attachBtn} disabled={!ready}>
             <Icon name="plus" size={22} color={ready ? text.primary : text.tertiary} />
           </Pressable>
