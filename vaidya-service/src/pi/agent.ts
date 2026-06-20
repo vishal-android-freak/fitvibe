@@ -30,6 +30,12 @@ const MCP_ADAPTER_ENTRY = join(
   ".pi/agent/npm/node_modules/pi-mcp-adapter/index.ts",
 );
 
+// Everything Pi needs lives under vaidya-service/.pi (skills, mcp config, and —
+// in Docker — the extension), so the whole dir is one mountable unit. The
+// adapter auto-discovers .pi/mcp.json from cwd; we point the skill loader at
+// .pi/skills explicitly.
+const LOCAL_SKILLS_DIR = join(process.cwd(), ".pi", "skills");
+
 export interface BuildSessionOpts {
   systemPrompt: string;
   /** Working dir for the session — must be the vaidya-service dir so the MCP
@@ -58,6 +64,8 @@ export async function buildSession(cfg: Config, opts: BuildSessionOpts) {
     appendSystemPromptOverride: () => [],
     // Load the MCP adapter extension explicitly (full lifecycle).
     additionalExtensionPaths: [MCP_ADAPTER_ENTRY],
+    // Discover the vaidya-health-schema skill from the service's own .pi/skills.
+    additionalSkillPaths: [LOCAL_SKILLS_DIR],
   });
   await resourceLoader.reload();
 
