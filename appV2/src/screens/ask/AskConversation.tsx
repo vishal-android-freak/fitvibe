@@ -260,7 +260,9 @@ function Welcome() {
       <View style={styles.examples}>
         {examples.map((e) => (
           <View key={e.title} style={styles.example}>
-            <Icon name={e.icon} size={18} color={accent.base} />
+            <View style={styles.exampleIcon}>
+              <Icon name={e.icon} size={18} color={accent.base} />
+            </View>
             <View style={styles.exampleText}>
               <Text style={styles.exampleTitle}>{e.title}</Text>
               <Text style={styles.exampleBody}>{e.body}</Text>
@@ -298,8 +300,11 @@ const styles = StyleSheet.create({
   welcomeBody: { fontFamily: font.sansRegular, fontSize: fontSize.sm, lineHeight: fontSize.sm * 1.55, color: text.secondary, textAlign: 'center', maxWidth: 320 },
   examples: { alignSelf: 'stretch', gap: 12, marginTop: 12 },
   example: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', backgroundColor: surface.card, borderWidth: 1, borderColor: border.subtle, borderRadius: radius.lg, padding: 14 },
+  // Match the title's first-line height so the icon centers on the title, not the
+  // top of the whole text block.
+  exampleIcon: { height: fontSize.base * 1.4, alignItems: 'center', justifyContent: 'center' },
   exampleText: { flex: 1, gap: 2 },
-  exampleTitle: { fontFamily: font.sansSemibold, fontSize: fontSize.base, color: text.primary },
+  exampleTitle: { fontFamily: font.sansSemibold, fontSize: fontSize.base, lineHeight: fontSize.base * 1.4, color: text.primary },
   exampleBody: { fontFamily: font.sansRegular, fontSize: fontSize.sm, color: text.muted },
   composer: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 12 },
   attachBtn: { width: 40, height: 48, alignItems: 'center', justifyContent: 'center' },
