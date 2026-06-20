@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { ScreenContainer, Screen } from '@/components';
+import { BlockList } from '@/components/ai/BlockRenderer';
+import { useDayInsight } from '@/data/vaidya';
 import { font, fontSize, text } from '@/theme';
 import { Spotlight } from './Spotlight';
 import { WeeklyRecap } from './WeeklyRecap';
@@ -20,6 +22,8 @@ export function InsightsScreen() {
   const ask = (seed: string) => router.push({ pathname: '/ask', params: { seed } });
 
   const list = INSIGHTS.filter((i) => cat === 'all' || i.cat === cat);
+  const day = useDayInsight();
+  const dayBlocks = day.data?.blocks ?? [];
 
   return (
     <ScreenContainer>
@@ -28,6 +32,13 @@ export function InsightsScreen() {
           <Text style={styles.title}>Insights</Text>
           <Text style={styles.subtitle}>Derived from your Google Health data</Text>
         </View>
+
+        {dayBlocks.length > 0 && (
+          <View style={styles.dayReport}>
+            <Text style={styles.groupLabel}>TODAY'S REPORT</Text>
+            <BlockList blocks={dayBlocks} />
+          </View>
+        )}
 
         <Spotlight onAsk={ask} />
 
@@ -64,6 +75,7 @@ const styles = StyleSheet.create({
   header: { paddingTop: 12, marginBottom: 16 },
   title: { fontFamily: font.display, fontSize: fontSize['2xl'], letterSpacing: -0.4, color: text.primary },
   subtitle: { fontFamily: font.sansRegular, fontSize: fontSize.sm, color: text.muted, marginTop: 4 },
+  dayReport: { marginBottom: 8 },
   recap: { marginTop: 14 },
   filters: { marginTop: 18, marginBottom: 4 },
   groupLabel: { fontFamily: font.sansBold, fontSize: fontSize['2xs'], letterSpacing: 1.6, color: text.tertiary, marginTop: 16, marginBottom: 11, paddingHorizontal: 2 },

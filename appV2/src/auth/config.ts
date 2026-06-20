@@ -8,6 +8,9 @@ import Constants from 'expo-constants';
 export const config = {
   /** FitVibe Go backend base URL (no trailing slash). */
   apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:8080',
+  /** Vaidya agent service base URL. In prod nginx fronts both Go and Vaidya at
+   *  one origin, so set this equal to apiBaseUrl; in dev they're separate ports. */
+  vaidyaBaseUrl: process.env.EXPO_PUBLIC_VAIDYA_BASE_URL ?? 'http://localhost:8090',
 };
 
 /** The app's custom URL scheme — single source is app.json's `scheme`. */
