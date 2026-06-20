@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { useFonts } from 'expo-font';
 import {
   Sora_400Regular,
@@ -45,8 +46,9 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: surface.bgApp }}>
-      <SafeAreaProvider>
-        <AuthProvider>
+      <KeyboardProvider>
+        <SafeAreaProvider>
+          <AuthProvider>
           <NotificationRouter />
           <StatusBar style="light" />
           <Stack
@@ -63,8 +65,9 @@ export default function RootLayout() {
             <Stack.Screen name="history" options={{ presentation: 'modal' }} />
             <Stack.Screen name="analysis/[id]" options={{ presentation: 'modal' }} />
           </Stack>
-        </AuthProvider>
-      </SafeAreaProvider>
+          </AuthProvider>
+        </SafeAreaProvider>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }

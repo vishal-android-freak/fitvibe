@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActionSheetIOS,
   Image,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -11,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AIGradient, ChatMessage, FieldGlow, Icon, type IconName } from '@/components';
 import { BlockList } from '@/components/ai/BlockRenderer';
@@ -174,7 +174,7 @@ export function AskConversation({
   return (
     <FieldGlow>
       <ChatTopBar title="Ask Vaidya" onClose={onClose} back topInset={insets.top} onHistory={onHistory} />
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={styles.flex} behavior="padding">
         <ScrollView ref={scrollRef} style={styles.flex} contentContainerStyle={styles.messages} showsVerticalScrollIndicator={false}>
           {msgs.length === 0 && !typing && <Welcome />}
           {msgs.map((m, i) => (
