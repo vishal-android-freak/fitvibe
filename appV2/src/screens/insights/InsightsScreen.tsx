@@ -1,71 +1,46 @@
-import React, { useState } from 'react';
-import { useRouter } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import React from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { ScreenContainer, Screen } from '@/components';
 import { BlockList } from '@/components/ai/BlockRenderer';
 import { useDayInsight } from '@/data/vaidya';
-import { font, fontSize, text } from '@/theme';
-import { Spotlight } from './Spotlight';
-import { WeeklyRecap } from './WeeklyRecap';
-import { FilterChips } from './FilterChips';
-import { InsightFeedCard } from './InsightFeedCard';
-import { GROUPS, INSIGHTS, type CatId } from './data';
+import { accent, font, fontSize, text } from '@/theme';
 
 /**
- * The Insights feed — header → spotlight → weekly recap → category filter →
- * recency-grouped feed of derived insights. Tapping a card opens Ask FitVibe
- * seeded with a tailored question. Composes independent sections.
+ * The Insights feed — Vaidya's nightly detailed day report, rendered live as a
+ * sequence of generative blocks (insight cards with correlations/trends/flags +
+ * supporting charts). Empty/loading states until the nightly report is generated.
  */
 export function InsightsScreen() {
-  const router = useRouter();
-  const [cat, setCat] = useState<CatId>('all');
-  const ask = (seed: string) => router.push({ pathname: '/ask', params: { seed } });
-
-  const list = INSIGHTS.filter((i) => cat === 'all' || i.cat === cat);
-  const day = useDayInsight();
-  const dayBlocks = day.data?.blocks ?? [];
+  const { data, loading } = useDayInsight();
+  const blocks = data?.blocks ?? [];
 
   return (
     <ScreenContainer>
       <Screen>
         <View style={styles.header}>
           <Text style={styles.title}>Insights</Text>
-          <Text style={styles.subtitle}>Derived from your Google Health data</Text>
+          <Text style={styles.subtitle}>
+            {data?.date ? `Your day, analyzed · ${data.date}` : 'Derived from your Google Health data'}
+          </Text>
         </View>
 
-        {dayBlocks.length > 0 && (
-          <View style={styles.dayReport}>
-            <Text style={styles.groupLabel}>TODAY'S REPORT</Text>
-            <BlockList blocks={dayBlocks} />
+        {blocks.length > 0 ? (
+          <BlockList blocks={blocks} />
+        ) : (
+          <View style={styles.placeholder}>
+            {loading ? (
+              <ActivityIndicator color={accent.base} />
+            ) : (
+              <>
+                <Text style={styles.emptyTitle}>Your daily report is being prepared</Text>
+                <Text style={styles.emptyBody}>
+                  Vaidya analyzes your day each evening — correlations, trends, and what to act on.
+                  Check back tonight.
+                </Text>
+              </>
+            )}
           </View>
         )}
-
-        <Spotlight onAsk={ask} />
-
-        <View style={styles.recap}>
-          <WeeklyRecap />
-        </View>
-
-        <View style={styles.filters}>
-          <FilterChips value={cat} onChange={setCat} />
-        </View>
-
-        {GROUPS.map((g) => {
-          const items = list.filter((i) => i.group === g.id);
-          if (!items.length) return null;
-          return (
-            <View key={g.id}>
-              <Text style={styles.groupLabel}>{g.label.toUpperCase()}</Text>
-              <View style={styles.feed}>
-                {items.map((i) => (
-                  <InsightFeedCard key={i.id} insight={i} onAsk={ask} />
-                ))}
-              </View>
-            </View>
-          );
-        })}
-
-        {list.length === 0 && <Text style={styles.empty}>No insights in this category yet.</Text>}
       </Screen>
     </ScreenContainer>
   );
@@ -75,10 +50,7 @@ const styles = StyleSheet.create({
   header: { paddingTop: 12, marginBottom: 16 },
   title: { fontFamily: font.display, fontSize: fontSize['2xl'], letterSpacing: -0.4, color: text.primary },
   subtitle: { fontFamily: font.sansRegular, fontSize: fontSize.sm, color: text.muted, marginTop: 4 },
-  dayReport: { marginBottom: 8 },
-  recap: { marginTop: 14 },
-  filters: { marginTop: 18, marginBottom: 4 },
-  groupLabel: { fontFamily: font.sansBold, fontSize: fontSize['2xs'], letterSpacing: 1.6, color: text.tertiary, marginTop: 16, marginBottom: 11, paddingHorizontal: 2 },
-  feed: { gap: 12 },
-  empty: { textAlign: 'center', fontFamily: font.sansRegular, fontSize: fontSize.sm, color: text.muted, paddingVertical: 40 },
+  placeholder: { minHeight: 220, alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 40 },
+  emptyTitle: { fontFamily: font.sansSemibold, fontSize: fontSize.md, color: text.secondary },
+  emptyBody: { fontFamily: font.sansRegular, fontSize: fontSize.sm, color: text.muted, textAlign: 'center', maxWidth: 300, lineHeight: fontSize.sm * 1.5 },
 });

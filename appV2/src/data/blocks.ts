@@ -37,6 +37,27 @@ export interface DaySummaryBlock {
   body: Seg[];
 }
 
+export type InsightVizSpec =
+  | { kind: 'spark'; data: number[]; hue: string }
+  | { kind: 'bars'; data: number[]; labels: string[]; hue: string }
+  | { kind: 'streak'; filled: number; total: number; hue: string }
+  | { kind: 'ring'; value: number; hue: string; center: string };
+export interface ProvItemSpec {
+  icon: string;
+  label: string;
+  hue: string;
+}
+export interface InsightCardBlock {
+  kind: 'insight_card';
+  insightType: 'trend' | 'correlation' | 'flag' | 'achievement' | 'tip' | 'comparison';
+  category: 'recovery' | 'sleep' | 'heart' | 'activity' | 'nutrition';
+  headline: string;
+  body: Seg[];
+  viz?: InsightVizSpec;
+  provenance?: ProvItemSpec[];
+  seed?: string;
+}
+
 // --- Tier 2: primitive evidence blocks ---
 export interface HypnogramBlock {
   kind: 'hypnogram';
@@ -141,6 +162,7 @@ export type GenerativeBlock =
   | TodayHeadlineBlock
   | SleepInsightBlock
   | DaySummaryBlock
+  | InsightCardBlock
   | HypnogramBlock
   | SparklineBlock
   | BarsBlock

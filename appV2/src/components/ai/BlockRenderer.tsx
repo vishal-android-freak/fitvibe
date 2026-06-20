@@ -16,6 +16,7 @@ import {
   StreakDots,
 } from '@/components';
 import { CanvasBlock } from './CanvasBlock';
+import { InsightCardBlockView } from './InsightCardBlockView';
 import { font, fontSize, layout, space, text as textTok } from '@/theme';
 import type { BadgeSpec, GenerativeBlock } from '@/data/blocks';
 
@@ -62,6 +63,8 @@ export function BlockRenderer({ block }: { block: GenerativeBlock }) {
           <RichText segs={block.body} />
         </InsightCard>
       );
+    case 'insight_card':
+      return <InsightCardBlockView block={block} />;
 
     // --- Tier 2: primitive evidence blocks ---
     case 'hypnogram':

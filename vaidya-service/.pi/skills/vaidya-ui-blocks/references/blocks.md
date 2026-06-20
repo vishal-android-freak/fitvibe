@@ -40,6 +40,28 @@ All examples below show the inner block object.
             { "t": " — room to move more tomorrow." } ] }
 ```
 
+### insight_card — a full Insights-feed card (type + headline + body + viz + provenance)
+For the nightly Insights feed. Each is a typed, categorized finding.
+```json
+{ "kind": "insight_card",
+  "insightType": "correlation",
+  "category": "sleep",
+  "headline": "Late dinners cost you deep sleep",
+  "body": [ { "t": "On the " }, { "t": "4 nights you ate after 9 PM", "b": true },
+            { "t": ", deep sleep averaged " }, { "t": "22% lower", "b": true }, { "t": "." } ],
+  "viz": { "kind": "bars", "data": [78, 61], "labels": ["Early", "Late"], "hue": "sleep" },
+  "provenance": [ { "icon": "utensils", "label": "Meal times", "hue": "nutrition" },
+                  { "icon": "moon", "label": "Deep sleep", "hue": "sleep" } ],
+  "seed": "How are late meals affecting my deep sleep?" }
+```
+- `insightType`: trend | correlation | flag | achievement | tip | comparison.
+- `category`: recovery | sleep | heart | activity | nutrition.
+- `viz` (optional but recommended): kind ∈ spark {data,hue} | bars {data,labels,hue} |
+  streak {filled,total,hue} | ring {value 0–1,hue,center}.
+- `provenance` (optional): the metrics it's derived from. Icons: heart, activity,
+  moon, utensils, footprints, flame, glass-water, battery-charging, gauge, timer.
+- `seed` (optional): a follow-up question for the "Ask about this" tap.
+
 ---
 
 ## Evidence blocks (map 1:1 to app charts)

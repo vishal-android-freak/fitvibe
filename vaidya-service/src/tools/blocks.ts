@@ -58,6 +58,27 @@ const DaySummary = z.object({
   body: z.array(Seg),
 });
 
+// A full insight-feed card (the Insights tab): a typed, categorized finding with
+// a headline, rich-text body citing real numbers, an inline viz, and provenance.
+const InsightViz = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("spark"), data: z.array(z.number()), hue: Hue }),
+  z.object({ kind: z.literal("bars"), data: z.array(z.number()), labels: z.array(z.string()), hue: Hue }),
+  z.object({ kind: z.literal("streak"), filled: z.number().int(), total: z.number().int(), hue: Hue }),
+  z.object({ kind: z.literal("ring"), value: z.number().min(0).max(1), hue: Hue, center: z.string() }),
+]);
+const ProvItem = z.object({ icon: z.string(), label: z.string(), hue: Hue });
+
+const InsightCard = z.object({
+  kind: z.literal("insight_card"),
+  insightType: z.enum(["trend", "correlation", "flag", "achievement", "tip", "comparison"]),
+  category: z.enum(["recovery", "sleep", "heart", "activity", "nutrition"]),
+  headline: z.string(),
+  body: z.array(Seg),
+  viz: InsightViz.optional(),
+  provenance: z.array(ProvItem).optional(), // which metrics this is derived from
+  seed: z.string().optional(), // an "ask about this" follow-up question
+});
+
 // --- Tier 2: primitive evidence blocks ------------------------------------
 
 const Hypnogram = z.object({
@@ -277,6 +298,7 @@ export const GenerativeBlock = z.discriminatedUnion("kind", [
   TodayHeadline,
   SleepInsight,
   DaySummary,
+  InsightCard,
   Hypnogram,
   Sparkline,
   Bars,
