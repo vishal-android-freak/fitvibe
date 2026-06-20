@@ -7,7 +7,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
-import { readAsStringAsync, EncodingType } from 'expo-file-system/legacy';
 import type { ChatAttachment } from '@/data/vaidya';
 
 const MAX_IMAGE_DIM = 1280; // resize longest edge before base64 (keep payload sane)
@@ -50,20 +49,20 @@ export async function captureImage(): Promise<ChatAttachment[]> {
   return Promise.all(res.assets.map((a) => imageToAttachment(a.uri)));
 }
 
-/** Pick files. Text-readable files send their contents; others attach by name. */
+/** Pick files. Text-readable files send their contents (base64 from the picker,
+ *  decoded server-side); image files are routed through image compression. */
 export async function pickFiles(): Promise<ChatAttachment[]> {
-  const res = await DocumentPicker.getDocumentAsync({ multiple: true, copyToCacheDirectory: true });
+  const res = await DocumentPicker.getDocumentAsync({
+    multiple: true,
+    copyToCacheDirectory: true,
+    base64: true,
+  });
   if (res.canceled) return [];
   const out: ChatAttachment[] = [];
   for (const a of res.assets) {
     const isText = (a.mimeType?.startsWith('text/') ?? false) || TEXT_EXT.test(a.name ?? '');
-    if (isText) {
-      try {
-        const content = await readAsStringAsync(a.uri, { encoding: EncodingType.UTF8 });
-        out.push({ kind: 'text', mimeType: a.mimeType ?? 'text/plain', name: a.name, data: btoa(unescape(encodeURIComponent(content))) });
-      } catch {
-        /* skip unreadable */
-      }
+    if (isText && a.base64) {
+      out.push({ kind: 'text', mimeType: a.mimeType ?? 'text/plain', name: a.name, data: a.base64 });
     } else if (a.mimeType?.startsWith('image/')) {
       out.push(await imageToAttachment(a.uri));
     }
