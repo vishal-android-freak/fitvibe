@@ -214,7 +214,7 @@ export function AskConversation({
           </View>
         )}
 
-        <View style={[styles.composer, { paddingBottom: Math.max(16, insets.bottom) }]}>
+        <View style={[styles.composer, { paddingBottom: Math.max(8, insets.bottom / 2) }]}>
           <Pressable onPress={openAttachMenu} accessibilityLabel="Attach" style={styles.attachBtn} disabled={!ready}>
             <Icon name="plus" size={22} color={ready ? text.primary : text.tertiary} />
           </Pressable>
