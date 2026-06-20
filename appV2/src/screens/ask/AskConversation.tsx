@@ -27,7 +27,9 @@ import { ChatTopBar } from './ChatTopBar';
 import { ReplyChip } from './ReplyChip';
 import { TypingBubble } from './TypingBubble';
 import { FOLLOWUPS } from './data';
-import { captureImage, pickFiles, pickImages } from './attachments';
+import { attachmentsAvailable, captureImage, pickFiles, pickImages } from './attachments';
+
+const CAN_ATTACH = attachmentsAvailable();
 
 interface Turn {
   role: 'user' | 'assistant';
@@ -226,9 +228,11 @@ export function AskConversation({
         )}
 
         <View style={[styles.composer, { paddingBottom: Math.max(16, insets.bottom) }]}>
-          <Pressable onPress={openAttachMenu} accessibilityLabel="Attach" style={styles.attachBtn} disabled={!ready}>
-            <Icon name="plus" size={22} color={ready ? text.primary : text.tertiary} />
-          </Pressable>
+          {CAN_ATTACH && (
+            <Pressable onPress={openAttachMenu} accessibilityLabel="Attach" style={styles.attachBtn} disabled={!ready}>
+              <Icon name="plus" size={22} color={ready ? text.primary : text.tertiary} />
+            </Pressable>
+          )}
           <TextInput
             value={input}
             onChangeText={setInput}
