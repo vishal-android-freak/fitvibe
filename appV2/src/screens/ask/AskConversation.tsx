@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AIGradient, ChatMessage, FieldGlow, Icon } from '@/components';
+import { AIGradient, ChatMessage, FieldGlow, Icon, type IconName } from '@/components';
 import { BlockList } from '@/components/ai/BlockRenderer';
 import {
   openChat,
@@ -22,11 +22,9 @@ import {
   type ChatSocket,
 } from '@/data/vaidya';
 import type { GenerativeBlock } from '@/data/blocks';
-import { ai, border, glow, radius, surface, text } from '@/theme';
+import { accent, ai, border, font, fontSize, glow, radius, surface, text } from '@/theme';
 import { ChatTopBar } from './ChatTopBar';
-import { ReplyChip } from './ReplyChip';
 import { TypingBubble } from './TypingBubble';
-import { FOLLOWUPS } from './data';
 import { captureImage, pickFiles, pickImages } from './attachments';
 
 interface Turn {
@@ -178,6 +176,7 @@ export function AskConversation({
       <ChatTopBar title="Ask Vaidya" onClose={onClose} back topInset={insets.top} onHistory={onHistory} />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView ref={scrollRef} style={styles.flex} contentContainerStyle={styles.messages} showsVerticalScrollIndicator={false}>
+          {msgs.length === 0 && !typing && <Welcome />}
           {msgs.map((m, i) => (
             <ChatMessage
               key={i}
@@ -215,16 +214,6 @@ export function AskConversation({
           </View>
         )}
 
-        {msgs.length === 0 && (
-          <View style={styles.followups}>
-            {FOLLOWUPS.map((f) => (
-              <ReplyChip key={f} onPress={() => send(f)}>
-                {f}
-              </ReplyChip>
-            ))}
-          </View>
-        )}
-
         <View style={[styles.composer, { paddingBottom: Math.max(16, insets.bottom) }]}>
           <Pressable onPress={openAttachMenu} accessibilityLabel="Attach" style={styles.attachBtn} disabled={!ready}>
             <Icon name="plus" size={22} color={ready ? text.primary : text.tertiary} />
@@ -250,6 +239,39 @@ export function AskConversation({
   );
 }
 
+/** Empty-state welcome shown before the first message — what Vaidya can do. */
+function Welcome() {
+  const examples: { icon: IconName; title: string; body: string }[] = [
+    { icon: 'moon', title: 'Understand your sleep', body: '“Why did I wake up so often last night?”' },
+    { icon: 'activity', title: 'Track recovery & readiness', body: '“Am I recovered enough to train hard today?”' },
+    { icon: 'trending-up', title: 'Spot trends & correlations', body: '“How do late dinners affect my deep sleep?”' },
+    { icon: 'utensils', title: 'Log meals, water & weight', body: '“Log 2 rotis and dal for lunch.”' },
+  ];
+  return (
+    <View style={styles.welcome}>
+      <AIGradient style={styles.welcomeIcon}>
+        <Icon name="sparkles" size={26} color={ai.onGradient} />
+      </AIGradient>
+      <Text style={styles.welcomeTitle}>Ask Vaidya</Text>
+      <Text style={styles.welcomeBody}>
+        Your AI health coach. I read your real Google Health data — sleep, HRV, heart rate, activity,
+        nutrition — and answer grounded in your own numbers. Attach a photo or report to discuss it.
+      </Text>
+      <View style={styles.examples}>
+        {examples.map((e) => (
+          <View key={e.title} style={styles.example}>
+            <Icon name={e.icon} size={18} color={accent.base} />
+            <View style={styles.exampleText}>
+              <Text style={styles.exampleTitle}>{e.title}</Text>
+              <Text style={styles.exampleBody}>{e.body}</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 /** Thumbnails for a sent message's attachments. */
 function AttachmentRow({ items }: { items: ChatAttachment[] }) {
   return (
@@ -269,8 +291,16 @@ function AttachmentRow({ items }: { items: ChatAttachment[] }) {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  messages: { padding: 16, gap: 14 },
-  followups: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', paddingHorizontal: 16, paddingTop: 8 },
+  messages: { padding: 16, gap: 14, flexGrow: 1 },
+  welcome: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 32, gap: 12 },
+  welcomeIcon: { width: 56, height: 56, borderRadius: 999, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  welcomeTitle: { fontFamily: font.display, fontSize: fontSize.xl, color: text.primary },
+  welcomeBody: { fontFamily: font.sansRegular, fontSize: fontSize.sm, lineHeight: fontSize.sm * 1.55, color: text.secondary, textAlign: 'center', maxWidth: 320 },
+  examples: { alignSelf: 'stretch', gap: 12, marginTop: 12 },
+  example: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', backgroundColor: surface.card, borderWidth: 1, borderColor: border.subtle, borderRadius: radius.lg, padding: 14 },
+  exampleText: { flex: 1, gap: 2 },
+  exampleTitle: { fontFamily: font.sansSemibold, fontSize: fontSize.base, color: text.primary },
+  exampleBody: { fontFamily: font.sansRegular, fontSize: fontSize.sm, color: text.muted },
   composer: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 12 },
   attachBtn: { width: 40, height: 48, alignItems: 'center', justifyContent: 'center' },
   input: { flex: 1, height: 48, paddingHorizontal: 18, borderRadius: 999, borderWidth: 1, borderColor: border.strong, backgroundColor: surface.card, color: text.primary, fontFamily: 'Sora_500Medium', fontSize: 17 },
