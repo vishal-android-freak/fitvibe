@@ -53,34 +53,91 @@ export function useDayInsight(date?: string): InsightState {
   return useResource(() => fetchDayInsight(date), [date]);
 }
 
+// --- Conversation history -------------------------------------------------
+
+export interface ConversationSummary {
+  id: string;
+  title: string;
+  lastAt: string;
+  preview: string;
+}
+export interface ConversationMessage {
+  role: 'user' | 'assistant';
+  text: string;
+  blocks?: GenerativeBlock[];
+}
+
+/** Last 7 days of conversations, newest first. */
+export async function fetchConversations(): Promise<ConversationSummary[]> {
+  try {
+    const r = await apiGetOrNull<{ conversations: ConversationSummary[] }>(
+      '/vaidya/conversations',
+      config.vaidyaBaseUrl,
+    );
+    return r?.conversations ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** The last `limit` messages of a conversation, oldest→newest. */
+export async function fetchConversationMessages(
+  id: string,
+  limit = 50,
+): Promise<ConversationMessage[]> {
+  try {
+    const r = await apiGetOrNull<{ messages: ConversationMessage[] }>(
+      `/vaidya/conversations/${id}/messages?limit=${limit}`,
+      config.vaidyaBaseUrl,
+    );
+    return r?.messages ?? [];
+  } catch {
+    return [];
+  }
+}
+
 // --- Live chat over WebSocket ---------------------------------------------
 
 export type ChatFrame =
+  | { type: 'ready'; conversationId: string }
   | { type: 'token'; delta: string }
   | { type: 'block'; block: GenerativeBlock }
   | { type: 'tool'; name: string }
   | { type: 'done' }
   | { type: 'error'; message: string };
 
+/** A message attachment sent to the chat. image -> shown to the model natively;
+ *  text -> file contents are appended to the message. */
+export interface ChatAttachment {
+  kind: 'image' | 'text';
+  mimeType: string;
+  name?: string;
+  data: string; // base64
+}
+
 export interface ChatSocket {
-  send: (message: string) => void;
+  send: (message: string, attachments?: ChatAttachment[]) => void;
   close: () => void;
 }
 
 /**
  * Open a Vaidya chat WebSocket. The Firebase ID token is passed as a query param
- * (RN WebSocket can't set Authorization headers reliably). `onFrame` receives
- * each streamed frame; `onOpen`/`onClose` are lifecycle callbacks.
+ * (RN WebSocket can't set Authorization headers reliably). Pass `conversationId`
+ * to resume an existing conversation. `onFrame` receives each streamed frame.
  */
 export async function openChat(handlers: {
   onFrame: (f: ChatFrame) => void;
   onOpen?: () => void;
   onClose?: (code: number) => void;
+  conversationId?: string;
 }): Promise<ChatSocket> {
   const token = await getIdToken(false);
   const base = config.vaidyaBaseUrl.replace(/^http/, 'ws');
-  const url = `${base}/vaidya/chat${token ? `?token=${encodeURIComponent(token)}` : ''}`;
-  const ws = new WebSocket(url);
+  const params = new URLSearchParams();
+  if (token) params.set('token', token);
+  if (handlers.conversationId) params.set('conversationId', handlers.conversationId);
+  const qs = params.toString();
+  const ws = new WebSocket(`${base}/vaidya/chat${qs ? `?${qs}` : ''}`);
 
   ws.onopen = () => handlers.onOpen?.();
   ws.onmessage = (ev) => {
@@ -93,7 +150,8 @@ export async function openChat(handlers: {
   ws.onclose = (ev) => handlers.onClose?.(ev.code);
 
   return {
-    send: (message: string) => ws.send(JSON.stringify({ message })),
+    send: (message: string, attachments?: ChatAttachment[]) =>
+      ws.send(JSON.stringify({ message, attachments })),
     close: () => ws.close(),
   };
 }

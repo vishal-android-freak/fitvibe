@@ -17,7 +17,7 @@ import {
 } from '@/components';
 import { CanvasBlock } from './CanvasBlock';
 import { InsightCardBlockView } from './InsightCardBlockView';
-import { font, fontSize, layout, space, text as textTok } from '@/theme';
+import { font, fontSize, layout, resolveHue, space, text as textTok } from '@/theme';
 import type { BadgeSpec, GenerativeBlock } from '@/data/blocks';
 
 /**
@@ -25,6 +25,28 @@ import type { BadgeSpec, GenerativeBlock } from '@/data/blocks';
  * AI InsightCard; primitive blocks map 1:1 to the data components; `canvas`
  * draws with Skia. Unknown kinds render nothing (forward-compatible).
  */
+
+/** Color-bearing keys whose values may be a hue TOKEN ("mind") rather than hex.
+ *  Components (Sparkline/charts/SVG) need real hex, so we resolve them up front. */
+const HUE_KEYS = new Set(['hue', 'color', 'stroke', 'fill', 'background']);
+
+/** Deep-clone a block, resolving any hue-token value to hex. Skips gradient
+ *  references (url(#id)) and non-token strings pass through unchanged. */
+function resolveHues<T>(value: T): T {
+  if (Array.isArray(value)) return value.map((v) => resolveHues(v)) as unknown as T;
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (typeof v === 'string' && HUE_KEYS.has(k) && !v.startsWith('url(')) {
+        out[k] = resolveHue(v);
+      } else {
+        out[k] = resolveHues(v);
+      }
+    }
+    return out as T;
+  }
+  return value;
+}
 
 function badges(list: BadgeSpec[] | undefined) {
   if (!list?.length) return null;
@@ -81,8 +103,12 @@ export function BlockRenderer({ block }: { block: GenerativeBlock }) {
     }
     case 'stat_tile_grid':
       return <StatTileGrid tiles={block.tiles} columns={block.columns} />;
-    case 'readiness_card':
-      return <ReadinessCard score={block.score} caption={block.caption} hue={block.hue} factors={block.factors} />;
+    case 'readiness_card': {
+      // The agent sometimes can't compute a numeric score; clamp to a safe number
+      // so the ring renders (0 reads as "no score yet" rather than crashing).
+      const score = typeof block.score === 'number' && isFinite(block.score) ? block.score : 0;
+      return <ReadinessCard score={score} caption={block.caption} hue={block.hue} factors={block.factors} />;
+    }
     case 'recovery_signals':
       return <RecoverySignals signals={block.signals} labels={block.labels} />;
     case 'streak_dots':
@@ -107,12 +133,33 @@ export function BlockRenderer({ block }: { block: GenerativeBlock }) {
   }
 }
 
+/** Error boundary that isolates a single block: if it throws during render, we
+ *  log which block + the error and render nothing for it, so the siblings still
+ *  show (instead of the whole feed collapsing). */
+class SafeBlock extends React.Component<
+  { block: GenerativeBlock; index: number },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(err: unknown) {
+    // eslint-disable-next-line no-console
+    console.warn(`[BlockRenderer] block #${this.props.index} (${this.props.block.kind}) threw:`, err);
+  }
+  render() {
+    if (this.state.failed) return null;
+    return <BlockRenderer block={resolveHues(this.props.block)} />;
+  }
+}
+
 /** Render an ordered list of blocks with consistent vertical spacing. */
 export function BlockList({ blocks }: { blocks: GenerativeBlock[] }) {
   return (
     <View style={styles.list}>
       {blocks.map((b, i) => (
-        <BlockRenderer key={i} block={b} />
+        <SafeBlock key={i} block={b} index={i} />
       ))}
     </View>
   );

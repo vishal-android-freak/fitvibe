@@ -1,16 +1,21 @@
 /**
- * WebSocket live chat. The app connects with a Firebase ID token, then sends
- * user messages; we run them through a persistent per-connection Pi session
- * (chat prompt + MCP tools + gen-UI tools) and stream the response back:
- *   { type: "token", delta }        — streamed assistant text
- *   { type: "block", block }        — a generative-UI block as it's emitted
- *   { type: "tool", name }          — a tool call started (for a "thinking" UI)
- *   { type: "done" }                — turn complete
+ * WebSocket live chat. The app connects with a Firebase ID token (and optionally
+ * a conversationId to resume), then sends user messages with optional
+ * attachments. We run them through a persistent Pi session (chat prompt + MCP +
+ * gen-UI tools) and stream the response back:
+ *   { type: "ready", conversationId }  — sent on connect (the session id)
+ *   { type: "token", delta }           — streamed assistant text
+ *   { type: "block", block }           — a generative-UI block (after the turn)
+ *   { type: "tool", name }             — a tool call started ("thinking" UI)
+ *   { type: "done" }                   — turn complete
  *   { type: "error", message }
  *
- * Auth: token via the `Authorization` header or a `?token=` query param on the
- * upgrade request. One Pi session per socket (conversation), persisted so it can
- * be resumed/replayed.
+ * Inbound message frame: { message: string, attachments?: Attachment[] }.
+ *   Attachment = { kind:'image'|'text', mimeType, name, data(base64) }.
+ *   - image -> ImageContent passed to prompt({ images }); multiple supported.
+ *   - text  -> base64-decoded and appended to the message as a fenced block.
+ *
+ * Auth: token via the Authorization header or ?token=. Resume: ?conversationId=.
  */
 
 import { IncomingMessage, type Server } from "node:http";
@@ -22,15 +27,61 @@ import { buildSession } from "../pi/agent.js";
 import { loadPrompt } from "../prompts/load.js";
 import { BlockCollector } from "../tools/genui.js";
 
+interface Attachment {
+  kind: "image" | "text";
+  mimeType: string;
+  name?: string;
+  data: string; // base64
+}
+interface ImageContent {
+  type: "image";
+  data: string;
+  mimeType: string;
+}
+
+function queryParam(req: IncomingMessage, key: string): string | null {
+  return new URL(req.url ?? "", "http://localhost").searchParams.get(key);
+}
+
 function tokenFromReq(req: IncomingMessage): string | null {
-  const fromHeader = bearer(req.headers.authorization);
-  if (fromHeader) return fromHeader;
-  const url = new URL(req.url ?? "", "http://localhost");
-  return url.searchParams.get("token");
+  return bearer(req.headers.authorization) ?? queryParam(req, "token");
 }
 
 function send(ws: WebSocket, msg: unknown) {
   if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(msg));
+}
+
+/** Build the prompt text + image list from a message + its attachments. */
+function buildTurn(message: string, attachments: Attachment[]): { text: string; images: ImageContent[] } {
+  const images: ImageContent[] = [];
+  const fileParts: string[] = [];
+  for (const a of attachments) {
+    if (a.kind === "image") {
+      images.push({ type: "image", data: a.data, mimeType: a.mimeType });
+    } else if (a.kind === "text") {
+      let content = "";
+      try {
+        content = Buffer.from(a.data, "base64").toString("utf8");
+      } catch {
+        content = "";
+      }
+      if (content) {
+        fileParts.push(`Attached file ${a.name ?? "(file)"}:\n\`\`\`\n${content}\n\`\`\``);
+      }
+    }
+  }
+  const text = [message, ...fileParts].filter(Boolean).join("\n\n");
+  return { text, images };
+}
+
+/** Resolve a conversationId to a SessionManager (resume) or a new one. */
+async function sessionManagerFor(cwd: string, conversationId: string | null): Promise<SessionManager> {
+  if (conversationId) {
+    const list = await SessionManager.list(cwd);
+    const path = list.find((s) => s.id === conversationId)?.path;
+    if (path) return SessionManager.open(path);
+  }
+  return SessionManager.create(cwd);
 }
 
 export function attachChatWs(server: Server, cfg: Config, cwd: string): WebSocketServer {
@@ -45,14 +96,14 @@ export function attachChatWs(server: Server, cfg: Config, cwd: string): WebSocke
       return;
     }
 
-    // One persistent session per socket, with a block collector for gen-UI.
     const collector = new BlockCollector();
     let session: Awaited<ReturnType<typeof buildSession>>;
     try {
+      const sm = await sessionManagerFor(cwd, queryParam(req, "conversationId"));
       session = await buildSession(cfg, {
         systemPrompt: loadPrompt("chat"),
         cwd,
-        sessionManager: SessionManager.create(cwd),
+        sessionManager: sm,
         blockCollector: collector,
       });
     } catch (err) {
@@ -61,26 +112,28 @@ export function attachChatWs(server: Server, cfg: Config, cwd: string): WebSocke
       return;
     }
 
-    // Stream session events to the socket.
+    send(ws, { type: "ready", conversationId: session.sessionId });
+
     session.subscribe((e: any) => {
       if (e.type === "message_update" && e.assistantMessageEvent?.type === "text_delta") {
         send(ws, { type: "token", delta: e.assistantMessageEvent.delta });
       } else if (e.type === "tool_execution_start") {
         send(ws, { type: "tool", name: e.toolName });
-        // Forward a block the instant it's collected (length grew on this call).
       }
     });
 
     let busy = false;
     ws.on("message", async (raw) => {
-      let text: string;
+      let message = "";
+      let attachments: Attachment[] = [];
       try {
         const parsed = JSON.parse(raw.toString());
-        text = String(parsed.message ?? parsed.text ?? "");
+        message = String(parsed.message ?? parsed.text ?? "");
+        if (Array.isArray(parsed.attachments)) attachments = parsed.attachments;
       } catch {
-        text = raw.toString();
+        message = raw.toString();
       }
-      if (!text.trim()) return;
+      if (!message.trim() && attachments.length === 0) return;
       if (busy) {
         send(ws, { type: "error", message: "still answering the previous message" });
         return;
@@ -88,8 +141,8 @@ export function attachChatWs(server: Server, cfg: Config, cwd: string): WebSocke
       busy = true;
       const before = collector.blocks.length;
       try {
-        await session.prompt(`I am user_id ${userId}. ${text}`);
-        // Emit any blocks produced this turn (in order).
+        const { text, images } = buildTurn(message, attachments);
+        await session.prompt(`I am user_id ${userId}. ${text}`, images.length ? { images } : undefined);
         for (const b of collector.blocks.slice(before)) send(ws, { type: "block", block: b });
         send(ws, { type: "done" });
       } catch (err) {
@@ -99,9 +152,7 @@ export function attachChatWs(server: Server, cfg: Config, cwd: string): WebSocke
       }
     });
 
-    ws.on("close", () => {
-      session.dispose();
-    });
+    ws.on("close", () => session.dispose());
   });
 
   return wss;

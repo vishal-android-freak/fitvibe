@@ -10,6 +10,7 @@ import type { Config } from "../config.js";
 import { authUserId, bearer } from "../auth/firebase.js";
 import { latestInsight, type InsightType } from "../store/insights.js";
 import { replaySession } from "../pi/replay.js";
+import { listConversations, conversationMessages } from "../pi/conversations.js";
 
 /** Resolve the authenticated user id from the request, or 401. */
 async function requireUser(req: FastifyRequest, reply: FastifyReply): Promise<number | null> {
@@ -71,6 +72,24 @@ export function buildHttpServer(cfg: Config, cwd: string): FastifyInstance {
     if (userId == null) return;
     await serveInsight(cwd, userId, "day_insight", reply, req.params.date);
   });
+
+  // --- chat history (single-user: all sessions in cwd belong to the user) ---
+
+  app.get("/vaidya/conversations", async (req, reply) => {
+    const userId = await requireUser(req, reply);
+    if (userId == null) return;
+    reply.send({ conversations: await listConversations(cwd, 7) });
+  });
+
+  app.get<{ Params: { id: string }; Querystring: { limit?: string } }>(
+    "/vaidya/conversations/:id/messages",
+    async (req, reply) => {
+      const userId = await requireUser(req, reply);
+      if (userId == null) return;
+      const limit = Math.min(Math.max(Number(req.query.limit ?? 50) || 50, 1), 200);
+      reply.send({ messages: await conversationMessages(cwd, req.params.id, limit) });
+    },
+  );
 
   return app;
 }

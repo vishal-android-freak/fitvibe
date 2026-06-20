@@ -49,7 +49,8 @@ export default function RootLayout() {
             <Stack.Screen name="index" />
             <Stack.Screen name="oauthredirect" />
             <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="ask" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="ask" />
+            <Stack.Screen name="history" options={{ presentation: 'modal' }} />
             <Stack.Screen name="analysis/[id]" options={{ presentation: 'modal' }} />
           </Stack>
         </AuthProvider>
