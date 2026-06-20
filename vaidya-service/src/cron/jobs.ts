@@ -53,13 +53,23 @@ export async function runTodayInsight({ cfg, cwd, log }: Ctx): Promise<void> {
   }
 }
 
-/** day-report: one detailed end-of-day report per user (once per day). */
+/** day-report: ONE detailed end-of-day report per user. Runs at ~11pm. Generated
+ *  once per day, and only after the day's data is complete — we gate on today's
+ *  sleep having synced (the day-in-review anchors on last night's sleep), so an
+ *  early/partial run doesn't produce a stale report. The next run that night
+ *  picks it up once the data is in. */
 export async function runDayInsight({ cfg, cwd, log }: Ctx): Promise<void> {
   for (const userId of await activeUserIds()) {
     const date = await localDate(userId);
     const existing = await latestInsight(userId, "day_insight", date);
     if (existing) {
       log(`day insight u${userId} already done for ${date}, skipping`);
+      continue;
+    }
+    // Don't generate until today's data is complete — require today's sleep.
+    const sleeps = await sleepSessionsForDate(userId, date);
+    if (sleeps.length === 0) {
+      log(`day insight u${userId} deferred for ${date} — no sleep data yet`);
       continue;
     }
     try {
