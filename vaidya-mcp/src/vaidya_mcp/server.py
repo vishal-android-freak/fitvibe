@@ -1,16 +1,17 @@
-"""Vaidya MCP server (FastMCP, stdio).
+"""Vaidya MCP server (FastMCP, streamable-HTTP).
 
-Read tools query Postgres directly via the read-only role; write tools (added
-next) call the Google Health API using a token fetched from the Go provider.
-The DB credentials and Google tokens live only in this process — never in the
-Pi/LLM context.
+Read tools query Postgres directly via the read-only role; write tools call the
+Google Health API using a token fetched from the Go provider. The DB credentials
+and Google tokens live only in this process — never in the Pi/LLM context.
 
-Run:  python -m vaidya_mcp.server   (stdio transport, spawned by the Vaidya host)
+Runs as a standalone HTTP service at http://MCP_HOST:MCP_PORT/mcp (Docker-hostable;
+clients connect by URL). Run:  python -m vaidya_mcp.server
 """
 
 from __future__ import annotations
 
 import datetime as dt
+import os
 from decimal import Decimal
 from typing import Any
 
@@ -21,6 +22,11 @@ from .config import Config
 from .localdate import local_date
 
 mcp = FastMCP("vaidya")
+
+# Streamable-HTTP bind address. Defaults are fine for local/dev; override via env
+# in Docker (e.g. MCP_HOST=0.0.0.0). Not required to set anything.
+MCP_HOST = os.environ.get("MCP_HOST", "127.0.0.1")
+MCP_PORT = int(os.environ.get("MCP_PORT", "8765"))
 
 _cfg: Config | None = None
 
@@ -221,7 +227,10 @@ def log_sleep(user_id: int, start: str, end: str, minutes_asleep: int | None = N
 
 
 def main() -> None:
-    mcp.run()  # stdio transport by default
+    # Streamable-HTTP only: the server runs as a standalone (Docker-hostable)
+    # HTTP service at http://MCP_HOST:MCP_PORT/mcp. Clients connect by URL — no
+    # stdio subprocess, which sidesteps the stdio-banner / spawn-path issues.
+    mcp.run(transport="http", host=MCP_HOST, port=MCP_PORT)
 
 
 if __name__ == "__main__":

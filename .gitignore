@@ -7,6 +7,8 @@
 !/appV2/**
 !/vaidya-mcp
 !/vaidya-mcp/**
+!/vaidya-service
+!/vaidya-service/**
 !/.pi
 !/.pi/**
 !/design_handoff_fitvibe_app
@@ -21,6 +23,12 @@
 /vaidya-mcp/__pycache__
 /vaidya-mcp/**/__pycache__
 /vaidya-mcp/.env
+/vaidya-mcp/*.log
+/vaidya-service/node_modules
+/vaidya-service/dist
+/vaidya-service/.env
+/vaidya-service/.pi-auth
+/vaidya-service/pi-sessions
 /appV2/.expo
 /appV2/dist
 /appV2/web-build
