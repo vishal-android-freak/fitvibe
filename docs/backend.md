@@ -35,12 +35,17 @@ Every path that pulls data (backfill, cron list/reconcile/catch-up, webhook proc
 
 Because the raw payload is preserved, new extracted/promoted columns can be backfilled from stored data with `cmd/backfill` — no re-fetch needed.
 
-```
- Google Health API ──► healthapi.Client ──► ingestion.MapDataPoint ──► repositories ──► PostgreSQL
- OAuth tokens ─────────────┘                       │  payload_json (JSONB, lossless)
-                                                   │  + typed scalar columns
-                                                   │  + promoted hot columns
-                                                   └─ + child tables (stages, splits, …)
+```mermaid
+flowchart LR
+    api["Google Health API"] --> client["healthapi.Client"]
+    tokens["OAuth tokens"] --> client
+    client --> mapper["ingestion.MapDataPoint"]
+    mapper --> repos["repositories"]
+    repos --> db[("PostgreSQL")]
+    mapper -.-> e1["payload_json (JSONB, lossless)"]
+    mapper -.-> e2["typed scalar columns"]
+    mapper -.-> e3["promoted hot columns"]
+    mapper -.-> e4["child tables (stages, splits, …)"]
 ```
 
 **Adding a new data type:** add it to `Category()` in [`healthapi/types.go`](../backend/internal/healthapi/types.go), add a `case` in `extractScalars` (and `extractChildren` if it has nested arrays), and add it to the relevant data-type list in `internal/cron` if it should be backfilled/caught-up.

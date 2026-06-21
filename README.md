@@ -32,35 +32,26 @@ Your health data shouldn't live only in someone else's cloud behind a coaching p
 
 ## Architecture at a glance
 
-```
-                         ┌───────────────────────────┐
-   Google Health API v4  │  Google OAuth + Webhooks  │
-            │            └───────────────────────────┘
-            ▼
-   ┌───────────────────┐      ingest · backfill · webhooks · cron
-   │   backend (Go)    │──────────────────────────────────────────┐
-   │  ingestion engine │                                           ▼
-   │  read API (BFF)   │                                  ┌─────────────────┐
-   └───────────────────┘                                  │   PostgreSQL    │
-            │  GET /me/today · /me/sleep · /me/body        │  (you own it)   │
-            │  Firebase-authed                             └─────────────────┘
-            ▼                                                  ▲          ▲
-   ┌───────────────────┐                          read-only  │          │ read+write
-   │  appV2 (Expo RN)  │                                      │          │ (vaidya_* tables)
-   │  Today · Sleep ·  │◀──── insights + chat (WS) ─────┐     │          │
-   │  Body · Insights  │                                │     │          │
-   │  Ask Vaidya       │                          ┌─────┴─────┴──────────┴───┐
-   └───────────────────┘                          │  vaidya-service (Node)   │
-                                                   │  embeds the Pi agent SDK │
-                                                   │  chat + nightly insights │
-                                                   └────────────┬─────────────┘
-                                                                │ MCP (streamable-HTTP)
-                                                                ▼
-                                                   ┌──────────────────────────┐
-                                                   │   vaidya-mcp (Python)    │
-                                                   │  read-only SQL tools +   │
-                                                   │  Google Health write tools│
-                                                   └──────────────────────────┘
+```mermaid
+flowchart TB
+    google["Google Health API v4<br/>OAuth · Webhooks"]
+    backend["<b>backend</b> (Go)<br/>ingestion engine · read API (BFF)"]
+    db[("PostgreSQL<br/><i>you own it</i>")]
+    app["<b>appV2</b> (Expo RN)<br/>Today · Sleep · Body · Insights · Ask Vaidya"]
+    service["<b>vaidya-service</b> (Node)<br/>embeds the Pi agent SDK<br/>chat + nightly insights"]
+    mcp["<b>vaidya-mcp</b> (Python)<br/>read-only SQL tools +<br/>Google Health write tools"]
+
+    google -->|"ingest · backfill · webhooks · cron"| backend
+    backend --> db
+    backend -.->|"GET /me/today · /me/sleep · /me/body<br/>(Firebase-authed)"| app
+    app <-->|"insights (HTTP) + chat (WS)"| service
+    service -->|"MCP (streamable-HTTP)"| mcp
+    service -->|"read+write vaidya_* tables"| db
+    mcp -->|"read-only (health data)"| db
+    mcp -->|"writes (fresh token from backend)"| google
+
+    classDef store fill:#1a2236,stroke:#a78bfa,color:#f8fafc;
+    class db store;
 ```
 
 See [`docs/architecture.md`](docs/architecture.md) for the full data flow, trust boundaries, and design rationale.

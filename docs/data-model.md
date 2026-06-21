@@ -95,13 +95,19 @@ so the **row id is preserved** on re-ingestion (child-table foreign keys stay va
 
 The same idea applies to `rollup_data_points` (its own `NULLS NOT DISTINCT` constraint over the rollup key).
 
+```mermaid
+gantt
+    title Overlapping fetch windows are safe — idempotent upsert dedupes the overlap
+    dateFormat HH
+    axisFormat %Hh
+    section Fetch
+    Window A          :a, 00, 12h
+    Window B          :b, 09, 12h
+    section Overlap
+    Re-inserted rows  :crit, 09, 03h
 ```
-   fetch window A  ████████████░░░░░░
-   fetch window B          ░░░░░░████████████   ← overlaps A by CATCHUP_LOOKBACK_HOURS
-                           ▲▲▲▲▲▲
-                           overlap re-inserts the same rows →
-                           ON CONFLICT DO UPDATE → no duplicates, ids preserved
-```
+
+The overlap window (`CATCHUP_LOOKBACK_HOURS`) re-inserts the same rows; `ON CONFLICT DO UPDATE` means no duplicates and row ids are preserved.
 
 ## Time handling
 

@@ -4,42 +4,26 @@ FitVibe is four cooperating services around one PostgreSQL database. This docume
 
 ## The big picture
 
-```
-                          ┌───────────────────────────┐
-   Google Health API v4   │  Google OAuth + Webhooks  │
-            │             └───────────────────────────┘
-            ▼
-   ┌────────────────────┐     ingest · backfill · webhooks · cron gap-fill
-   │    backend (Go)    │───────────────────────────────────────────────┐
-   │  • OAuth + tokens  │                                                ▼
-   │  • ingestion engine│                                       ┌──────────────────┐
-   │  • read API (BFF)  │   GET /me/today · /me/sleep · /me/body │   PostgreSQL     │
-   │  • internal token  │   (Firebase ID token auth)            │   (you own it)   │
-   │    provider        │                                       └──────────────────┘
-   └────────────────────┘                                          ▲          ▲
-            │                                          read-only   │          │ read+write
-            ▼                                          (health)    │          │ (vaidya_*)
-   ┌────────────────────┐                                          │          │
-   │   appV2 (Expo RN)  │                                          │          │
-   │  Today · Sleep ·   │◀───── insights (HTTP) + chat (WS) ──┐    │          │
-   │  Body · Insights · │                                     │    │          │
-   │  Ask Vaidya        │                              ┌──────┴────┴──────────┴──────┐
-   └────────────────────┘                              │   vaidya-service (Node)     │
-                                                        │  embeds the Pi agent SDK    │
-                                                        │  • chat over WebSocket      │
-                                                        │  • nightly insight crons    │
-                                                        │  • owns vaidya_* tables     │
-                                                        └──────────────┬──────────────┘
-                                                                       │ MCP (streamable-HTTP)
-                                                                       ▼
-                                                        ┌─────────────────────────────┐
-                                                        │     vaidya-mcp (Python)     │
-                                                        │  • read-only SQL tools      │
-                                                        │  • Google Health write tools│
-                                                        └─────────────────────────────┘
-                                                                       │ writes
-                                                                       ▼  (via Go token provider)
-                                                              Google Health API v4
+```mermaid
+flowchart TB
+    google["Google Health API v4<br/>OAuth · Webhooks"]
+    backend["<b>backend</b> (Go)<br/>• OAuth + tokens<br/>• ingestion engine<br/>• read API (BFF)<br/>• internal token provider"]
+    db[("PostgreSQL<br/><i>you own it</i>")]
+    app["<b>appV2</b> (Expo RN)<br/>Today · Sleep · Body · Insights · Ask Vaidya"]
+    service["<b>vaidya-service</b> (Node)<br/>embeds the Pi agent SDK<br/>• chat over WebSocket<br/>• nightly insight crons<br/>• owns vaidya_* tables"]
+    mcp["<b>vaidya-mcp</b> (Python)<br/>• read-only SQL tools<br/>• Google Health write tools"]
+
+    google -->|"ingest · backfill · webhooks · cron gap-fill"| backend
+    backend --> db
+    backend -.->|"GET /me/today · /me/sleep · /me/body<br/>(Firebase ID token auth)"| app
+    app <-->|"insights (HTTP) + chat (WS)"| service
+    service -->|"MCP (streamable-HTTP)"| mcp
+    service -->|"read+write (vaidya_*)"| db
+    mcp -->|"read-only (health data)"| db
+    mcp -->|"writes (via Go token provider)"| google
+
+    classDef store fill:#1a2236,stroke:#a78bfa,color:#f8fafc;
+    class db store;
 ```
 
 ## The services
@@ -110,30 +94,20 @@ The app authenticates with a Firebase ID token (the backend mints a Firebase cus
 
 FitVibe is designed so that the powerful capability (Google account access) and the untrusted-ish capability (an LLM writing SQL) never overlap.
 
-```
-   ┌───────────────────────────── HOLDS REFRESH TOKENS ─────────────────────────────┐
-   │  backend (Go)                                                                   │
-   │  • only service with Google refresh tokens (encrypted at rest)                  │
-   │  • internal token provider hands out SHORT-LIVED access tokens only,            │
-   │    bound to a Unix socket / loopback, optional bearer secret                    │
-   └─────────────────────────────────────────────────────────────────────────────────┘
-                  │ fresh access token (per write)
-                  ▼
-   ┌───────────────────────── LEAST-PRIVILEGE READS ────────────────────────────────┐
-   │  vaidya-mcp (Python)                                                            │
-   │  • reads health data through a dedicated PostgreSQL role (vaidya_ro)            │
-   │    with SELECT-only on health tables and NO write access anywhere               │
-   │  • SQL escape hatch is single-statement, read-only, row-capped                  │
-   │  • writes go through the Google Health API, never raw SQL                       │
-   └─────────────────────────────────────────────────────────────────────────────────┘
-                  ▲
-                  │ MCP over loopback
-   ┌──────────────┴──────────────────────────────────────────────────────────────────┐
-   │  vaidya-service (Node)                                                          │
-   │  • owns vaidya_* tables (read+write) — its own data, not health data            │
-   │  • the coach's system prompt forbids fabricating numbers; every claim must       │
-   │    come from a tool result                                                       │
-   └─────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph T["🔑 HOLDS REFRESH TOKENS"]
+        backend["<b>backend</b> (Go)<br/>• only service with Google refresh tokens (encrypted at rest)<br/>• internal token provider hands out SHORT-LIVED access tokens only,<br/>bound to a Unix socket / loopback, optional bearer secret"]
+    end
+    subgraph L["🔒 LEAST-PRIVILEGE READS"]
+        mcp["<b>vaidya-mcp</b> (Python)<br/>• reads health data through a dedicated PostgreSQL role (vaidya_ro)<br/>with SELECT-only on health tables and NO write access anywhere<br/>• SQL escape hatch is single-statement, read-only, row-capped<br/>• writes go through the Google Health API, never raw SQL"]
+    end
+    subgraph C["🤖 THE COACH"]
+        service["<b>vaidya-service</b> (Node)<br/>• owns vaidya_* tables (read+write) — its own data, not health data<br/>• the coach's system prompt forbids fabricating numbers;<br/>every claim must come from a tool result"]
+    end
+
+    backend -->|"fresh access token (per write)"| mcp
+    service -->|"MCP over loopback"| mcp
 ```
 
 Key properties:

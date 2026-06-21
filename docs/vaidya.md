@@ -7,15 +7,18 @@ Vaidya ("a practitioner of healing") is FitVibe's AI coach. It answers questions
 
 Both are optional — the backend + app work without them.
 
-```
-   app ──WS chat / HTTP insights──► vaidya-service (Node, Pi SDK)
-                                          │  MCP over loopback (streamable-HTTP)
-                                          ▼
-                                    vaidya-mcp (Python, FastMCP)
-                                    │  reads (read-only role)        │ writes
-                                    ▼                                ▼
-                              PostgreSQL (health data)        Google Health API v4
-                                                              (fresh token from Go provider)
+```mermaid
+flowchart TB
+    app["app"]
+    service["<b>vaidya-service</b><br/>(Node, Pi SDK)"]
+    mcp["<b>vaidya-mcp</b><br/>(Python, FastMCP)"]
+    db[("PostgreSQL<br/>health data")]
+    google["Google Health API v4"]
+
+    app -->|"WS chat / HTTP insights"| service
+    service -->|"MCP over loopback (streamable-HTTP)"| mcp
+    mcp -->|"reads (read-only role)"| db
+    mcp -->|"writes (fresh token from Go provider)"| google
 ```
 
 ## `vaidya-service` — the coach engine

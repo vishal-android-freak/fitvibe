@@ -49,14 +49,22 @@ The hero carousel ([`src/screens/today/hero/`](../appV2/src/screens/today/hero/)
 
 Sign-in is brokered by the backend so no Google client secret ships in the app:
 
-```
-1. User taps "Sign in with Google"
-2. App opens WebBrowser → backend /auth/start?redirect=fitvibe://oauthredirect
-3. Backend runs the Google OAuth dance, mints a Firebase custom token,
-   and deep-links back: fitvibe://oauthredirect?token=<one-time>
-4. App redeems it (GET /auth/session?token=) → { firebase_token }
-5. signInWithCustomToken(firebase_token) → Firebase is now the source of truth
-6. Every API call attaches the Firebase ID token as Authorization: Bearer <idToken>
+```mermaid
+sequenceDiagram
+    participant App
+    participant Backend
+    participant Google
+    participant Firebase
+    App->>Backend: open WebBrowser → /auth/start?redirect=fitvibe://oauthredirect
+    Backend->>Google: run the OAuth dance
+    Google-->>Backend: authorized
+    Backend->>Backend: mint a Firebase custom token
+    Backend-->>App: deep-link fitvibe://oauthredirect?token=<one-time>
+    App->>Backend: GET /auth/session?token=
+    Backend-->>App: { firebase_token }
+    App->>Firebase: signInWithCustomToken(firebase_token)
+    Note over App,Firebase: Firebase is now the source of truth
+    App->>Backend: every API call → Authorization: Bearer <idToken>
 ```
 
 See [`src/auth/`](../appV2/src/auth/). On a `401`, the API client force-refreshes the ID token and retries once.
