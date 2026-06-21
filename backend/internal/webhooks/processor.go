@@ -17,12 +17,12 @@ import (
 
 // Processor polls and processes queued webhook notifications asynchronously.
 type Processor struct {
-	oauthService *oauth.Service
-	userRepo     *repositories.UserRepo
-	webhookRepo  *repositories.WebhookNotificationRepo
+	oauthService  *oauth.Service
+	userRepo      *repositories.UserRepo
+	webhookRepo   *repositories.WebhookNotificationRepo
 	dataPointRepo *repositories.DataPointRepo
-	logger       *slog.Logger
-	batchSize    int
+	logger        *slog.Logger
+	batchSize     int
 }
 
 // NewProcessor creates a new async webhook processor.
@@ -104,44 +104,53 @@ func (p *Processor) process(ctx context.Context, n *repositories.WebhookNotifica
 
 	for _, payload := range payloads {
 		for _, interval := range payload.Data.Intervals {
-			start, end, err := intervalBounds(interval)
-			if err != nil {
-				return fmt.Errorf("interval bounds: %w", err)
-			}
-			if start.IsZero() || end.IsZero() {
-				continue
-			}
-
-			dataType := payload.Data.DataType
-			if dataType == "" {
-				dataType = n.DataType
-			}
-
-			// DELETE notifications mean the data in the interval was removed
-			// upstream; reflect that locally instead of re-fetching.
-			if strings.EqualFold(payload.Data.Operation, "DELETE") {
-				deleted, err := p.dataPointRepo.DeleteByTimeRange(ctx, user.ID, dataType, start, end)
-				if err != nil {
-					return fmt.Errorf("delete data points %s: %w", dataType, err)
-				}
-				p.logger.Info("applied webhook DELETE",
-					"data_type", dataType, "deleted", deleted, "notification_id", n.ID)
-				continue
-			}
-
-			if err := p.fetchAndStore(ctx, client, user.ID, dataType, start, end, webhookID); err != nil {
-				if isUnsupportedListAction(err) {
-					p.logger.Warn("skipping unsupported list data type",
-						"data_type", dataType,
-						"notification_id", n.ID)
-					continue
-				}
-				return fmt.Errorf("fetch and store %s: %w", dataType, err)
+			if err := p.processInterval(ctx, client, user.ID, n, payload, interval, webhookID); err != nil {
+				return err
 			}
 		}
 	}
 
 	return p.webhookRepo.MarkProcessed(ctx, n.ID)
+}
+
+// processInterval applies a single notification interval: a DELETE clears the
+// local range, anything else fetches+stores it. An unsupported-list data type
+// is logged and skipped (not an error).
+func (p *Processor) processInterval(ctx context.Context, client *healthapi.Client, userID int64, n *repositories.WebhookNotificationRecord, payload notificationPayload, interval notificationInterval, webhookID sql.NullInt64) error {
+	start, end, err := intervalBounds(interval)
+	if err != nil {
+		return fmt.Errorf("interval bounds: %w", err)
+	}
+	if start.IsZero() || end.IsZero() {
+		return nil
+	}
+
+	dataType := payload.Data.DataType
+	if dataType == "" {
+		dataType = n.DataType
+	}
+
+	// DELETE notifications mean the data in the interval was removed upstream;
+	// reflect that locally instead of re-fetching.
+	if strings.EqualFold(payload.Data.Operation, "DELETE") {
+		deleted, err := p.dataPointRepo.DeleteByTimeRange(ctx, userID, dataType, start, end)
+		if err != nil {
+			return fmt.Errorf("delete data points %s: %w", dataType, err)
+		}
+		p.logger.Info("applied webhook DELETE",
+			"data_type", dataType, "deleted", deleted, "notification_id", n.ID)
+		return nil
+	}
+
+	if err := p.fetchAndStore(ctx, client, userID, dataType, start, end, webhookID); err != nil {
+		if isUnsupportedListAction(err) {
+			p.logger.Warn("skipping unsupported list data type",
+				"data_type", dataType, "notification_id", n.ID)
+			return nil
+		}
+		return fmt.Errorf("fetch and store %s: %w", dataType, err)
+	}
+	return nil
 }
 
 func isUnsupportedListAction(err error) bool {
@@ -196,19 +205,9 @@ func (p *Processor) scheduleRetry(ctx context.Context, n *repositories.WebhookNo
 		return
 	}
 
-	delay := time.Duration(1<<min(n.RetryCount, 6)) * time.Minute
-	if delay > 24*time.Hour {
-		delay = 24 * time.Hour
-	}
+	delay := min(time.Duration(1<<min(n.RetryCount, 6))*time.Minute, 24*time.Hour)
 	nextRetry := time.Now().UTC().Add(delay)
 	_ = p.webhookRepo.MarkFailed(ctx, n.ID, err.Error(), nextRetry)
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 func parseNotificationPayload(raw string) ([]notificationPayload, error) {

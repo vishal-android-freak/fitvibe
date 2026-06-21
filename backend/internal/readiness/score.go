@@ -166,12 +166,7 @@ func z(v, mean, sd float64, flip bool) float64 {
 	if flip {
 		zz = -zz
 	}
-	if zz > zClamp {
-		zz = zClamp
-	} else if zz < -zClamp {
-		zz = -zClamp
-	}
-	return zz
+	return math.Max(-zClamp, math.Min(zClamp, zz))
 }
 
 // baseline returns the mean and population SD of a component over the prior days

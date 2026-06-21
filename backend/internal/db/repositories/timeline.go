@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -361,39 +362,12 @@ func pluralize(word string, n int) string {
 }
 
 // titleCase converts an enum like "BREAKFAST" or "OPEN_WATER_SWIM" to "Breakfast"
-// / "Open Water Swim".
+// / "Open Water Swim": underscores become spaces and each word is capitalized.
 func titleCase(s string) string {
-	if s == "" {
-		return ""
+	words := strings.Fields(strings.ReplaceAll(s, "_", " "))
+	for i, w := range words {
+		lower := strings.ToLower(w)
+		words[i] = strings.ToUpper(lower[:1]) + lower[1:]
 	}
-	out := make([]rune, 0, len(s))
-	startWord := true
-	for _, r := range s {
-		if r == '_' || r == ' ' {
-			out = append(out, ' ')
-			startWord = true
-			continue
-		}
-		if startWord {
-			out = append(out, upper(r))
-			startWord = false
-		} else {
-			out = append(out, lower(r))
-		}
-	}
-	return string(out)
-}
-
-func upper(r rune) rune {
-	if r >= 'a' && r <= 'z' {
-		return r - 32
-	}
-	return r
-}
-
-func lower(r rune) rune {
-	if r >= 'A' && r <= 'Z' {
-		return r + 32
-	}
-	return r
+	return strings.Join(words, " ")
 }

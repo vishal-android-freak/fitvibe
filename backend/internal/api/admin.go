@@ -63,11 +63,29 @@ func (h *AdminHandler) tokenFn(ctx context.Context, r *http.Request) (string, er
 	return provider(ctx)
 }
 
-func (h *AdminHandler) createSubscriber(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	token, err := h.tokenFn(ctx, r)
+// managerFor resolves the request's user token and returns a SubscriberManager
+// bound to it. Every handler needs exactly this, so they share it. On error it
+// has already written a 400 to w and returns ok=false.
+func (h *AdminHandler) managerFor(w http.ResponseWriter, r *http.Request) (*webhooks.SubscriberManager, bool) {
+	token, err := h.tokenFn(r.Context(), r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return nil, false
+	}
+	mgr := webhooks.NewSubscriberManager(h.subscriberManager.Config(), func(context.Context) (string, error) {
+		return token, nil
+	})
+	return mgr, true
+}
+
+func writeJSON(w http.ResponseWriter, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(v)
+}
+
+func (h *AdminHandler) createSubscriber(w http.ResponseWriter, r *http.Request) {
+	mgr, ok := h.managerFor(w, r)
+	if !ok {
 		return
 	}
 
@@ -76,92 +94,61 @@ func (h *AdminHandler) createSubscriber(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	// Bind a token provider to the subscriber manager for this request.
-	mgr := webhooks.NewSubscriberManager(h.subscriberManager.Config(), func(context.Context) (string, error) {
-		return token, nil
-	})
 
 	subscriberID := r.URL.Query().Get("subscriberId")
 	if subscriberID == "" {
 		subscriberID = "fitvibe-webhook"
 	}
 
-	created, err := mgr.CreateSubscriber(ctx, subscriberID, &cfg)
+	created, err := mgr.CreateSubscriber(r.Context(), subscriberID, &cfg)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(created)
+	writeJSON(w, created)
 }
 
 func (h *AdminHandler) listSubscribers(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	token, err := h.tokenFn(ctx, r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	mgr, ok := h.managerFor(w, r)
+	if !ok {
 		return
 	}
 
-	mgr := webhooks.NewSubscriberManager(h.subscriberManager.Config(), func(context.Context) (string, error) {
-		return token, nil
-	})
-
-	resp, err := mgr.ListSubscribers(ctx)
+	resp, err := mgr.ListSubscribers(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	writeJSON(w, resp)
 }
 
 func (h *AdminHandler) updateSubscriber(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	token, err := h.tokenFn(ctx, r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	mgr, ok := h.managerFor(w, r)
+	if !ok {
 		return
 	}
 
-	id := r.PathValue("id")
 	var cfg webhooks.SubscriberConfig
 	if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	mgr := webhooks.NewSubscriberManager(h.subscriberManager.Config(), func(context.Context) (string, error) {
-		return token, nil
-	})
-
-	updated, err := mgr.UpdateSubscriber(ctx, id, &cfg)
+	updated, err := mgr.UpdateSubscriber(r.Context(), r.PathValue("id"), &cfg)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(updated)
+	writeJSON(w, updated)
 }
 
 func (h *AdminHandler) deleteSubscriber(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	token, err := h.tokenFn(ctx, r)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	mgr, ok := h.managerFor(w, r)
+	if !ok {
 		return
 	}
 
-	id := r.PathValue("id")
-	mgr := webhooks.NewSubscriberManager(h.subscriberManager.Config(), func(context.Context) (string, error) {
-		return token, nil
-	})
-
-	if err := mgr.DeleteSubscriber(ctx, id); err != nil {
+	if err := mgr.DeleteSubscriber(r.Context(), r.PathValue("id")); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

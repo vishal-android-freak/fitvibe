@@ -96,33 +96,9 @@ func (s *Service) Exchange(ctx context.Context, req ExchangeRequest) (*ExchangeR
 		return nil, fmt.Errorf("get health identity: %w", err)
 	}
 
-	// If a user with this health_user_id already exists (e.g. prior login with placeholder),
-	// update that row instead of creating a duplicate.
-	existing, err := s.users.GetByHealthUserID(ctx, identity.HealthUserID)
+	u, err := s.upsertUser(ctx, token, identity, scopes, googleUserID, email, displayName, picture, gender)
 	if err != nil {
-		return nil, fmt.Errorf("lookup existing user: %w", err)
-	}
-
-	var u *repositories.User
-	if existing != nil {
-		if err := s.users.UpdateTokensByID(ctx, existing.ID, token.AccessToken, token.RefreshToken, token.Expiry, scopes); err != nil {
-			return nil, fmt.Errorf("update existing user tokens: %w", err)
-		}
-		if err := s.users.UpdateIdentity(ctx, existing.ID, googleUserID, identity.HealthUserID, identity.LegacyUserID); err != nil {
-			return nil, fmt.Errorf("update existing user identity: %w", err)
-		}
-		// Refresh the Google profile fields (name/email/picture/gender) from this
-		// login — they're only set on first StoreTokens otherwise, so re-logins
-		// would never pick up a newly-available picture.
-		if err := s.users.UpdateGoogleProfile(ctx, existing.ID, displayName, email, picture, gender); err != nil {
-			return nil, fmt.Errorf("update existing user profile: %w", err)
-		}
-		u = existing
-	} else {
-		u, err = s.users.StoreTokens(ctx, googleUserID, identity.HealthUserID, email, displayName, picture, gender, 0, 0, token.AccessToken, token.RefreshToken, token.Expiry, scopes)
-		if err != nil {
-			return nil, fmt.Errorf("store tokens: %w", err)
-		}
+		return nil, err
 	}
 
 	// Prefer the profile fields from this login (freshest); fall back to what
@@ -158,6 +134,36 @@ func (s *Service) Exchange(ctx context.Context, req ExchangeRequest) (*ExchangeR
 	}
 
 	return resp, nil
+}
+
+// upsertUser creates the user, or — if one already exists for this
+// health_user_id (e.g. a prior login with a placeholder) — updates that row's
+// tokens, identity, and Google profile so a re-login refreshes them rather than
+// creating a duplicate.
+func (s *Service) upsertUser(ctx context.Context, token *oauth2.Token, identity *healthapi.IdentityResponse, scopes, googleUserID, email, displayName, picture, gender string) (*repositories.User, error) {
+	existing, err := s.users.GetByHealthUserID(ctx, identity.HealthUserID)
+	if err != nil {
+		return nil, fmt.Errorf("lookup existing user: %w", err)
+	}
+
+	if existing == nil {
+		u, err := s.users.StoreTokens(ctx, googleUserID, identity.HealthUserID, email, displayName, picture, gender, 0, 0, token.AccessToken, token.RefreshToken, token.Expiry, scopes)
+		if err != nil {
+			return nil, fmt.Errorf("store tokens: %w", err)
+		}
+		return u, nil
+	}
+
+	if err := s.users.UpdateTokensByID(ctx, existing.ID, token.AccessToken, token.RefreshToken, token.Expiry, scopes); err != nil {
+		return nil, fmt.Errorf("update existing user tokens: %w", err)
+	}
+	if err := s.users.UpdateIdentity(ctx, existing.ID, googleUserID, identity.HealthUserID, identity.LegacyUserID); err != nil {
+		return nil, fmt.Errorf("update existing user identity: %w", err)
+	}
+	if err := s.users.UpdateGoogleProfile(ctx, existing.ID, displayName, email, picture, gender); err != nil {
+		return nil, fmt.Errorf("update existing user profile: %w", err)
+	}
+	return existing, nil
 }
 
 func extractScopes(token *oauth2.Token) string {

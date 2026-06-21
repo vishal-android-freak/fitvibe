@@ -42,27 +42,13 @@ func MapDataPoint(userID int64, dataType, fetchedVia string, dp *healthapi.DataP
 		WebhookNotificationID: webhookID,
 	}
 
-	if dp.Name != "" {
-		rec.GoogleDataPointName = sql.NullString{String: dp.Name, Valid: true}
-	}
-	if dp.DataSource.DataSourceFamily != "" {
-		rec.DataSourceFamily = sql.NullString{String: dp.DataSource.DataSourceFamily, Valid: true}
-	}
-	if dp.DataSource.RecordingMethod != "" {
-		rec.RecordingMethod = sql.NullString{String: dp.DataSource.RecordingMethod, Valid: true}
-	}
-	if dp.DataSource.Platform != "" {
-		rec.Platform = sql.NullString{String: dp.DataSource.Platform, Valid: true}
-	}
-	if name := dp.DataSource.DeviceName(); name != "" {
-		rec.DeviceName = sql.NullString{String: name, Valid: true}
-	}
-	if ff := dp.DataSource.DeviceFormFactor(); ff != "" {
-		rec.DeviceFormFactor = sql.NullString{String: ff, Valid: true}
-	}
-	if pkg := dp.DataSource.ApplicationPackageName(); pkg != "" {
-		rec.ApplicationPackageName = sql.NullString{String: pkg, Valid: true}
-	}
+	rec.GoogleDataPointName = nullStr(dp.Name)
+	rec.DataSourceFamily = nullStr(dp.DataSource.DataSourceFamily)
+	rec.RecordingMethod = nullStr(dp.DataSource.RecordingMethod)
+	rec.Platform = nullStr(dp.DataSource.Platform)
+	rec.DeviceName = nullStr(dp.DataSource.DeviceName())
+	rec.DeviceFormFactor = nullStr(dp.DataSource.DeviceFormFactor())
+	rec.ApplicationPackageName = nullStr(dp.DataSource.ApplicationPackageName())
 
 	dsJSON, _ := json.Marshal(dp.DataSource)
 	rec.DataSourceJSON = sql.NullString{String: string(dsJSON), Valid: len(dsJSON) > 2}

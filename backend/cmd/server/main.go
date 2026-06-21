@@ -85,29 +85,22 @@ func main() {
 	adminHandler := api.NewAdminHandler(oauthService, userRepo, subscriberManager)
 
 	scheduler := cron.NewScheduler(cfg, logger)
-	if err := scheduler.Register(cfg.CronListSync, cron.NewListSyncer(cfg, oauthService, userRepo, syncStateRepo, dataPointRepo, logger)); err != nil {
-		logger.Error("failed to register list sync cron", "error", err)
-		os.Exit(1)
+	cronJobs := []struct {
+		spec string
+		job  cron.Job
+	}{
+		{cfg.CronListSync, cron.NewListSyncer(cfg, oauthService, userRepo, syncStateRepo, dataPointRepo, logger)},
+		{cfg.CronIntradayRollup, cron.NewRollupSyncer(cfg, oauthService, userRepo, syncStateRepo, rollupRepo, logger, false)},
+		{cfg.CronDailyRollup, cron.NewRollupSyncer(cfg, oauthService, userRepo, syncStateRepo, rollupRepo, logger, true)},
+		{cfg.CronProfileSettingsSync, cron.NewProfileSettingsSyncer(oauthService, userRepo, logger)},
+		{cfg.CronReconcileSync, cron.NewReconcileSyncer(cfg, oauthService, userRepo, syncStateRepo, dataPointRepo, logger)},
+		{cfg.CronCatchupSync, cron.NewCatchupSyncer(cfg, oauthService, userRepo, syncStateRepo, dataPointRepo, logger)},
 	}
-	if err := scheduler.Register(cfg.CronIntradayRollup, cron.NewRollupSyncer(cfg, oauthService, userRepo, syncStateRepo, rollupRepo, logger, false)); err != nil {
-		logger.Error("failed to register intraday rollup cron", "error", err)
-		os.Exit(1)
-	}
-	if err := scheduler.Register(cfg.CronDailyRollup, cron.NewRollupSyncer(cfg, oauthService, userRepo, syncStateRepo, rollupRepo, logger, true)); err != nil {
-		logger.Error("failed to register daily rollup cron", "error", err)
-		os.Exit(1)
-	}
-	if err := scheduler.Register(cfg.CronProfileSettingsSync, cron.NewProfileSettingsSyncer(oauthService, userRepo, logger)); err != nil {
-		logger.Error("failed to register profile settings sync cron", "error", err)
-		os.Exit(1)
-	}
-	if err := scheduler.Register(cfg.CronReconcileSync, cron.NewReconcileSyncer(cfg, oauthService, userRepo, syncStateRepo, dataPointRepo, logger)); err != nil {
-		logger.Error("failed to register reconcile sync cron", "error", err)
-		os.Exit(1)
-	}
-	if err := scheduler.Register(cfg.CronCatchupSync, cron.NewCatchupSyncer(cfg, oauthService, userRepo, syncStateRepo, dataPointRepo, logger)); err != nil {
-		logger.Error("failed to register webhook catchup sync cron", "error", err)
-		os.Exit(1)
+	for _, j := range cronJobs {
+		if err := scheduler.Register(j.spec, j.job); err != nil {
+			logger.Error("failed to register cron job", "job", j.job.Name(), "error", err)
+			os.Exit(1)
+		}
 	}
 
 	r := chi.NewRouter()

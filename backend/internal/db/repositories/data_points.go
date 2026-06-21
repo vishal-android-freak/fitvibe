@@ -344,100 +344,104 @@ func insertChildren(ctx context.Context, tx *sql.Tx, userID, dpID int64, c *Data
 		}
 	}
 
-	for _, s := range c.SleepStages {
-		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO sleep_stages (data_point_id, start_time, end_time, start_utc_offset_seconds, end_utc_offset_seconds, stage_type, create_time, update_time)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-			dpID, s.StartTime, s.EndTime, s.StartUTCOffsetSeconds, s.EndUTCOffsetSeconds, s.StageType, s.CreateTime, s.UpdateTime); err != nil {
-			return fmt.Errorf("insert sleep_stage: %w", err)
-		}
+	// Each child table is written by the same INSERT-per-row loop; insertChildRows
+	// captures that loop once so each table only declares its SQL and the args for
+	// one row. `label` names the table in any error.
+	if err := insertChildRows(ctx, tx, "sleep_stage", c.SleepStages, `
+		INSERT INTO sleep_stages (data_point_id, start_time, end_time, start_utc_offset_seconds, end_utc_offset_seconds, stage_type, create_time, update_time)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+		func(s SleepStageRow) []any {
+			return []any{dpID, s.StartTime, s.EndTime, s.StartUTCOffsetSeconds, s.EndUTCOffsetSeconds, s.StageType, s.CreateTime, s.UpdateTime}
+		}); err != nil {
+		return err
 	}
-	for _, s := range c.SleepSummary {
-		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO sleep_summary_stages (data_point_id, stage_type, minutes, count)
-			VALUES ($1, $2, $3, $4)`,
-			dpID, s.StageType, s.Minutes, s.Count); err != nil {
-			return fmt.Errorf("insert sleep_summary_stage: %w", err)
-		}
+	if err := insertChildRows(ctx, tx, "sleep_summary_stage", c.SleepSummary, `
+		INSERT INTO sleep_summary_stages (data_point_id, stage_type, minutes, count)
+		VALUES ($1, $2, $3, $4)`,
+		func(s SleepSummaryStageRow) []any { return []any{dpID, s.StageType, s.Minutes, s.Count} }); err != nil {
+		return err
 	}
-	for _, s := range c.SleepOutOfBed {
-		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO sleep_out_of_bed_segments (data_point_id, start_time, end_time, start_utc_offset_seconds, end_utc_offset_seconds)
-			VALUES ($1, $2, $3, $4, $5)`,
-			dpID, s.StartTime, s.EndTime, s.StartUTCOffsetSeconds, s.EndUTCOffsetSeconds); err != nil {
-			return fmt.Errorf("insert sleep_out_of_bed: %w", err)
-		}
+	if err := insertChildRows(ctx, tx, "sleep_out_of_bed", c.SleepOutOfBed, `
+		INSERT INTO sleep_out_of_bed_segments (data_point_id, start_time, end_time, start_utc_offset_seconds, end_utc_offset_seconds)
+		VALUES ($1, $2, $3, $4, $5)`,
+		func(s SleepOutOfBedRow) []any {
+			return []any{dpID, s.StartTime, s.EndTime, s.StartUTCOffsetSeconds, s.EndUTCOffsetSeconds}
+		}); err != nil {
+		return err
 	}
-	for _, e := range c.ExerciseEvents {
-		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO exercise_events (data_point_id, event_time, event_utc_offset_seconds, event_type)
-			VALUES ($1, $2, $3, $4)`,
-			dpID, e.EventTime, e.EventUTCOffsetSeconds, e.EventType); err != nil {
-			return fmt.Errorf("insert exercise_event: %w", err)
-		}
+	if err := insertChildRows(ctx, tx, "exercise_event", c.ExerciseEvents, `
+		INSERT INTO exercise_events (data_point_id, event_time, event_utc_offset_seconds, event_type)
+		VALUES ($1, $2, $3, $4)`,
+		func(e ExerciseEventRow) []any { return []any{dpID, e.EventTime, e.EventUTCOffsetSeconds, e.EventType} }); err != nil {
+		return err
 	}
-	for _, s := range c.ExerciseSplits {
-		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO exercise_splits (data_point_id, start_time, end_time, active_duration_seconds, split_type, metrics_summary_json)
-			VALUES ($1, $2, $3, $4, $5, $6)`,
-			dpID, s.StartTime, s.EndTime, s.ActiveDurationSeconds, s.SplitType, s.MetricsSummaryJSON); err != nil {
-			return fmt.Errorf("insert exercise_split: %w", err)
-		}
+	if err := insertChildRows(ctx, tx, "exercise_split", c.ExerciseSplits, `
+		INSERT INTO exercise_splits (data_point_id, start_time, end_time, active_duration_seconds, split_type, metrics_summary_json)
+		VALUES ($1, $2, $3, $4, $5, $6)`,
+		func(s ExerciseSplitRow) []any {
+			return []any{dpID, s.StartTime, s.EndTime, s.ActiveDurationSeconds, s.SplitType, s.MetricsSummaryJSON}
+		}); err != nil {
+		return err
 	}
-	for _, n := range c.Nutrients {
-		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO nutrition_log_nutrients (data_point_id, nutrient, grams)
-			VALUES ($1, $2, $3)`,
-			dpID, n.Nutrient, n.Grams); err != nil {
-			return fmt.Errorf("insert nutrient: %w", err)
-		}
+	if err := insertChildRows(ctx, tx, "nutrient", c.Nutrients, `
+		INSERT INTO nutrition_log_nutrients (data_point_id, nutrient, grams)
+		VALUES ($1, $2, $3)`,
+		func(n NutrientRow) []any { return []any{dpID, n.Nutrient, n.Grams} }); err != nil {
+		return err
 	}
-	for _, z := range c.DailyHRZones {
-		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO daily_heart_rate_zones (data_point_id, zone_type, min_bpm, max_bpm)
-			VALUES ($1, $2, $3, $4)`,
-			dpID, z.ZoneType, z.MinBPM, z.MaxBPM); err != nil {
-			return fmt.Errorf("insert daily_hr_zone: %w", err)
-		}
+	if err := insertChildRows(ctx, tx, "daily_hr_zone", c.DailyHRZones, `
+		INSERT INTO daily_heart_rate_zones (data_point_id, zone_type, min_bpm, max_bpm)
+		VALUES ($1, $2, $3, $4)`,
+		func(z DailyHRZoneRow) []any { return []any{dpID, z.ZoneType, z.MinBPM, z.MaxBPM} }); err != nil {
+		return err
 	}
-	for _, a := range c.ActiveMinutes {
-		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO active_minutes_by_level (data_point_id, activity_level, minutes)
-			VALUES ($1, $2, $3)`,
-			dpID, a.ActivityLevel, a.Minutes); err != nil {
-			return fmt.Errorf("insert active_minutes: %w", err)
-		}
+	if err := insertChildRows(ctx, tx, "active_minutes", c.ActiveMinutes, `
+		INSERT INTO active_minutes_by_level (data_point_id, activity_level, minutes)
+		VALUES ($1, $2, $3)`,
+		func(a ActiveMinutesRow) []any { return []any{dpID, a.ActivityLevel, a.Minutes} }); err != nil {
+		return err
 	}
-	for _, e := range c.EcgWaveforms {
-		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO electrocardiogram_waveforms
-				(data_point_id, result_classification, beats_per_minute_avg, sampling_frequency_hertz, millivolts_scaling_factor, lead_number, waveform_samples_json)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-			dpID, e.ResultClassification, e.BeatsPerMinuteAvg, e.SamplingFrequencyHertz, e.MillivoltsScalingFactor, e.LeadNumber, e.WaveformSamplesJSON); err != nil {
-			return fmt.Errorf("insert ecg_waveform: %w", err)
-		}
+	if err := insertChildRows(ctx, tx, "ecg_waveform", c.EcgWaveforms, `
+		INSERT INTO electrocardiogram_waveforms
+			(data_point_id, result_classification, beats_per_minute_avg, sampling_frequency_hertz, millivolts_scaling_factor, lead_number, waveform_samples_json)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		func(e EcgWaveformRow) []any {
+			return []any{dpID, e.ResultClassification, e.BeatsPerMinuteAvg, e.SamplingFrequencyHertz, e.MillivoltsScalingFactor, e.LeadNumber, e.WaveformSamplesJSON}
+		}); err != nil {
+		return err
 	}
-	for _, w := range c.IrnWindows {
-		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO irregular_rhythm_alert_windows (data_point_id, start_time, end_time, positive, heart_beats_json)
-			VALUES ($1, $2, $3, $4, $5)`,
-			dpID, w.StartTime, w.EndTime, w.Positive, w.HeartBeatsJSON); err != nil {
-			return fmt.Errorf("insert irn_window: %w", err)
-		}
+	if err := insertChildRows(ctx, tx, "irn_window", c.IrnWindows, `
+		INSERT INTO irregular_rhythm_alert_windows (data_point_id, start_time, end_time, positive, heart_beats_json)
+		VALUES ($1, $2, $3, $4, $5)`,
+		func(w IrnWindowRow) []any { return []any{dpID, w.StartTime, w.EndTime, w.Positive, w.HeartBeatsJSON} }); err != nil {
+		return err
 	}
-	for _, h := range c.HealthRecords {
-		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO health_data_records
-				(user_id, data_point_id, record_date, metric_name, metric_value, metric_unit, metric_metadata_json, source, data_type)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-			ON CONFLICT (user_id, record_date, metric_name, source) DO UPDATE SET
-				data_point_id = EXCLUDED.data_point_id,
-				metric_value = EXCLUDED.metric_value,
-				metric_unit = EXCLUDED.metric_unit,
-				metric_metadata_json = EXCLUDED.metric_metadata_json,
-				data_type = EXCLUDED.data_type`,
-			userID, dpID, h.RecordDate, h.MetricName, h.MetricValue, h.MetricUnit, h.MetadataJSON, h.Source, h.DataType); err != nil {
-			return fmt.Errorf("insert health_data_record: %w", err)
+	// health_data_records is keyed on (user_id, record_date, metric_name, source)
+	// and upserts rather than relying on the DELETE above (ON DELETE SET NULL).
+	if err := insertChildRows(ctx, tx, "health_data_record", c.HealthRecords, `
+		INSERT INTO health_data_records
+			(user_id, data_point_id, record_date, metric_name, metric_value, metric_unit, metric_metadata_json, source, data_type)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		ON CONFLICT (user_id, record_date, metric_name, source) DO UPDATE SET
+			data_point_id = EXCLUDED.data_point_id,
+			metric_value = EXCLUDED.metric_value,
+			metric_unit = EXCLUDED.metric_unit,
+			metric_metadata_json = EXCLUDED.metric_metadata_json,
+			data_type = EXCLUDED.data_type`,
+		func(h HealthDataRow) []any {
+			return []any{userID, dpID, h.RecordDate, h.MetricName, h.MetricValue, h.MetricUnit, h.MetadataJSON, h.Source, h.DataType}
+		}); err != nil {
+		return err
+	}
+	return nil
+}
+
+// insertChildRows runs `query` once per item, with the args produced by `args`.
+// label names the row type in any error.
+func insertChildRows[T any](ctx context.Context, tx *sql.Tx, label string, items []T, query string, args func(T) []any) error {
+	for _, it := range items {
+		if _, err := tx.ExecContext(ctx, query, args(it)...); err != nil {
+			return fmt.Errorf("insert %s: %w", label, err)
 		}
 	}
 	return nil

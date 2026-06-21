@@ -10,7 +10,6 @@ import (
 	"github.com/vishal-android-freak/fitvibe/internal/config"
 	"github.com/vishal-android-freak/fitvibe/internal/db/repositories"
 	"github.com/vishal-android-freak/fitvibe/internal/healthapi"
-	"github.com/vishal-android-freak/fitvibe/internal/ingestion"
 	"github.com/vishal-android-freak/fitvibe/internal/oauth"
 )
 
@@ -96,8 +95,7 @@ func (s *CatchupSyncer) syncDataType(ctx context.Context, client *healthapi.Clie
 
 	start, end := s.syncWindow(state)
 
-	pageToken := ""
-	for {
+	err = paginateAndStore(ctx, s.dataPointRepo, user.ID, dataType, "cron_catchup", func(pageToken string) (page, error) {
 		resp, err := client.ListDataPoints(ctx, &healthapi.ListDataPointsRequest{
 			DataType:  dataType,
 			StartTime: start,
@@ -106,27 +104,12 @@ func (s *CatchupSyncer) syncDataType(ctx context.Context, client *healthapi.Clie
 			PageSize:  100,
 		})
 		if err != nil {
-			return fmt.Errorf("list data points: %w", err)
+			return page{}, fmt.Errorf("list data points: %w", err)
 		}
-
-		recs := make([]*repositories.DataPointRecord, 0, len(resp.DataPoints))
-		for i := range resp.DataPoints {
-			rec, err := ingestion.MapDataPoint(user.ID, dataType, "cron_catchup", &resp.DataPoints[i], sql.NullInt64{})
-			if err != nil {
-				return fmt.Errorf("map data point: %w", err)
-			}
-			recs = append(recs, rec)
-		}
-		if len(recs) > 0 {
-			if err := s.dataPointRepo.InsertMany(ctx, recs); err != nil {
-				return fmt.Errorf("insert data points: %w", err)
-			}
-		}
-
-		if resp.NextPageToken == "" {
-			break
-		}
-		pageToken = resp.NextPageToken
+		return page{points: resp.DataPoints, next: resp.NextPageToken}, nil
+	})
+	if err != nil {
+		return err
 	}
 
 	rec := &repositories.SyncStateRecord{

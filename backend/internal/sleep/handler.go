@@ -267,22 +267,23 @@ func buildNight(n *repositories.SleepNightDetail, age int) nightSummary {
 		total = int(n.MinutesInSleepPeriod.Int64)
 	}
 
-	// Treat invalid OR non-finite (NaN/Inf) as "no value" — a NaN skin-temp
-	// baseline (before the 30-day baseline is established) would otherwise turn
-	// into garbage like -15372 when rounded.
+	// nullable maps a column to *float64, treating invalid OR non-finite
+	// (NaN/Inf) as "no value" — a NaN skin-temp baseline (before the 30-day
+	// baseline is established) would otherwise round into garbage. round1 does
+	// the same but rounds to one decimal (math.Round handles negatives).
 	nullable := func(v sql.NullFloat64) *float64 {
 		if !v.Valid || math.IsNaN(v.Float64) || math.IsInf(v.Float64, 0) {
 			return nil
 		}
-		f := v.Float64
-		return &f
+		return &v.Float64
 	}
 	round1 := func(v sql.NullFloat64) *float64 {
-		if !v.Valid || math.IsNaN(v.Float64) || math.IsInf(v.Float64, 0) {
+		f := nullable(v)
+		if f == nil {
 			return nil
 		}
-		f := float64(int(v.Float64*10+0.5*sign(v.Float64))) / 10
-		return &f
+		r := math.Round(*f*10) / 10
+		return &r
 	}
 
 	q := buildQuality(loc, n.Segments, n.Summary)
@@ -309,15 +310,6 @@ func buildNight(n *repositories.SleepNightDetail, age int) nightSummary {
 			SkinTempDelta:   round1(n.SkinTempDelta), // delta can be negative
 		},
 	}
-}
-
-// sign returns +1 for non-negative, -1 for negative — so rounding works for the
-// skin-temp delta, which is frequently negative.
-func sign(f float64) float64 {
-	if f < 0 {
-		return -1
-	}
-	return 1
 }
 
 func (h *Handler) userAge(ctx context.Context, userID int64) int {

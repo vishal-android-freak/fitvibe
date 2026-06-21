@@ -85,11 +85,8 @@ func (r *UserRepo) StoreTokens(ctx context.Context, googleUserID, healthUserID, 
 	now := time.Now().UTC()
 	row := r.db.QueryRowContext(ctx, query,
 		googleUserID, healthUserID, "", email,
-		sql.NullString{String: displayName, Valid: displayName != ""},
-		sql.NullString{String: picture, Valid: picture != ""},
-		sql.NullString{String: gender, Valid: gender != ""},
-		sql.NullFloat64{Float64: heightMeters, Valid: heightMeters > 0},
-		sql.NullFloat64{Float64: weightKg, Valid: weightKg > 0},
+		nullStr(displayName), nullStr(picture), nullStr(gender),
+		nullPosFloat(heightMeters), nullPosFloat(weightKg),
 		accessToken, refreshToken, expiry, scopes, now,
 	)
 
@@ -218,20 +215,14 @@ func (r *UserRepo) UpdateProfileSettings(ctx context.Context, id int64, age int,
 		    settings_json = $14, settings_updated_at = $15, updated_at = $16
 		WHERE id = $17
 	`,
-		sql.NullInt32{Int32: int32(age), Valid: age > 0},
+		nullPosInt32(age),
 		sql.NullTime{Time: membershipStartDate, Valid: !membershipStartDate.IsZero()},
-		sql.NullInt32{Int32: int32(walkingStrideMm), Valid: walkingStrideMm > 0},
-		sql.NullInt32{Int32: int32(runningStrideMm), Valid: runningStrideMm > 0},
-		sql.NullString{String: distanceUnit, Valid: distanceUnit != ""},
-		sql.NullString{String: weightUnit, Valid: weightUnit != ""},
-		sql.NullString{String: heightUnit, Valid: heightUnit != ""},
-		sql.NullString{String: temperatureUnit, Valid: temperatureUnit != ""},
-		sql.NullString{String: timeZone, Valid: timeZone != ""},
-		sql.NullString{String: languageLocale, Valid: languageLocale != ""},
-		sql.NullString{String: utcOffset, Valid: utcOffset != ""},
-		sql.NullString{String: profileJSON, Valid: profileJSON != ""},
+		nullPosInt32(walkingStrideMm), nullPosInt32(runningStrideMm),
+		nullStr(distanceUnit), nullStr(weightUnit), nullStr(heightUnit), nullStr(temperatureUnit),
+		nullStr(timeZone), nullStr(languageLocale), nullStr(utcOffset),
+		nullStr(profileJSON),
 		sql.NullTime{Time: now, Valid: profileJSON != ""},
-		sql.NullString{String: settingsJSON, Valid: settingsJSON != ""},
+		nullStr(settingsJSON),
 		sql.NullTime{Time: now, Valid: settingsJSON != ""},
 		now, id)
 	if err != nil {
@@ -247,8 +238,7 @@ func (r *UserRepo) UpdateBodyMetrics(ctx context.Context, id int64, heightMeters
 		SET height_meters = $1, weight_kg = $2, updated_at = $3
 		WHERE id = $4
 	`,
-		sql.NullFloat64{Float64: heightMeters, Valid: heightMeters > 0},
-		sql.NullFloat64{Float64: weightKg, Valid: weightKg > 0},
+		nullPosFloat(heightMeters), nullPosFloat(weightKg),
 		time.Now().UTC(), id)
 	if err != nil {
 		return fmt.Errorf("update body metrics: %w", err)
