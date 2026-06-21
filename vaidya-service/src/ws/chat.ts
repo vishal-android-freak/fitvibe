@@ -88,6 +88,27 @@ export function attachChatWs(server: Server, cfg: Config, cwd: string): WebSocke
   const wss = new WebSocketServer({ server, path: "/vaidya/chat" });
 
   wss.on("connection", async (ws, req) => {
+    // Capture inbound frames from the FIRST synchronous tick — BEFORE any await.
+    // Auth and session-build both await (seconds), and the client sends its first
+    // message right after the socket opens; the `ws` library DROPS messages that
+    // arrive with no "message" listener, so without attaching now the first
+    // message is silently lost and the UI hangs on "loading". A `processMessage`
+    // function is wired in once the session is ready; until then frames queue.
+    const inbox: string[] = [];
+    let session: Awaited<ReturnType<typeof buildSession>> | null = null;
+    let closed = false;
+    let busy = false;
+    let processMessage: ((raw: string) => void) | null = null;
+    ws.on("message", (raw) => {
+      const s = raw.toString();
+      if (processMessage) processMessage(s);
+      else inbox.push(s);
+    });
+    ws.on("close", () => {
+      closed = true;
+      session?.dispose();
+    });
+
     const token = tokenFromReq(req);
     const userId = token ? await authUserId(token) : null;
     if (userId == null) {
@@ -97,30 +118,7 @@ export function attachChatWs(server: Server, cfg: Config, cwd: string): WebSocke
     }
 
     const collector = new BlockCollector();
-    let session: Awaited<ReturnType<typeof buildSession>>;
-    try {
-      const sm = await sessionManagerFor(cwd, queryParam(req, "conversationId"));
-      session = await buildSession(cfg, {
-        systemPrompt: loadPrompt("chat"),
-        cwd,
-        sessionManager: sm,
-        blockCollector: collector,
-      });
-    } catch (err) {
-      send(ws, { type: "error", message: `session init failed: ${String(err)}` });
-      ws.close(1011, "init failed");
-      return;
-    }
 
-    send(ws, { type: "ready", conversationId: session.sessionId });
-
-    // Suppress the model's between-tool plan narration ("Let me check the tool
-    // names…", "Now let me query your trends…"). Such text is always immediately
-    // followed by a tool call, so we BUFFER each text segment instead of
-    // streaming it live, and DISCARD a segment when a tool starts right after it.
-    // Only the final segment — the one not followed by any tool, i.e. the real
-    // coaching answer — is flushed (at turn end). Plumbing chatter never reaches
-    // the client even if the model ignores the system-prompt rule.
     let pendingText = "";
     const flushPending = () => {
       if (pendingText) {
@@ -128,30 +126,21 @@ export function attachChatWs(server: Server, cfg: Config, cwd: string): WebSocke
         pendingText = "";
       }
     };
-    session.subscribe((e: any) => {
-      if (e.type === "message_update" && e.assistantMessageEvent?.type === "text_delta") {
-        pendingText += e.assistantMessageEvent.delta;
-      } else if (e.type === "tool_execution_start") {
-        // The text just before a tool call was plan narration — drop it.
-        pendingText = "";
-        send(ws, { type: "tool", name: e.toolName });
-      }
-    });
 
-    let busy = false;
-    ws.on("message", async (raw) => {
+    async function handleMessage(raw: string) {
       let message = "";
       let attachments: Attachment[] = [];
       try {
-        const parsed = JSON.parse(raw.toString());
+        const parsed = JSON.parse(raw);
         message = String(parsed.message ?? parsed.text ?? "");
         if (Array.isArray(parsed.attachments)) attachments = parsed.attachments;
       } catch {
-        message = raw.toString();
+        message = raw;
       }
       if (!message.trim() && attachments.length === 0) return;
-      if (busy) {
-        send(ws, { type: "error", message: "still answering the previous message" });
+      if (!session || busy) {
+        // Not ready yet, or a turn is in flight — queue and drain later.
+        inbox.push(raw);
         return;
       }
       busy = true;
@@ -167,10 +156,50 @@ export function attachChatWs(server: Server, cfg: Config, cwd: string): WebSocke
         send(ws, { type: "error", message: String(err) });
       } finally {
         busy = false;
+        // Drain the next queued message, if any.
+        const next = inbox.shift();
+        if (next && !closed) void handleMessage(next);
+      }
+    }
+
+    // Build the session (slow), then start streaming + drain any queued frames.
+    try {
+      const sm = await sessionManagerFor(cwd, queryParam(req, "conversationId"));
+      session = await buildSession(cfg, {
+        systemPrompt: loadPrompt("chat"),
+        cwd,
+        sessionManager: sm,
+        blockCollector: collector,
+      });
+    } catch (err) {
+      send(ws, { type: "error", message: `session init failed: ${String(err)}` });
+      ws.close(1011, "init failed");
+      return;
+    }
+    if (closed) {
+      session.dispose();
+      return;
+    }
+
+    // Suppress the model's between-tool plan narration. Text is buffered and
+    // only the final segment (not followed by a tool call) is flushed at turn
+    // end, so plumbing chatter never reaches the client.
+    session.subscribe((e: any) => {
+      if (e.type === "message_update" && e.assistantMessageEvent?.type === "text_delta") {
+        pendingText += e.assistantMessageEvent.delta;
+      } else if (e.type === "tool_execution_start") {
+        pendingText = "";
+        send(ws, { type: "tool", name: e.toolName });
       }
     });
 
-    ws.on("close", () => session.dispose());
+    send(ws, { type: "ready", conversationId: session.sessionId });
+
+    // Live frames now go straight to handleMessage; drain anything queued during
+    // auth/build.
+    processMessage = (raw) => void handleMessage(raw);
+    const first = inbox.shift();
+    if (first) void handleMessage(first);
   });
 
   return wss;

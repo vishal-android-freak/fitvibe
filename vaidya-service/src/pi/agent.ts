@@ -8,7 +8,6 @@
  * persisted SessionManager so the session id can be replayed later.
  */
 
-import { homedir } from "node:os";
 import { join } from "node:path";
 import {
   createAgentSession,
@@ -25,10 +24,12 @@ import { genUiExtension, type BlockCollector } from "../tools/genui.js";
 // Its package.json declares pi.extensions = ["./index.ts"]. We load it explicitly
 // so its session_start lifecycle (which connects to our MCP server) actually runs
 // in a headless SDK session — auto-discovery via the "packages" setting alone
-// registered the tool but not the lifecycle.
+// registered the tool but not the lifecycle. Resolved under the active agent dir
+// (getAgentDir honors PI_CODING_AGENT_DIR — Docker points it at a container-local
+// dir; falls back to ~/.pi/agent otherwise).
 const MCP_ADAPTER_ENTRY = join(
-  homedir(),
-  ".pi/agent/npm/node_modules/pi-mcp-adapter/index.ts",
+  getAgentDir(),
+  "npm/node_modules/pi-mcp-adapter/index.ts",
 );
 
 // Everything Pi needs lives under vaidya-service/.pi (skills, mcp config, and —
@@ -56,7 +57,23 @@ async function provider(cfg: Config): Promise<Provider> {
   return cachedProvider;
 }
 
-export async function buildSession(cfg: Config, opts: BuildSessionOpts) {
+// The pi-mcp-adapter is a process-global eager extension. Two createAgentSession
+// calls running concurrently can replace the runtime mid-init and leave a ctx
+// stale (Pi issue #3021), making MCP init throw/hang. Serialize session creation
+// so only ONE runs at a time; callers dispose their own session on disconnect.
+let sessionChain: Promise<unknown> = Promise.resolve();
+
+export function buildSession(cfg: Config, opts: BuildSessionOpts) {
+  const run = () => buildSessionInner(cfg, opts);
+  const next = sessionChain.then(run, run);
+  sessionChain = next.then(
+    () => undefined,
+    () => undefined,
+  );
+  return next;
+}
+
+async function buildSessionInner(cfg: Config, opts: BuildSessionOpts) {
   const p = await provider(cfg);
   const cwd = opts.cwd ?? process.cwd();
 

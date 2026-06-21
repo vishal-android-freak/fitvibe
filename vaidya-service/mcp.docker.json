@@ -1,0 +1,15 @@
+{
+  "settings": {
+    "samplingAutoApprove": true,
+    "autoAuth": true,
+    "idleTimeout": 0
+  },
+  "mcpServers": {
+    "vaidya": {
+      "url": "http://vaidya-mcp:8765/mcp",
+      "auth": false,
+      "directTools": true,
+      "lifecycle": "lazy"
+    }
+  }
+}

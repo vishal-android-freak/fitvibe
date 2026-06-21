@@ -107,11 +107,11 @@ services:
       FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
       FIREBASE_CREDENTIALS_FILE: ${FIREBASE_CREDENTIALS_FILE:-/config/firebase-service-account.json}
     volumes:
-      # Pi's login + the pi-mcp-adapter extension live in the host's agent dir.
-      # Mounted read-WRITE: Pi writes session transcripts under
-      # <agent-dir>/sessions/, so it can't be read-only. Run `pi` once on the
-      # host so auth.json exists.
-      - ${PI_AGENT_HOST_PATH:-~/.pi/agent}:/root/.pi/agent
+      # The host's Pi login + installed packages, mounted READ-ONLY at /pi-host.
+      # The entrypoint assembles a clean, writable container-local agent dir from
+      # it (only the MCP adapter is loaded — the host's other packages hang
+      # headless). Run `pi` once on the host so auth.json exists.
+      - ${PI_AGENT_HOST_PATH:-~/.pi/agent}:/pi-host:ro
       # Secret files (Firebase service-account JSON) — read-only at /config.
       - ${CONFIG_DIR:-./config}:/config:ro
     expose:

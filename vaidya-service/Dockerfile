@@ -27,26 +27,21 @@ COPY .pi ./.pi
 COPY src/prompts ./dist/prompts
 
 # In the container the MCP server is reachable on the compose network as
-# `vaidya-mcp`, not localhost. Overwrite the dev mcp.json with the container URL.
-RUN printf '%s\n' \
-  '{' \
-  '  "mcpServers": {' \
-  '    "vaidya": {' \
-  '      "url": "http://vaidya-mcp:8765/mcp",' \
-  '      "auth": false,' \
-  '      "directTools": true,' \
-  '      "lifecycle": "eager"' \
-  '    }' \
-  '  }' \
-  '}' > .pi/mcp.json
+# `vaidya-mcp` (not localhost), and the agent runs HEADLESS (no TTY) — which
+# needs keep-alive + samplingAutoApprove so the agent loop doesn't stall waiting
+# on UI-gated handshakes. Use the container-specific mcp.json.
+COPY mcp.docker.json ./.pi/mcp.json
+
+# Pi uses a CONTAINER-LOCAL agent dir assembled by the entrypoint from the
+# read-only host login mounted at /pi-host — not the host dir directly, whose
+# settings.json eagerly loads packages that hang headless in a container.
+ENV PI_CODING_AGENT_DIR=/app/.pi-agent
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 8090
 # The HTTP server exposes /healthz.
-HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=5 \
+HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=5 \
   CMD node -e "fetch('http://127.0.0.1:8090/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" || exit 1
 
-# Pi reads ~/.pi/agent (auth.json + the pi-mcp-adapter extension + settings),
-# which is bind-mounted from the host in docker-compose. Run as root so the
-# default HOME=/root matches that mount target; the service writes session
-# transcripts under its cwd (/app), which is writable.
-ENTRYPOINT ["node", "dist/index.js"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
