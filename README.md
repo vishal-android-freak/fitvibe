@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/logo.png" alt="FitVibe" width="120" height="120" />
+<img src="docs/assets/feature-image.png" alt="FitVibe — own your health data" width="100%" />
 
 # FitVibe
 
