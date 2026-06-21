@@ -140,7 +140,18 @@ export async function openChat(handlers: {
   const qs = params.toString();
   const ws = new WebSocket(`${base}/vaidya/chat${qs ? `?${qs}` : ''}`);
 
-  ws.onopen = () => handlers.onOpen?.();
+  // Buffer outbound messages sent before the socket is OPEN, and flush on open.
+  // Without this, a send() that races the connection is silently dropped and the
+  // UI hangs on "loading".
+  const outbox: string[] = [];
+  const flushOutbox = () => {
+    while (outbox.length) ws.send(outbox.shift() as string);
+  };
+
+  ws.onopen = () => {
+    flushOutbox();
+    handlers.onOpen?.();
+  };
   ws.onmessage = (ev) => {
     try {
       handlers.onFrame(JSON.parse(String(ev.data)) as ChatFrame);
@@ -148,11 +159,19 @@ export async function openChat(handlers: {
       /* ignore malformed frame */
     }
   };
+  // Surface connection failures — without this the UI just hangs on "loading".
+  ws.onerror = () => {
+    handlers.onFrame({ type: 'error', message: 'Connection failed — check your network.' });
+  };
   ws.onclose = (ev) => handlers.onClose?.(ev.code);
 
   return {
-    send: (message: string, attachments?: ChatAttachment[]) =>
-      ws.send(JSON.stringify({ message, attachments })),
+    send: (message: string, attachments?: ChatAttachment[]) => {
+      const payload = JSON.stringify({ message, attachments });
+      // OPEN === 1. If still CONNECTING, queue and flush on open.
+      if (ws.readyState === 1) ws.send(payload);
+      else outbox.push(payload);
+    },
     close: () => ws.close(),
   };
 }

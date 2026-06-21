@@ -56,6 +56,10 @@ export function AskConversation({
   const sockRef = useRef<ChatSocket | null>(null);
   const seededRef = useRef(false);
   const turnOpenRef = useRef(false);
+  // A message sent before the socket ref is assigned (openChat is async) is held
+  // here and flushed once the socket arrives — so the FIRST message right after
+  // opening the screen isn't dropped.
+  const pendingSendRef = useRef<{ text: string; attachments?: ChatAttachment[] } | null>(null);
 
   const intoCurrentTurn = useCallback((mutate: (t: Turn) => Turn) => {
     setMsgs((m) => {
@@ -121,7 +125,10 @@ export function AskConversation({
         if (seed && !seededRef.current) {
           seededRef.current = true;
           setTyping(true);
-          sockRef.current?.send(seed);
+          // sockRef may not be assigned yet (openChat resolves after onOpen);
+          // stash if so — the .then() flushes it.
+          if (sockRef.current) sockRef.current.send(seed);
+          else pendingSendRef.current = { text: seed };
         }
       },
       onClose: () => setReady(false),
@@ -131,6 +138,12 @@ export function AskConversation({
         return;
       }
       sockRef.current = s;
+      // Flush a message that was sent before the socket finished connecting.
+      if (pendingSendRef.current) {
+        const p = pendingSendRef.current;
+        pendingSendRef.current = null;
+        s.send(p.text, p.attachments);
+      }
     });
     return () => {
       closed = true;
@@ -145,9 +158,14 @@ export function AskConversation({
 
   const send = (textToSend?: string) => {
     const t = (textToSend ?? input).trim();
-    if ((!t && pending.length === 0) || !sockRef.current) return;
-    setMsgs((m) => [...m, { role: 'user', text: t, attachments: pending.length ? pending : undefined }]);
-    sockRef.current.send(t, pending.length ? pending : undefined);
+    if (!t && pending.length === 0) return;
+    const attachments = pending.length ? pending : undefined;
+    setMsgs((m) => [...m, { role: 'user', text: t, attachments }]);
+    // If the socket hasn't finished connecting, stash the message; the openChat
+    // .then() flushes it once the socket is ready (and ChatSocket.send itself
+    // buffers until the WS is OPEN). Either way the first message isn't lost.
+    if (sockRef.current) sockRef.current.send(t, attachments);
+    else pendingSendRef.current = { text: t, attachments };
     setInput('');
     setPending([]);
     setTyping(true);
