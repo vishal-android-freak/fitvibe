@@ -1,4 +1,6 @@
-/** Loads a versioned system-prompt markdown file from src/prompts at runtime. */
+/** Loads a versioned system-prompt markdown file that sits next to this module
+ *  (src/prompts in dev; dist/prompts in the built image — the Docker build copies
+ *  the .md files alongside the compiled output since tsc doesn't emit them). */
 
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";

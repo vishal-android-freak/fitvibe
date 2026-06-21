@@ -20,9 +20,11 @@ WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY package.json ./
-# Pi resources: skills, prompts, and the MCP config live under .pi / src.
+# Pi skills + MCP config.
 COPY .pi ./.pi
-COPY src/prompts ./src/prompts
+# loadPrompt() resolves prompt .md files relative to the compiled load.js, i.e.
+# dist/prompts/. tsc only emits .ts, so copy the .md prompts into dist/prompts.
+COPY src/prompts ./dist/prompts
 
 # In the container the MCP server is reachable on the compose network as
 # `vaidya-mcp`, not localhost. Overwrite the dev mcp.json with the container URL.
