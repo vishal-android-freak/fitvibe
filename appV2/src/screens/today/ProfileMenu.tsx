@@ -90,7 +90,7 @@ export function ProfileMenu({ open, onClose }: { open: boolean; onClose: () => v
             <View style={[styles.itemIcon, { backgroundColor: tint(accent.base, 0.16) }]}>
               <Icon name="bell" size={16} color={accent.base} />
             </View>
-            <Text style={[styles.itemLabel, { color: text.primary, flex: 1 }]}>Notifications</Text>
+            <Text style={[styles.itemLabel, { color: text.primary }]}>Notifications</Text>
             <Switch
               value={notifOn}
               disabled={notifBusy}
@@ -122,7 +122,9 @@ const styles = StyleSheet.create({
   card: {
     position: 'absolute',
     right: 18,
-    minWidth: 230,
+    // No fixed width — the card hugs its widest child. maxWidth keeps a long
+    // email from stretching it past a sane bound (the email truncates instead).
+    maxWidth: 320,
     borderRadius: radius.xl,
     backgroundColor: surface.overlay,
     borderWidth: 1,
@@ -131,7 +133,7 @@ const styles = StyleSheet.create({
     ...shadow.lg,
   },
   account: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
-  who: { flex: 1, minWidth: 0 },
+  who: { flexShrink: 1, minWidth: 0 },
   name: { fontFamily: font.sansBold, fontSize: fontSize.sm, color: text.primary },
   email: { fontFamily: font.sansRegular, fontSize: fontSize.xs, color: text.muted, marginTop: 2 },
   divider: { height: 1, backgroundColor: border.subtle, marginHorizontal: 6 },
