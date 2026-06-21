@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { BarChart, Icon, MiniRing, RichText, Sparkline, StreakDots, TypeTag, type IconName } from '@/components';
-import { accent, border, font, fontSize, hue as hues, radius, surface, text, tint } from '@/theme';
+import { accent, border, font, fontSize, hue as hues, radius, resolveHue, surface, text, tint } from '@/theme';
 import type { InsightCardBlock } from '@/data/blocks';
 
 /**
@@ -27,10 +27,6 @@ const CAT_HUE: Record<InsightCardBlock['category'], string> = {
   activity: hues.move,
   nutrition: hues.nutrition,
 };
-
-function resolveHue(h: string): string {
-  return (hues as Record<string, string>)[h] ?? h;
-}
 
 function Viz({ viz }: { viz: NonNullable<InsightCardBlock['viz']> }) {
   switch (viz.kind) {

@@ -25,6 +25,14 @@ const SIZES: Record<Size, { height: number; padding: number; font: number; radiu
   lg: { height: 54, padding: 26, font: fontSize.lg, radius: radius.lg },
 };
 
+/** Foreground (text/icon) color per variant. */
+const FOREGROUND: Record<Variant, string> = {
+  ai: ai.onGradient,
+  primary: text.onAccent,
+  secondary: text.primary,
+  ghost: text.secondary,
+};
+
 /** Pillowy, sporty CTA. `variant="ai"` paints the signature AI gradient. */
 export function Button({
   children,
@@ -42,14 +50,7 @@ export function Button({
   const s = SIZES[size];
   const isAI = variant === 'ai';
 
-  const fg =
-    variant === 'ai'
-      ? ai.onGradient
-      : variant === 'primary'
-        ? text.onAccent
-        : variant === 'secondary'
-          ? text.primary
-          : text.secondary;
+  const fg = FOREGROUND[variant];
 
   const containerStyle: ViewStyle = {
     height: s.height,

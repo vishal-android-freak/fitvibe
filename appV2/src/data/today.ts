@@ -118,10 +118,11 @@ async function loadToday(): Promise<void> {
       todayState = { data: d, loading: false, error: null };
     } catch (e: unknown) {
       // Keep old data on a failed refresh; surface the error only with nothing to show.
+      const message = e instanceof Error ? e.message : 'Failed to load';
       todayState = {
         data: todayState.data,
         loading: false,
-        error: todayState.data == null ? (e instanceof Error ? e.message : 'Failed to load') : todayState.error,
+        error: todayState.data == null ? message : todayState.error,
       };
     } finally {
       inFlight = null;

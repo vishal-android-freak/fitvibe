@@ -1,8 +1,19 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Icon, type IconName } from '@/components';
-import { fmtStampClock, useToday } from '@/data/today';
+import { fmtStampClock, useToday, type NutritionToday } from '@/data/today';
 import { border, font, hue, radius, surface, text } from '@/theme';
+
+/** Zero-state nutrition used before anything is logged today. */
+const EMPTY_NUTRITION: NutritionToday = {
+  caloriesEaten: 0,
+  caloriesBurnt: 0,
+  carbsGrams: 0,
+  fatGrams: 0,
+  proteinGrams: 0,
+  hydrationMl: 0,
+  lastUpdated: null,
+};
 
 interface Macro {
   key: string;
@@ -33,15 +44,7 @@ function StatTile({ icon, hue: tint, label, value, unit }: Omit<Macro, 'key'>) {
 /** Hero page 2 — today's nutrition: calories eaten vs burnt, macro split, hydration. */
 export function NutritionPage() {
   const { data } = useToday();
-  const n = data?.nutrition ?? {
-    caloriesEaten: 0,
-    caloriesBurnt: 0,
-    carbsGrams: 0,
-    fatGrams: 0,
-    proteinGrams: 0,
-    hydrationMl: 0,
-    lastUpdated: null,
-  };
+  const n = data?.nutrition ?? EMPTY_NUTRITION;
   const eatenEmpty = n.caloriesEaten <= 0;
   const asOf = n.lastUpdated ? fmtStampClock(n.lastUpdated) : null;
 

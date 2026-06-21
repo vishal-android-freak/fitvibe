@@ -29,11 +29,17 @@ export async function apiGetOrNull<T>(path: string, baseUrl?: string): Promise<T
 /** PUT/POST `path` with a JSON `body`, authenticated with the Firebase ID
  *  token. Throws on non-2xx. Use for writes (e.g. the sleep schedule). */
 export async function apiSend<T>(method: 'PUT' | 'POST', path: string, body: unknown, baseUrl?: string): Promise<T | null> {
-  let idToken = await getIdToken(false);
-  let res = await doSend(method, path, body, idToken, baseUrl);
+  const send = (idToken: string | null) =>
+    fetchWithTimeout(path, {
+      method,
+      headers: authHeaders(idToken, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify(body),
+    }, baseUrl);
+
+  let res = await send(await getIdToken(false));
   if (res.status === 401) {
-    idToken = await getIdToken(true);
-    if (idToken) res = await doSend(method, path, body, idToken, baseUrl);
+    const fresh = await getIdToken(true);
+    if (fresh) res = await send(fresh);
   }
   if (res.status !== 204 && !res.ok) {
     throw new Error(`Request failed (HTTP ${res.status})`);
@@ -42,29 +48,17 @@ export async function apiSend<T>(method: 'PUT' | 'POST', path: string, body: unk
   return (await res.json()) as T;
 }
 
-async function doSend(method: string, path: string, body: unknown, idToken: string | null, baseUrl?: string): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (idToken) headers.Authorization = `Bearer ${idToken}`;
-  try {
-    return await fetch(`${baseUrl ?? config.apiBaseUrl}${path}`, { method, headers, body: JSON.stringify(body), signal: controller.signal });
-  } catch (e: unknown) {
-    if (e instanceof Error && e.name === 'AbortError') throw new Error('Request timed out — is the server reachable?');
-    throw e instanceof Error ? e : new Error('Network request failed');
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 async function request(path: string, baseUrl?: string): Promise<Response> {
   // Attach the Firebase ID token (null before sign-in / on public auth routes).
   // On a 401 we retry ONCE with a force-refreshed token, in case ours expired
   // mid-session.
-  let res = await doFetch(path, await getIdToken(false), baseUrl);
+  const get = (idToken: string | null) =>
+    fetchWithTimeout(path, { headers: authHeaders(idToken) }, baseUrl);
+
+  let res = await get(await getIdToken(false));
   if (res.status === 401) {
     const fresh = await getIdToken(true);
-    if (fresh) res = await doFetch(path, fresh, baseUrl);
+    if (fresh) res = await get(fresh);
   }
   if (res.status !== 204 && !res.ok) {
     let detail = '';
@@ -79,17 +73,21 @@ async function request(path: string, baseUrl?: string): Promise<Response> {
   return res;
 }
 
-async function doFetch(path: string, idToken: string | null, baseUrl?: string): Promise<Response> {
+/** Build request headers with the optional bearer token merged in. */
+function authHeaders(idToken: string | null, base: Record<string, string> = {}): Record<string, string> {
+  if (idToken) base.Authorization = `Bearer ${idToken}`;
+  return base;
+}
+
+/** fetch with a hard timeout (RN's fetch has none) and normalized network/abort
+ *  errors. The single place the AbortController + timeout dance lives. */
+async function fetchWithTimeout(path: string, init: RequestInit, baseUrl?: string): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  const headers: Record<string, string> = {};
-  if (idToken) headers.Authorization = `Bearer ${idToken}`;
   try {
-    return await fetch(`${baseUrl ?? config.apiBaseUrl}${path}`, { headers, signal: controller.signal });
+    return await fetch(`${baseUrl ?? config.apiBaseUrl}${path}`, { ...init, signal: controller.signal });
   } catch (e: unknown) {
-    if (e instanceof Error && e.name === 'AbortError') {
-      throw new Error('Request timed out — is the server reachable?');
-    }
+    if (e instanceof Error && e.name === 'AbortError') throw new Error('Request timed out — is the server reachable?');
     throw e instanceof Error ? e : new Error('Network request failed');
   } finally {
     clearTimeout(timer);

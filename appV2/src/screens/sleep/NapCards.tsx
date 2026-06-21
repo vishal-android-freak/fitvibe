@@ -11,7 +11,7 @@ import { clk, fmtH } from './data';
  * nothing when there are no naps that day.
  */
 export function NapCards({ naps }: { naps: Nap[] }) {
-  if (!naps || naps.length === 0) return null;
+  if (naps.length === 0) return null;
   return (
     <>
       {naps.map((nap, i) => (

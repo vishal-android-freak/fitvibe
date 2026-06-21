@@ -17,7 +17,7 @@ import {
   useImage,
   vec,
 } from '@shopify/react-native-skia';
-import { hue as hues, surface, text as textTok, radius } from '@/theme';
+import { resolveHue, surface, text as textTok, radius } from '@/theme';
 import type { CanvasBlockSpec, DrawOp } from '@/data/blocks';
 
 /**
@@ -41,10 +41,10 @@ const WEIGHT_TO_FAMILY: Record<string, string> = {
   bold: 'Sora_700Bold',
 };
 
-/** Resolve a hue token name or hex to a hex color (theme-consistent). */
+/** Resolve a hue token name or hex to a hex color (theme-consistent), or the
+ *  fallback when unset. */
 function color(c: string | undefined, fallback: string): string {
-  if (!c) return fallback;
-  return (hues as Record<string, string>)[c] ?? c;
+  return c ? resolveHue(c) : fallback;
 }
 
 type GradientDef = Extract<DrawOp, { op: 'lineargradient' }>;

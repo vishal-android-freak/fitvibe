@@ -20,14 +20,19 @@ export interface InsightPayload {
   generatedAt: string;
 }
 
-async function fetchInsight(path: string): Promise<InsightPayload | null> {
-  // 404 (no insight yet) surfaces as an error in apiGet; treat any failure as
-  // "nothing yet" so the UI shows an empty state rather than an error.
+/** Run `fn`, returning `fallback` on any failure. Vaidya endpoints 404 when
+ *  there's nothing yet (no insight, no history) — we treat that as an empty
+ *  result so the UI shows an empty state rather than an error. */
+async function getOrFallback<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
   try {
-    return await apiGetOrNull<InsightPayload>(path, config.vaidyaBaseUrl);
+    return await fn();
   } catch {
-    return null;
+    return fallback;
   }
+}
+
+function fetchInsight(path: string): Promise<InsightPayload | null> {
+  return getOrFallback(() => apiGetOrNull<InsightPayload>(path, config.vaidyaBaseUrl), null);
 }
 
 export const fetchTodayInsight = () => fetchInsight('/vaidya/insights/today');
@@ -69,15 +74,13 @@ export interface ConversationMessage {
 
 /** Last 7 days of conversations, newest first. */
 export async function fetchConversations(): Promise<ConversationSummary[]> {
-  try {
+  return getOrFallback(async () => {
     const r = await apiGetOrNull<{ conversations: ConversationSummary[] }>(
       '/vaidya/conversations',
       config.vaidyaBaseUrl,
     );
     return r?.conversations ?? [];
-  } catch {
-    return [];
-  }
+  }, []);
 }
 
 /** The last `limit` messages of a conversation, oldest→newest. */
@@ -85,15 +88,13 @@ export async function fetchConversationMessages(
   id: string,
   limit = 50,
 ): Promise<ConversationMessage[]> {
-  try {
+  return getOrFallback(async () => {
     const r = await apiGetOrNull<{ messages: ConversationMessage[] }>(
       `/vaidya/conversations/${id}/messages?limit=${limit}`,
       config.vaidyaBaseUrl,
     );
     return r?.messages ?? [];
-  } catch {
-    return [];
-  }
+  }, []);
 }
 
 // --- Live chat over WebSocket ---------------------------------------------
