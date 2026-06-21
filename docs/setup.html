@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FitVibe — Setup Guide</title>
+<title>FitVibe — Setup</title>
 <style>
 /* FitVibe documentation — shared house style (dark, aurora accent).
    Inlined into each doc's <style> block; kept here as the canonical source. */
@@ -77,16 +77,16 @@ pre.diagram { color: var(--accent2); line-height: 1.3; font-size: 12px; }
     <h2>On this page</h2>
     <a href="#prerequisites">Prerequisites</a>
     <a href="#google-cloud-firebase">1. Google Cloud &amp; Firebase</a>
+    <a href="#docker-stack">Run the whole stack with Docker</a>
     <a href="#postgresql">2. PostgreSQL</a>
     <a href="#backend">3. Backend</a>
     <a href="#mobile-app">4. Mobile app</a>
-    <a href="#vaidya-mcp">5. Vaidya MCP</a>
-    <a href="#vaidya-service">6. Vaidya service</a>
+    <a href="#vaidya-mcp">5. Vaidya MCP (optional)</a>
+    <a href="#vaidya-service">6. Vaidya service (optional)</a>
     <a href="#production-notes">Production notes</a>
     <a href="#troubleshooting">Troubleshooting</a>
     <h2>Other docs</h2>
     <a href="architecture.html">Architecture</a>
-    <a href="setup.html">Setup</a>
     <a href="backend.html">Backend</a>
     <a href="data-model.html">Data model</a>
     <a href="app.html">Mobile app</a>
@@ -95,7 +95,7 @@ pre.diagram { color: var(--accent2); line-height: 1.3; font-size: 12px; }
   </nav>
   <main>
     <header class="hero">
-      <div class="eyebrow">Getting started</div>
+      <div class="eyebrow">FitVibe · Setup</div>
       <h1>Setup Guide</h1>
       <p>This walks through running the full FitVibe stack locally. You can stop after step 4 for a working tracking app, and add Vaidya (steps 5–6) when you want the AI coach.</p>
     </header>
@@ -123,7 +123,64 @@ pre.diagram { color: var(--accent2); line-height: 1.3; font-size: 12px; }
       </li>
       <li><b>Webhooks</b> (optional, for real-time data) — you'll register a webhook subscriber pointing at your backend's public <code>POST /webhooks/google-health</code>. Use <code>go run ./cmd/webhooks</code> once the server is reachable.</li>
     </ol>
-    <div class="callout warn"><b>Keep every credential file out of git.</b> The repo's <code>.gitignore</code> already excludes <code>.env</code> files; never commit service-account JSON.</div>
+
+    <div class="callout note">Keep every credential file out of git. The repo's <code>.gitignore</code> already excludes <code>.env</code> files; never commit service-account JSON.</div>
+
+    <h2 class="sec" id="docker-stack">Run the whole stack with Docker (recommended)</h2>
+    <p>The fastest path is the root <code>docker-compose.yml</code> — it builds and runs PostgreSQL, the Go backend, both Vaidya services, and Caddy (the reverse proxy) together.</p>
+
+    <pre><code>cp .env.docker.example .env          # fill in your Google + Firebase values
+# drop your secret files into ./config (see config/README.md):
+#   config/firebase-service-account.json   ← Firebase Admin key
+#   config/google-oauth.json               ← downloaded OAuth client (reference)
+# ./config is mounted read-only into the containers at /config.
+
+docker compose up -d --build          # whole stack
+# ...or core only (no AI coach — needs no Pi login):
+docker compose up -d --build postgres backend caddy</code></pre>
+
+    <p>Everything is then reachable through Caddy on <b>http://localhost</b> with the same path routing the app expects:</p>
+    <ul>
+      <li><code>/vaidya/*</code> → the Vaidya service (insights + chat WebSocket)</li>
+      <li>everything else (<code>/me/*</code>, <code>/auth/*</code>, <code>/webhooks/*</code>, <code>/healthz</code>) → the Go backend</li>
+    </ul>
+
+    <p>What the stack wires up for you:</p>
+    <ul>
+      <li><b>PostgreSQL</b> with a persistent volume; on first init it provisions the least-privilege <code>vaidya_ro</code> role the MCP server uses (<code>deploy/db-init/</code>).</li>
+      <li><b>Backend</b> runs its migrations on startup and serves the internal token provider to the MCP server over a <b>shared Unix socket</b> (<code>token_sock</code> volume) — never a refresh token. (The backend refuses to bind tokens to a non-loopback TCP port, so the socket is the cross-container channel.)</li>
+      <li><b>vaidya-mcp</b> reads health data as <code>vaidya_ro</code> and reaches the token socket; <b>vaidya-service</b> owns the <code>vaidya_*</code> tables and reaches vaidya-mcp on the compose network.</li>
+      <li><b>Caddy</b> fronts the backend + Vaidya service. Leave <code>DOMAIN</code> empty for localhost/HTTP; set <code>DOMAIN=health.example.com</code> in <code>.env</code> for automatic HTTPS on a public server.</li>
+    </ul>
+
+    <h3>The Vaidya coach needs your Pi login</h3>
+    <p>Vaidya runs on the <a href="https://pi.dev">Pi agent SDK</a>, which authenticates with an OAuth login stored in <code>~/.pi/agent</code> on the <b>host</b>. Run <code>pi</code> once on the host and sign in to your model provider before starting the AI services.</p>
+    <p><code>docker-compose.yml</code> bind-mounts your host <code>~/.pi/agent</code> <b>read-only at <code>/pi-host</code></b>. On startup the <code>vaidya-service</code> entrypoint assembles a clean, container-local agent dir (<code>PI_CODING_AGENT_DIR=/app/.pi-agent</code>) from it: it copies the login (<code>auth.json</code>) and symlinks the installed <code>pi-mcp-adapter</code>, but writes a <b>minimal <code>settings.json</code> that loads only the MCP adapter</b>. (The host's other Pi packages can hang in a headless container, so they're intentionally not loaded — and your host <code>~/.pi/agent</code> is never written to.)</p>
+    <ul>
+      <li>If your agent dir isn't at <code>~/.pi/agent</code>, set <code>PI_AGENT_HOST_PATH</code> (an absolute path) in <code>.env</code>. <b>Docker Compose does not expand <code>~</code></b> — use a full path, e.g. <code>PI_AGENT_HOST_PATH=/home/you/.pi/agent</code>.</li>
+      <li>Pick the model with <code>VAIDYA_MODEL_PROVIDER</code> / <code>VAIDYA_MODEL_ID</code> in <code>.env</code> (e.g. <code>anthropic</code> / <code>claude-opus-4-8</code>, or <code>opencode-go</code> / <code>deepseek-v4-pro</code>). The provider you choose must be the one you logged into with <code>pi</code>.</li>
+      <li>The MCP server uses headless-safe settings (<code>vaidya-service/mcp.docker.json</code>); you don't need to touch it.</li>
+    </ul>
+    <p><b>Skip the AI entirely:</b> the core tracking app needs no Pi login —
+    <code>docker compose up -d --build postgres backend caddy</code>.</p>
+
+    <div class="callout"><b>Already running the old <code>backend/docker-compose.yml</code> Postgres?</b> Stop it first (<code>cd backend &amp;&amp; docker compose down</code>) so the full stack can bind port 5432 — or change <code>HTTP_PORT</code>/the postgres port mapping if you want both.</div>
+
+    <h3>Verifying / troubleshooting the stack</h3>
+    <pre><code>docker compose ps                       # all services should be "healthy"
+docker compose logs -f vaidya-service   # watch the coach
+curl http://localhost/healthz           # backend via Caddy → {"status":"ok"}</code></pre>
+
+    <table>
+      <thead><tr><th>Symptom</th><th>Cause / fix</th></tr></thead>
+      <tbody>
+        <tr><td><code>vaidya-service</code> unhealthy or chat hangs</td><td>No/expired Pi login — run <code>pi</code> on the host and re-<code>docker compose up -d vaidya-service</code>.</td></tr>
+        <tr><td>Chat hangs and the model never replies</td><td>The chosen provider is rate-limited or out of quota. Check <code>docker compose logs vaidya-service</code>; switch <code>VAIDYA_MODEL_*</code> to another provider you're logged into.</td></tr>
+        <tr><td><code>vaidya-mcp</code> can't read data</td><td>The <code>vaidya_ro</code> role is provisioned only on a <b>fresh</b> DB volume. If you reused an old volume, run <code>vaidya-mcp/sql/role_provisioning.sql</code> once, or recreate with <code>docker compose down -v</code>.</td></tr>
+      </tbody>
+    </table>
+
+    <p>The sections below describe running each service <b>directly</b> (without Docker) for development.</p>
 
     <h2 class="sec" id="postgresql">2. PostgreSQL</h2>
     <p>The backend ships a docker-compose for local dev:</p>

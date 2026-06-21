@@ -48,12 +48,38 @@ Everything is then reachable through Caddy on **http://localhost** with the same
 What the stack wires up for you:
 
 - **PostgreSQL** with a persistent volume; on first init it provisions the least-privilege `vaidya_ro` role the MCP server uses (`deploy/db-init/`).
-- **Backend** runs its migrations on startup and exposes the internal token provider to the MCP server over the compose network (never a refresh token).
+- **Backend** runs its migrations on startup and serves the internal token provider to the MCP server over a **shared Unix socket** (`token_sock` volume) — never a refresh token. (The backend refuses to bind tokens to a non-loopback TCP port, so the socket is the cross-container channel.)
+- **vaidya-mcp** reads health data as `vaidya_ro` and reaches the token socket; **vaidya-service** owns the `vaidya_*` tables and reaches vaidya-mcp on the compose network.
 - **Caddy** fronts the backend + Vaidya service. Leave `DOMAIN` empty for localhost/HTTP; set `DOMAIN=health.example.com` in `.env` for automatic HTTPS on a public server.
 
-**The Vaidya coach needs the host's Pi login.** Pi authenticates with Anthropic OAuth stored in `~/.pi/agent` (run `pi` once on the host). `docker-compose.yml` bind-mounts `~/.pi/agent` into `vaidya-service` — it carries the login (`auth.json`) and the `pi-mcp-adapter` extension. The mount is **read-write** because Pi writes session transcripts under `<agent-dir>/sessions/`; those session files will appear in your host agent dir. If your agent dir isn't at `~/.pi/agent`, set `PI_AGENT_HOST_PATH` in `.env`. (Skip the two `vaidya-*` services and you don't need this at all.)
+### The Vaidya coach needs your Pi login
+
+Vaidya runs on the [Pi agent SDK](https://pi.dev), which authenticates with an OAuth login stored in `~/.pi/agent` on the **host**. Run `pi` once on the host and sign in to your model provider before starting the AI services.
+
+`docker-compose.yml` bind-mounts your host `~/.pi/agent` **read-only at `/pi-host`**. On startup the `vaidya-service` entrypoint assembles a clean, container-local agent dir (`PI_CODING_AGENT_DIR=/app/.pi-agent`) from it: it copies the login (`auth.json`) and symlinks the installed `pi-mcp-adapter`, but writes a **minimal `settings.json` that loads only the MCP adapter**. (The host's other Pi packages can hang in a headless container, so they're intentionally not loaded — and your host `~/.pi/agent` is never written to.)
+
+- If your agent dir isn't at `~/.pi/agent`, set `PI_AGENT_HOST_PATH` (an absolute path) in `.env`. **Docker Compose does not expand `~`** — use a full path, e.g. `PI_AGENT_HOST_PATH=/home/you/.pi/agent`.
+- Pick the model with `VAIDYA_MODEL_PROVIDER` / `VAIDYA_MODEL_ID` in `.env` (e.g. `anthropic` / `claude-opus-4-8`, or `opencode-go` / `deepseek-v4-pro`). The provider you choose must be the one you logged into with `pi`.
+- The MCP server uses headless-safe settings (`vaidya-service/mcp.docker.json`); you don't need to touch it.
+
+**Skip the AI entirely:** the core tracking app needs no Pi login —
+`docker compose up -d --build postgres backend caddy`.
 
 > **Already running the old `backend/docker-compose.yml` Postgres?** Stop it first (`cd backend && docker compose down`) so the full stack can bind port 5432 — or change `HTTP_PORT`/the postgres port mapping if you want both.
+
+### Verifying / troubleshooting the stack
+
+```bash
+docker compose ps                       # all services should be "healthy"
+docker compose logs -f vaidya-service   # watch the coach
+curl http://localhost/healthz           # backend via Caddy → {"status":"ok"}
+```
+
+| Symptom | Cause / fix |
+|---------|-------------|
+| `vaidya-service` unhealthy or chat hangs | No/expired Pi login — run `pi` on the host and re-`docker compose up -d vaidya-service`. |
+| Chat hangs and the model never replies | The chosen provider is rate-limited or out of quota. Check `docker compose logs vaidya-service`; switch `VAIDYA_MODEL_*` to another provider you're logged into. |
+| `vaidya-mcp` can't read data | The `vaidya_ro` role is provisioned only on a **fresh** DB volume. If you reused an old volume, run `vaidya-mcp/sql/role_provisioning.sql` once, or recreate with `docker compose down -v`. |
 
 The sections below describe running each service **directly** (without Docker) for development.
 
