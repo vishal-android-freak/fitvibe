@@ -69,7 +69,19 @@ Vaidya is optional: run just `backend/` + `appV2/` for a complete tracking app, 
 
 ## Quick start
 
-> **Prerequisites:** [Go 1.25+](https://go.dev), [Docker](https://docker.com) (for local PostgreSQL), [Node 22+](https://nodejs.org), [Python 3.11+](https://python.org), and Google Cloud OAuth credentials with the Health API enabled. See [`docs/setup.md`](docs/setup.md) for the full walk-through including Google Cloud and Firebase setup.
+> **Prerequisites:** [Docker](https://docker.com), and Google Cloud OAuth credentials + a Firebase project (see [`docs/setup.md`](docs/setup.md) for the one-time Google/Firebase setup). For running services directly (no Docker) you'll also want [Go 1.25+](https://go.dev), [Node 22+](https://nodejs.org), [Python 3.11+](https://python.org).
+
+### The whole stack with Docker (recommended)
+
+```bash
+cp .env.docker.example .env          # fill in Google + Firebase values
+# drop your Firebase Admin key into config/firebase-service-account.json
+docker compose up -d --build         # postgres + backend + Vaidya + Caddy
+```
+
+Everything is served through Caddy on **http://localhost** (`/vaidya/*` → the AI coach, everything else → the backend). The Vaidya coach also needs your host Pi login mounted — see [`docs/setup.md`](docs/setup.md#run-the-whole-stack-with-docker). For the core tracking app without the AI, run just `docker compose up -d --build postgres backend caddy`.
+
+### Or run services directly (for development)
 
 ### 1. Backend + database (the minimum to run)
 

@@ -1,0 +1,12 @@
+.env
+*.env
+!.env.example
+server-bin
+server
+*.log
+docker-compose.yml
+Dockerfile
+.dockerignore
+firebase-service-account.json
+service-account.json
+*service-account*.json

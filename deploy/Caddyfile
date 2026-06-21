@@ -1,0 +1,20 @@
+# FitVibe reverse proxy. Fronts the Go backend + the Vaidya service so the app
+# (and any tunnel) reaches both at one origin. Path routing — no overlap:
+#   /vaidya/*  -> vaidya-service:8090   (incl. the /vaidya/chat WebSocket)
+#   everything else (/me/*, /auth/*, /webhooks/*, /healthz) -> backend:8080
+# Caddy upgrades WebSockets automatically.
+#
+# Domain: defaults to :80 (localhost / behind a tunnel). Set DOMAIN in the root
+# .env (e.g. DOMAIN=health.example.com) to serve that host with automatic HTTPS.
+
+{$DOMAIN::80} {
+	encode zstd gzip
+
+	handle /vaidya/* {
+		reverse_proxy vaidya-service:8090
+	}
+
+	handle {
+		reverse_proxy backend:8080
+	}
+}

@@ -24,6 +24,39 @@ You need this once, and it's the only part that isn't a copy-paste.
 
 > Keep every credential file out of git. The repo's `.gitignore` already excludes `.env` files; never commit service-account JSON.
 
+## Run the whole stack with Docker (recommended)
+
+The fastest path is the root `docker-compose.yml` — it builds and runs PostgreSQL, the Go backend, both Vaidya services, and Caddy (the reverse proxy) together.
+
+```bash
+cp .env.docker.example .env          # fill in your Google + Firebase values
+# drop your secret files into ./config (see config/README.md):
+#   config/firebase-service-account.json   ← Firebase Admin key
+#   config/google-oauth.json               ← downloaded OAuth client (reference)
+# ./config is mounted read-only into the containers at /config.
+
+docker compose up -d --build          # whole stack
+# ...or core only (no AI coach — needs no Pi login):
+docker compose up -d --build postgres backend caddy
+```
+
+Everything is then reachable through Caddy on **http://localhost** with the same path routing the app expects:
+
+- `/vaidya/*` → the Vaidya service (insights + chat WebSocket)
+- everything else (`/me/*`, `/auth/*`, `/webhooks/*`, `/healthz`) → the Go backend
+
+What the stack wires up for you:
+
+- **PostgreSQL** with a persistent volume; on first init it provisions the least-privilege `vaidya_ro` role the MCP server uses (`deploy/db-init/`).
+- **Backend** runs its migrations on startup and exposes the internal token provider to the MCP server over the compose network (never a refresh token).
+- **Caddy** fronts the backend + Vaidya service. Leave `DOMAIN` empty for localhost/HTTP; set `DOMAIN=health.example.com` in `.env` for automatic HTTPS on a public server.
+
+**The Vaidya coach needs the host's Pi login.** Pi authenticates with Anthropic OAuth stored in `~/.pi/agent` (run `pi` once on the host). `docker-compose.yml` bind-mounts `~/.pi/agent` read-only into `vaidya-service` — it carries both the login (`auth.json`) and the `pi-mcp-adapter` extension. If your agent dir isn't at `~/.pi/agent`, set `PI_AGENT_HOST_PATH` in `.env`. (Skip the two `vaidya-*` services and you don't need this at all.)
+
+> **Already running the old `backend/docker-compose.yml` Postgres?** Stop it first (`cd backend && docker compose down`) so the full stack can bind port 5432 — or change `HTTP_PORT`/the postgres port mapping if you want both.
+
+The sections below describe running each service **directly** (without Docker) for development.
+
 ## 2. PostgreSQL
 
 The backend ships a docker-compose for local dev:

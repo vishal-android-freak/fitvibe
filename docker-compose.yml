@@ -1,0 +1,138 @@
+# FitVibe — full stack.
+#
+#   docker compose up -d --build         # bring up db + backend + Vaidya + Caddy
+#   docker compose up -d --build postgres backend caddy   # core only (no AI)
+#   docker compose logs -f backend
+#   docker compose down                  # stop (keeps the db volume)
+#   docker compose down -v               # stop + wipe the db
+#
+# Copy .env.docker.example to .env and fill in your Google/Firebase credentials
+# first. The Vaidya services need the host's Pi login mounted (see below).
+#
+# Caddy fronts everything on http://localhost (port 80):
+#   /vaidya/*  -> vaidya-service     everything else -> backend
+
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fitvibe}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fitvibe}
+      POSTGRES_DB: ${POSTGRES_DB:-fitvibe}
+      VAIDYA_RO_PASSWORD: ${VAIDYA_RO_PASSWORD:-vaidya_ro}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Provisions the read-only vaidya_ro role on first init.
+      - ./deploy/db-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fitvibe} -d ${POSTGRES_DB:-fitvibe}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Exposed for local tooling; remove this to keep Postgres internal-only.
+    ports:
+      - "5432:5432"
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: "8080"
+      HOST: 0.0.0.0
+      DATABASE_URL: postgres://${POSTGRES_USER:-fitvibe}:${POSTGRES_PASSWORD:-fitvibe}@postgres:5432/${POSTGRES_DB:-fitvibe}?sslmode=disable
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+      FIREBASE_CREDENTIALS_FILE: ${FIREBASE_CREDENTIALS_FILE:-/config/firebase-service-account.json}
+      # Internal token provider — a Unix socket on a shared volume so vaidya-mcp
+      # can fetch fresh Google access tokens. The backend refuses to bind tokens
+      # to a non-loopback TCP addr, so the socket (not a network port) is the
+      # cross-container channel; the shared volume is the boundary.
+      INTERNAL_TOKEN_SOCKET: /run/fitvibe/token.sock
+      INTERNAL_TOKEN_SECRET: ${INTERNAL_TOKEN_SECRET:-change-me-internal}
+    volumes:
+      # Secret files (Firebase service-account JSON, Google OAuth JSON) live in
+      # ./config and are mounted read-only at /config.
+      - ${CONFIG_DIR:-./config}:/config:ro
+      # Shared dir holding the token-provider socket (shared with vaidya-mcp).
+      - token_sock:/run/fitvibe
+    expose:
+      - "8080"
+
+  vaidya-mcp:
+    build:
+      context: ./vaidya-mcp
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    environment:
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: "8765"
+      # Reads as the least-privilege role provisioned by deploy/db-init.
+      DATABASE_URL_READONLY: postgres://vaidya_ro:${VAIDYA_RO_PASSWORD:-vaidya_ro}@postgres:5432/${POSTGRES_DB:-fitvibe}?sslmode=disable
+      # Reach the Go internal token provider via the shared Unix socket.
+      GO_TOKEN_SOCKET: /run/fitvibe/token.sock
+      INTERNAL_TOKEN_SECRET: ${INTERNAL_TOKEN_SECRET:-change-me-internal}
+      GOOGLE_HA_BASE: https://health.googleapis.com/v4
+    volumes:
+      # Shared dir holding the backend's token-provider socket (read-only here).
+      - token_sock:/run/fitvibe:ro
+    expose:
+      - "8765"
+
+  vaidya-service:
+    build:
+      context: ./vaidya-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      vaidya-mcp:
+        condition: service_started
+    environment:
+      PORT: "8090"
+      DATABASE_URL: postgres://${POSTGRES_USER:-fitvibe}:${POSTGRES_PASSWORD:-fitvibe}@postgres:5432/${POSTGRES_DB:-fitvibe}?sslmode=disable
+      VAIDYA_MODEL_PROVIDER: ${VAIDYA_MODEL_PROVIDER:-anthropic}
+      VAIDYA_MODEL_ID: ${VAIDYA_MODEL_ID:-claude-opus-4-8}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+      FIREBASE_CREDENTIALS_FILE: ${FIREBASE_CREDENTIALS_FILE:-/config/firebase-service-account.json}
+    volumes:
+      # Pi's login + the pi-mcp-adapter extension live in the host's agent dir.
+      # Mounted read-only; run `pi` once on the host so auth.json exists.
+      - ${PI_AGENT_HOST_PATH:-~/.pi/agent}:/root/.pi/agent:ro
+      # Secret files (Firebase service-account JSON) — read-only at /config.
+      - ${CONFIG_DIR:-./config}:/config:ro
+    expose:
+      - "8090"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_started
+    environment:
+      DOMAIN: ${DOMAIN:-}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
+  token_sock:

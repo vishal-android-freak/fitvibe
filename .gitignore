@@ -17,11 +17,18 @@
 !/docs/**
 !/feature-image
 !/feature-image/**
+!/deploy
+!/deploy/**
+!/config
+!/config/**
+!/docker-compose.yml
+!/.env.docker.example
 !/README.md
 !/CLAUDE.md
 !/LICENSE
 !/CONTRIBUTING.md
 !/.gitignore
+!/.gitattributes
 
 # Re-ignore heavy/generated dirs inside the re-included folders.
 /appV2/node_modules

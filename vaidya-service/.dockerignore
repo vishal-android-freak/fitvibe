@@ -1,0 +1,12 @@
+node_modules
+dist
+.env
+*.env
+!.env.example
+.pi-auth
+pi-sessions
+*.log
+.pi/mcp.json
+Dockerfile
+.dockerignore
+firebase-service-account.json
