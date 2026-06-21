@@ -51,7 +51,7 @@ What the stack wires up for you:
 - **Backend** runs its migrations on startup and exposes the internal token provider to the MCP server over the compose network (never a refresh token).
 - **Caddy** fronts the backend + Vaidya service. Leave `DOMAIN` empty for localhost/HTTP; set `DOMAIN=health.example.com` in `.env` for automatic HTTPS on a public server.
 
-**The Vaidya coach needs the host's Pi login.** Pi authenticates with Anthropic OAuth stored in `~/.pi/agent` (run `pi` once on the host). `docker-compose.yml` bind-mounts `~/.pi/agent` read-only into `vaidya-service` — it carries both the login (`auth.json`) and the `pi-mcp-adapter` extension. If your agent dir isn't at `~/.pi/agent`, set `PI_AGENT_HOST_PATH` in `.env`. (Skip the two `vaidya-*` services and you don't need this at all.)
+**The Vaidya coach needs the host's Pi login.** Pi authenticates with Anthropic OAuth stored in `~/.pi/agent` (run `pi` once on the host). `docker-compose.yml` bind-mounts `~/.pi/agent` into `vaidya-service` — it carries the login (`auth.json`) and the `pi-mcp-adapter` extension. The mount is **read-write** because Pi writes session transcripts under `<agent-dir>/sessions/`; those session files will appear in your host agent dir. If your agent dir isn't at `~/.pi/agent`, set `PI_AGENT_HOST_PATH` in `.env`. (Skip the two `vaidya-*` services and you don't need this at all.)
 
 > **Already running the old `backend/docker-compose.yml` Postgres?** Stop it first (`cd backend && docker compose down`) so the full stack can bind port 5432 — or change `HTTP_PORT`/the postgres port mapping if you want both.
 

@@ -4,11 +4,12 @@
 #   everything else (/me/*, /auth/*, /webhooks/*, /healthz) -> backend:8080
 # Caddy upgrades WebSockets automatically.
 #
-# Domain: defaults to :80 (localhost / behind a tunnel). Set DOMAIN in the root
-# .env (e.g. DOMAIN=health.example.com) to serve that host with automatic HTTPS.
+# Site address comes from $CADDY_SITE_ADDRESS (set by compose from $DOMAIN):
+#   empty DOMAIN  -> ":80"                  (localhost / behind a tunnel, HTTP)
+#   DOMAIN=host   -> "host"                 (automatic HTTPS via Let's Encrypt)
 
-{$DOMAIN::80} {
-	encode zstd gzip
+{$CADDY_SITE_ADDRESS::80} {
+	encode gzip
 
 	handle /vaidya/* {
 		reverse_proxy vaidya-service:8090
