@@ -114,10 +114,26 @@ export function attachChatWs(server: Server, cfg: Config, cwd: string): WebSocke
 
     send(ws, { type: "ready", conversationId: session.sessionId });
 
+    // Suppress the model's between-tool plan narration ("Let me check the tool
+    // names…", "Now let me query your trends…"). Such text is always immediately
+    // followed by a tool call, so we BUFFER each text segment instead of
+    // streaming it live, and DISCARD a segment when a tool starts right after it.
+    // Only the final segment — the one not followed by any tool, i.e. the real
+    // coaching answer — is flushed (at turn end). Plumbing chatter never reaches
+    // the client even if the model ignores the system-prompt rule.
+    let pendingText = "";
+    const flushPending = () => {
+      if (pendingText) {
+        send(ws, { type: "token", delta: pendingText });
+        pendingText = "";
+      }
+    };
     session.subscribe((e: any) => {
       if (e.type === "message_update" && e.assistantMessageEvent?.type === "text_delta") {
-        send(ws, { type: "token", delta: e.assistantMessageEvent.delta });
+        pendingText += e.assistantMessageEvent.delta;
       } else if (e.type === "tool_execution_start") {
+        // The text just before a tool call was plan narration — drop it.
+        pendingText = "";
         send(ws, { type: "tool", name: e.toolName });
       }
     });
@@ -143,6 +159,8 @@ export function attachChatWs(server: Server, cfg: Config, cwd: string): WebSocke
       try {
         const { text, images } = buildTurn(message, attachments);
         await session.prompt(`I am user_id ${userId}. ${text}`, images.length ? { images } : undefined);
+        // The final text segment (not followed by any tool) is the real answer.
+        flushPending();
         for (const b of collector.blocks.slice(before)) send(ws, { type: "block", block: b });
         send(ws, { type: "done" });
       } catch (err) {

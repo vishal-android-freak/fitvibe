@@ -90,6 +90,14 @@ export function AskConversation({
         case 'token':
           intoCurrentTurn((t) => ({ ...t, text: t.text + f.delta }));
           break;
+        case 'tool':
+          // A tool call ends the current assistant text message — text that
+          // follows is a new message (mirrors how Pi's transcript splits a turn
+          // into separate assistant records around tool calls, which is what the
+          // resume path renders). Close the current bubble so the next token
+          // opens a fresh one. The working indicator stays up until `done`.
+          turnOpenRef.current = false;
+          break;
         case 'block':
           intoCurrentTurn((t) => ({ ...t, blocks: [...(t.blocks ?? []), f.block] }));
           break;
@@ -316,7 +324,7 @@ const styles = StyleSheet.create({
   exampleBody: { fontFamily: font.sansRegular, fontSize: fontSize.sm, color: text.muted },
   composer: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 12 },
   attachBtn: { width: 40, height: 48, alignItems: 'center', justifyContent: 'center' },
-  input: { flex: 1, height: 48, paddingHorizontal: 18, borderRadius: 999, borderWidth: 1, borderColor: border.strong, backgroundColor: surface.card, color: text.primary, fontFamily: 'Sora_500Medium', fontSize: 17 },
+  input: { flex: 1, height: 46, paddingHorizontal: 18, borderRadius: 999, borderWidth: 1, borderColor: border.strong, backgroundColor: surface.card, color: text.primary, fontFamily: 'Sora_500Medium', fontSize: fontSize.base },
   sendWrap: { width: 48, height: 48 },
   send: { width: 48, height: 48, borderRadius: 999, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   pendingRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, paddingTop: 8 },

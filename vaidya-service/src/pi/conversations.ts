@@ -11,7 +11,8 @@
 
 import { readFile } from "node:fs/promises";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
-import { GenerativeBlock, type GenerativeBlock as Block } from "../tools/blocks.js";
+import { type GenerativeBlock as Block } from "../tools/blocks.js";
+import { blockFromToolCall } from "./transcript.js";
 
 export interface ConversationSummary {
   id: string;
@@ -24,17 +25,6 @@ export interface ConversationMessage {
   role: "user" | "assistant";
   text: string;
   blocks?: Block[];
-}
-
-function coerce(v: unknown): unknown {
-  if (typeof v === "string") {
-    try {
-      return JSON.parse(v);
-    } catch {
-      return v;
-    }
-  }
-  return v;
 }
 
 /** First line of a string, trimmed + capped — for titles/previews. */
@@ -131,17 +121,22 @@ export async function conversationMessages(
     } else if (m.role === "assistant" && Array.isArray(m.content)) {
       let text = "";
       const blocks: Block[] = [];
+      // An assistant record that calls a data/read tool (anything other than the
+      // gen-UI emit_* tools) is a between-tool PLANNING turn — its text is plumbing
+      // narration ("Let me query your trends…") the user must never see. Mirror the
+      // live path: suppress text from any record that made such a call. The real
+      // answer is the final record, which only emits text (+ maybe emit_block).
+      let hasDataToolCall = false;
       for (const c of m.content) {
-        if (c?.type === "text" && typeof c.text === "string") text += c.text;
-        else if (c?.type === "toolCall" && (c.name === "emit_block" || c.name === "emit_canvas")) {
-          const candidate =
-            c.name === "emit_block"
-              ? coerce(c.arguments?.block)
-              : { kind: "canvas", ...(c.arguments ?? {}) };
-          const parsed = GenerativeBlock.safeParse(candidate);
-          if (parsed.success) blocks.push(parsed.data);
+        if (c?.type === "text" && typeof c.text === "string") {
+          text += c.text;
+          continue;
         }
+        const block = blockFromToolCall(c);
+        if (block) blocks.push(block);
+        else if (c?.type === "toolCall") hasDataToolCall = true;
       }
+      if (hasDataToolCall) text = "";
       if (text.trim() || blocks.length) {
         msgs.push({ role: "assistant", text: text.trim(), ...(blocks.length ? { blocks } : {}) });
       }

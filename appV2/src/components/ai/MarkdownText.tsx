@@ -8,12 +8,21 @@ import { accent, font, fontSize, surface, text } from '@/theme';
  * the coach actually emits: headings, bold/italic, inline code, links, bullet +
  * numbered lists, blockquotes, and paragraphs.
  */
-export function MarkdownText({ children, color = text.secondary }: { children: string; color?: string }) {
+export function MarkdownText({
+  children,
+  color = text.secondary,
+  size = fontSize.md,
+}: {
+  children: string;
+  color?: string;
+  /** Base body font size (paragraphs + list items). Headings/code derive from it. */
+  size?: number;
+}) {
   const blocks = parseBlocks(children ?? '');
   return (
     <View>
       {blocks.map((b, i) => (
-        <Block key={i} block={b} color={color} />
+        <Block key={i} block={b} color={color} size={size} />
       ))}
     </View>
   );
@@ -85,7 +94,10 @@ function parseBlocks(src: string): Block[] {
   return blocks;
 }
 
-function Block({ block, color }: { block: Block; color: string }) {
+function Block({ block, color, size }: { block: Block; color: string; size: number }) {
+  // Body text scales with `size`; lineHeight tracks it. Headings/code keep their
+  // own scale.
+  const body = { fontSize: size, lineHeight: size * 1.5 };
   switch (block.type) {
     case 'h':
       return (
@@ -98,8 +110,8 @@ function Block({ block, color }: { block: Block; color: string }) {
         <View style={styles.list}>
           {block.items.map((it, i) => (
             <View key={i} style={styles.li}>
-              <Text style={[styles.bullet, { color: accent.base }]}>•</Text>
-              <Text style={[styles.liText, { color }]}>
+              <Text style={[styles.bullet, body, { color: accent.base }]}>•</Text>
+              <Text style={[styles.liText, body, { color }]}>
                 <Inline text={it} color={color} />
               </Text>
             </View>
@@ -111,8 +123,8 @@ function Block({ block, color }: { block: Block; color: string }) {
         <View style={styles.list}>
           {block.items.map((it, i) => (
             <View key={i} style={styles.li}>
-              <Text style={[styles.bullet, { color: accent.base }]}>{i + 1}.</Text>
-              <Text style={[styles.liText, { color }]}>
+              <Text style={[styles.bullet, body, { color: accent.base }]}>{i + 1}.</Text>
+              <Text style={[styles.liText, body, { color }]}>
                 <Inline text={it} color={color} />
               </Text>
             </View>
@@ -122,7 +134,7 @@ function Block({ block, color }: { block: Block; color: string }) {
     case 'quote':
       return (
         <View style={styles.quote}>
-          <Text style={[styles.p, { color }]}>
+          <Text style={[styles.p, body, { color }]}>
             <Inline text={block.text} color={color} />
           </Text>
         </View>
@@ -135,7 +147,7 @@ function Block({ block, color }: { block: Block; color: string }) {
       );
     default:
       return (
-        <Text style={[styles.p, { color }]}>
+        <Text style={[styles.p, body, { color }]}>
           <Inline text={block.text} color={color} />
         </Text>
       );

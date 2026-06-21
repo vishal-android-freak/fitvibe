@@ -45,7 +45,7 @@ export function ChatMessage({ role = 'assistant', text: body, generative, avatar
                 <Text style={[styles.text, { color: text.onAccent, fontFamily: font.sansSemibold }]}>{body}</Text>
               ) : (
                 // Assistant text is markdown (headings, lists, bold, code, links).
-                <MarkdownText color={text.secondary}>{body}</MarkdownText>
+                <MarkdownText color={text.secondary} size={fontSize.base}>{body}</MarkdownText>
               )}
             </View>
           </View>
@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
   colAssistant: { flex: 1, gap: 8 },
   colUser: { maxWidth: '84%', gap: 8 },
   bubble: { paddingVertical: 11, paddingHorizontal: 15, borderRadius: 20 },
-  text: { fontSize: fontSize.md, lineHeight: fontSize.md * 1.5 },
+  text: { fontSize: fontSize.base, lineHeight: fontSize.base * 1.5 },
   gen: { width: '100%' },
   genIndent: { paddingLeft: 30 }, // 22 avatar + 8 gap, so blocks align with the bubble
 });
