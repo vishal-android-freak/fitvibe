@@ -9,7 +9,7 @@ Writable data types (Google Health v4 — only manually-logged data is writable)
 
 Every write is POST /v4/users/{health_user_id}/dataTypes/{dataType}/dataPoints
 with the union envelope proven against the live API (see
-backend/docs/google-health-write-payloads.md). Civil times are derived by the
+docs/google-health-write-payloads.md). Civil times are derived by the
 API from RFC3339 + offset, so we send only the instants + offset.
 """
 

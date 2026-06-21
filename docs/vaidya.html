@@ -1,0 +1,224 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FitVibe — Vaidya AI Coach</title>
+<style>
+/* FitVibe documentation — shared house style (dark, aurora accent).
+   Inlined into each doc's <style> block; kept here as the canonical source. */
+:root {
+  --bg: #0a0e1a; --panel: #131a2b; --panel2: #1a2236; --inset: #070b14;
+  --ink: #f8fafc; --body: #c3ccda; --muted: #8a97ab; --faint: #64748b;
+  --accent: #a78bfa; --accent2: #c4b5fd; --cyan: #22d3ee; --green: #4ade80;
+  --amber: #fbbf24; --red: #f43f5e; --blue: #60a5fa;
+  --line: rgba(255,255,255,0.09); --line2: rgba(255,255,255,0.16);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--body);
+  font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 260px 1fr; gap: 0; }
+nav.toc {
+  position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto;
+  padding: 28px 18px 60px; border-right: 1px solid var(--line); background: var(--inset);
+}
+nav.toc h2 { font-size: 12px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--faint); margin: 22px 0 8px; }
+nav.toc h2:first-child { margin-top: 0; }
+nav.toc a { display: block; color: var(--muted); text-decoration: none; padding: 4px 8px; border-radius: 7px; font-size: 13.5px; }
+nav.toc a:hover { color: var(--ink); background: var(--panel2); }
+nav.toc .brand { font-weight: 800; color: var(--ink); font-size: 17px; letter-spacing: -0.3px; margin-bottom: 6px; }
+nav.toc .brand span { color: var(--accent); }
+nav.toc .home { font-size: 12.5px; color: var(--accent); display: block; margin-bottom: 18px; text-decoration: none; }
+main { padding: 40px 46px 120px; min-width: 0; }
+header.hero { border-bottom: 1px solid var(--line); padding-bottom: 26px; margin-bottom: 8px; }
+header.hero .eyebrow { font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+header.hero h1 { font-size: 32px; letter-spacing: -0.6px; color: var(--ink); margin: 0 0 10px; }
+header.hero p { color: var(--muted); margin: 6px 0; max-width: 74ch; }
+h2.sec { font-size: 23px; color: var(--ink); letter-spacing: -0.3px; margin: 54px 0 6px; padding-top: 18px; border-top: 1px solid var(--line); }
+h2.sec:first-of-type { border-top: none; }
+h3 { font-size: 17px; color: var(--ink); margin: 30px 0 6px; }
+h4 { font-size: 14.5px; color: var(--accent); margin: 20px 0 4px; letter-spacing: 0.2px; }
+p { margin: 8px 0; }
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code { font-family: "JetBrains Mono", "SF Mono", Consolas, monospace; font-size: 12.5px; background: var(--inset); padding: 1.5px 6px; border-radius: 5px; color: #e7d7ff; }
+pre { background: var(--inset); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+pre code { background: none; padding: 0; color: #d6e3f0; font-size: 12.5px; line-height: 1.55; }
+table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13.5px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--accent2); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.6px; }
+td { color: var(--body); }
+td code { font-size: 11.5px; }
+tbody tr:hover { background: rgba(139,124,246,0.04); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; margin: 16px 0; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 18px 0; }
+.pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; letter-spacing: 0.3px; background: rgba(167,139,250,0.16); color: var(--accent2); }
+.callout { border-left: 3px solid var(--amber); background: rgba(251,191,36,0.06); border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 14px 0; }
+.callout.note { border-color: var(--cyan); background: rgba(34,211,238,0.06); }
+.callout.warn { border-color: var(--red); background: rgba(244,63,94,0.06); }
+.callout b { color: var(--ink); }
+ul, ol { margin: 8px 0; padding-left: 22px; }
+li { margin: 4px 0; }
+/* ASCII / diagram blocks: monospace, scrollable, never break the page width */
+pre.diagram { color: var(--accent2); line-height: 1.3; font-size: 12px; }
+.footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--faint); font-size: 13px; }
+@media (max-width: 880px) {
+  .wrap { grid-template-columns: 1fr; }
+  nav.toc { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--line); }
+  main { padding: 28px 20px 80px; }
+}
+</style>
+</head><body>
+<div class="wrap">
+  <nav class="toc">
+    <div class="brand">Fit<span>Vibe</span> · Docs</div>
+    <a class="home" href="README.html">← All docs</a>
+    <h2>On this page</h2>
+    <a href="#vaidya-service-the-coach-engine"><code>vaidya-service</code> — coach engine</a>
+    <a href="#vaidya-mcp-the-tool-server"><code>vaidya-mcp</code> — tool server</a>
+    <a href="#system-prompts">System prompts</a>
+    <h2>Other docs</h2>
+    <a href="architecture.html">Architecture</a>
+    <a href="setup.html">Setup</a>
+    <a href="backend.html">Backend</a>
+    <a href="data-model.html">Data model</a>
+    <a href="app.html">Mobile app</a>
+    <a href="vaidya.html">Vaidya AI coach</a>
+    <a href="calculations.html">Calculations</a>
+  </nav>
+  <main>
+    <header class="hero">
+      <div class="eyebrow">Vaidya AI Coach</div>
+      <h1>Vaidya — the AI Health Coach</h1>
+      <p>Vaidya ("a practitioner of healing") is FitVibe's AI coach. It answers questions and writes daily insights using <b>only the user's real data</b> — never fabricated numbers.</p>
+    </header>
+
+    <p>It is split into two services:</p>
+    <ul>
+      <li><b><a href="../vaidya-service/"><code>vaidya-service/</code></a></b> — the <b>engine</b> (Node + the <a href="https://pi.dev">Pi agent SDK</a>): live chat over WebSocket and cron-generated insights.</li>
+      <li><b><a href="../vaidya-mcp/"><code>vaidya-mcp/</code></a></b> — the <b>tools</b> (Python + <a href="https://github.com/jlowin/fastmcp">FastMCP</a>): read-only SQL over health data + write-back to Google Health.</li>
+    </ul>
+    <p>Both are optional — the backend + app work without them.</p>
+
+    <pre class="diagram"><code>   app ──WS chat / HTTP insights──► vaidya-service (Node, Pi SDK)
+                                          │  MCP over loopback (streamable-HTTP)
+                                          ▼
+                                    vaidya-mcp (Python, FastMCP)
+                                    │  reads (read-only role)        │ writes
+                                    ▼                                ▼
+                              PostgreSQL (health data)        Google Health API v4
+                                                              (fresh token from Go provider)</code></pre>
+
+    <h2 class="sec" id="vaidya-service-the-coach-engine"><code>vaidya-service</code> — the coach engine</h2>
+    <p><b>Stack:</b> Node 22 · TypeScript · <code>@earendil-works/pi-coding-agent</code> (the Pi SDK) · Fastify · <code>ws</code> · <code>node-cron</code> · <code>pg</code> · <code>expo-server-sdk</code> · <code>firebase-admin</code>.</p>
+
+    <h3>How it embeds Pi</h3>
+    <p>The Pi SDK <i>is</i> the coaching loop — the service does not hand-roll an LLM tool-call loop. <a href="../vaidya-service/src/pi/agent.ts"><code>src/pi/agent.ts</code></a> builds a session that wires:</p>
+    <ul>
+      <li>the model (Claude Opus 4.8 by default, via Anthropic OAuth — config-switchable),</li>
+      <li>the per-task <b>system prompt</b> (<code>src/prompts/*.md</code>),</li>
+      <li>the <b>MCP tools</b> (via the <code>pi-mcp-adapter</code> extension, which connects to <code>vaidya-mcp</code> at <code>http://127.0.0.1:8765/mcp</code>),</li>
+      <li>the <b><code>vaidya-health-schema</code> skill</b> (the exact DB schema, loaded before the agent writes SQL),</li>
+      <li>the <b>generative-UI tools</b> (<code>emit_block</code> / <code>emit_canvas</code>).</li>
+    </ul>
+    <p>The tool allow-list is restricted to <code>read</code>, <code>mcp</code>, and the <code>emit_*</code> tools — <b>no</b> bash/write/edit, so the coach can't shell out or touch the filesystem.</p>
+
+    <h3>Chat over WebSocket</h3>
+    <p><code>/vaidya/chat</code> (<a href="../vaidya-service/src/ws/chat.ts"><code>src/ws/chat.ts</code></a>), authed with a Firebase ID token (query param), resumable with <code>?conversationId=</code>. Inbound: <code>{ message, attachments? }</code>. Outbound frames:</p>
+    <table>
+      <thead><tr><th>Frame</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>ready</code></td><td>The session id (for resume).</td></tr>
+        <tr><td><code>token</code></td><td>A streamed chunk of the coaching answer.</td></tr>
+        <tr><td><code>tool</code></td><td>A tool call started (drives the "working" indicator and message splitting in the app).</td></tr>
+        <tr><td><code>block</code></td><td>A generative-UI block emitted this turn.</td></tr>
+        <tr><td><code>done</code></td><td>Turn complete.</td></tr>
+        <tr><td><code>error</code></td><td>Something failed.</td></tr>
+      </tbody>
+    </table>
+    <p><b>Plumbing stays hidden.</b> The server buffers assistant text and <b>discards any segment immediately followed by a tool call</b> — that text is the model's internal planning ("let me check…"), not coaching. Only the final answer segment is streamed. The system prompt reinforces this: the coach must never mention tools, SQL, schemas, or <code>user_id</code>.</p>
+
+    <h3>Nightly insights (cron)</h3>
+    <p>Three jobs (<a href="../vaidya-service/src/cron/jobs.ts"><code>src/cron/jobs.ts</code></a>), each per-user and respecting the user's local civil day:</p>
+    <table>
+      <thead><tr><th>Job</th><th>Schedule</th><th>Generates</th></tr></thead>
+      <tbody>
+        <tr><td><b>sleep-watch</b></td><td>every 30 min</td><td>A per-sleep insight for each new sleep session that doesn't have one yet.</td></tr>
+        <tr><td><b>today-headline</b></td><td>every 3 h</td><td>A fresh two-line "where you stand right now" headline (replaces the day's prior).</td></tr>
+        <tr><td><b>day-report</b></td><td>nightly (~23:00 local)</td><td>One detailed end-of-day report — correlations, trends, flags — gated on the day's sleep having synced.</td></tr>
+      </tbody>
+    </table>
+    <p>Each insight is generated by a Pi session whose id is stored in <code>vaidya_insights</code>. The rendered blocks are recovered later by <b>replaying the session</b> (<a href="../vaidya-service/src/pi/replay.ts"><code>src/pi/replay.ts</code></a>) — so only the session id + metadata are persisted, not a frozen copy of the content. After generating, the job pushes a notification to the user's devices.</p>
+
+    <h3>HTTP endpoints</h3>
+    <p>Fastify (<a href="../vaidya-service/src/http/server.ts"><code>src/http/server.ts</code></a>), all Firebase-authed:</p>
+    <table>
+      <thead><tr><th>Endpoint</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>GET /vaidya/insights/today</code></td><td>Latest today headline.</td></tr>
+        <tr><td><code>GET /vaidya/insights/sleep/:date?</code></td><td>Latest (or dated) per-sleep insight.</td></tr>
+        <tr><td><code>GET /vaidya/insights/day/:date?</code></td><td>Latest (or dated) day report.</td></tr>
+        <tr><td><code>GET /vaidya/conversations</code></td><td>Recent chat sessions (last 7 days).</td></tr>
+        <tr><td><code>GET /vaidya/conversations/:id/messages?limit=</code></td><td>Messages of one conversation.</td></tr>
+        <tr><td><code>POST /vaidya/push/register</code> · <code>/unregister</code></td><td>Expo push-token registration.</td></tr>
+        <tr><td><code>GET /healthz</code></td><td>Health check.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Generative UI blocks</h3>
+    <p>The agent composes its answer as prose plus <code>emit_block</code> / <code>emit_canvas</code> tool calls (<a href="../vaidya-service/src/tools/blocks.ts"><code>src/tools/blocks.ts</code></a>, validated with zod). The block kinds mirror the app's renderer: composite cards (<code>today_headline</code>, <code>sleep_insight</code>, <code>day_summary</code>, <code>insight_card</code>), primitive evidence (<code>hypnogram</code>, <code>sparkline</code>, <code>bars</code>, <code>ring</code>, <code>stat_tile</code>, <code>stat_tile_grid</code>, <code>readiness_card</code>, <code>recovery_signals</code>, <code>streak_dots</code>, <code>micro_bars</code>, <code>badge</code>), and the <code>canvas</code> Skia escape hatch. A <code>BlockCollector</code> accumulates them in order for the WS/cron caller to read after the turn.</p>
+
+    <h3>Pi skills</h3>
+    <p>Under <a href="../vaidya-service/.pi/skills/"><code>.pi/skills/</code></a>:</p>
+    <ul>
+      <li><b><code>vaidya-health-schema</code></b> — the exact Postgres schema (tables, columns, kebab-case data-type values, civil-date conventions). The agent loads this <i>before</i> writing any <code>query_health_db</code> SQL.</li>
+      <li><b><code>vaidya-ui-blocks</code></b> — the exact block shapes for <code>emit_block</code>, loaded before emitting visuals.</li>
+    </ul>
+
+    <h3>Config</h3>
+    <p><a href="../vaidya-service/.env.example"><code>vaidya-service/.env.example</code></a>: <code>DATABASE_URL</code> (required — it owns the <code>vaidya_*</code> tables), <code>PORT</code> (8090), <code>VAIDYA_MODEL_PROVIDER</code> / <code>VAIDYA_MODEL_ID</code>, optional <code>FIREBASE_*</code>. The model uses Anthropic OAuth (Pi reads <code>~/.pi/agent/auth.json</code>), not an API key.</p>
+    <pre><code>cd vaidya-service &amp;&amp; npm install &amp;&amp; npm run dev   # :8090</code></pre>
+
+    <h2 class="sec" id="vaidya-mcp-the-tool-server"><code>vaidya-mcp</code> — the tool server</h2>
+    <p><b>Stack:</b> Python 3.11 · FastMCP (streamable-HTTP) · psycopg · httpx. Started with <code>python -m vaidya_mcp.server</code>, serving <code>http://127.0.0.1:8765/mcp</code>.</p>
+
+    <h3>Read tools</h3>
+    <p>Query health data through the <b>read-only role</b> (see below):</p>
+    <table>
+      <thead><tr><th>Tool</th><th>Returns</th></tr></thead>
+      <tbody>
+        <tr><td><code>ping()</code></td><td>Health check / connectivity.</td></tr>
+        <tr><td><code>get_today_summary(user_id)</code></td><td>Today's steps, distance, floors, active energy, zone minutes (user's local day).</td></tr>
+        <tr><td><code>get_nutrition(user_id, date?)</code></td><td>Calories, macros, hydration for a civil day.</td></tr>
+        <tr><td><code>get_sleep(user_id)</code></td><td>Most recent main sleep — time asleep + stage breakdown.</td></tr>
+        <tr><td><code>query_health_db(sql)</code></td><td><b>SQL escape hatch</b> — a single read-only <code>SELECT</code>/<code>WITH</code>, rows capped at 200.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Write tools</h3>
+    <p>Each fetches a fresh Google access token from the Go internal provider and POSTs to the Google Health API v4. Manually-loggable types only:</p>
+    <p><code>log_hydration</code>, <code>log_nutrition</code>, <code>log_weight</code>, <code>log_body_fat</code>, <code>log_height</code>, <code>log_exercise</code>, <code>log_sleep</code>.</p>
+    <p>Written data syncs back into PostgreSQL via the Go ingestion pipeline on the next sync. The exact write JSON is documented in <a href="google-health-write-payloads.html">google-health-write-payloads.html</a>.</p>
+
+    <h3>The read-only role (the security boundary)</h3>
+    <p><a href="../vaidya-mcp/sql/role_provisioning.sql"><code>vaidya-mcp/sql/role_provisioning.sql</code></a> creates <code>vaidya_ro</code>: <code>SELECT</code> on the health tables only, with <b>all</b> <code>INSERT</code>/<code>UPDATE</code>/<code>DELETE</code>/<code>TRUNCATE</code>/DDL explicitly revoked and no default-privilege grant (fail-closed — new tables are inaccessible until explicitly granted). The SQL escape hatch adds defense-in-depth: statement validation (single read-only statement), a read-only transaction, a row cap, and a timeout. Run the provisioning SQL once as a superuser.</p>
+
+    <h3>How writes get a token</h3>
+    <p>Google is reached only with a <b>short-lived access token</b> fetched per write from the Go internal token provider (<a href="backend.html#internal-token-provider">backend.html</a>) — over a Unix socket (prod) or loopback (dev), with an optional bearer secret. The MCP server never holds a refresh token.</p>
+
+    <h3>Config</h3>
+    <p><a href="../vaidya-mcp/.env.example"><code>vaidya-mcp/.env.example</code></a>: <code>DATABASE_URL_READONLY</code> (required — the <code>vaidya_ro</code> DSN), <code>GO_TOKEN_SOCKET</code> <b>or</b> <code>GO_TOKEN_URL</code>, <code>INTERNAL_TOKEN_SECRET</code>, <code>GOOGLE_HA_BASE</code>.</p>
+    <pre><code>cd vaidya-mcp
+python -m venv .venv &amp;&amp; .venv/bin/pip install -e .
+psql "$DATABASE_URL" -f sql/role_provisioning.sql   # once, as superuser
+python -m vaidya_mcp.server                          # http://127.0.0.1:8765/mcp
+.venv/bin/pytest -q                                  # tests</code></pre>
+
+    <h2 class="sec" id="system-prompts">System prompts</h2>
+    <p><a href="../vaidya-service/src/prompts/"><code>vaidya-service/src/prompts/</code></a>: <code>chat.md</code> (live coaching — grounded, evidence-based, never reveals tooling), <code>today.md</code> (the two-line headline), <code>sleep.md</code> (per-session interpretation → a <code>sleep_insight</code> block), <code>day.md</code> (the correlation-hunting end-of-day report → <code>insight_card</code> blocks).</p>
+    <p>For the deeper research and architecture rationale, see <a href="vaidya-research.html">vaidya-research.html</a>.</p>
+
+    <div class="footer">FitVibe documentation · MIT licensed · <a href="README.html">docs index</a></div>
+  </main>
+</div></body></html>

@@ -99,31 +99,30 @@
 <body>
 <div class="wrap">
   <header class="hero">
+    <a href="README.html" style="color:var(--accent);text-decoration:none;font-size:13px;">&larr; All docs</a>
     <div class="eyebrow">FitVibe · Research &amp; Design Reference</div>
-    <h1>Building <span class="om">Vaidya</span> — How Google/Fitbit's AI Coach Works, and How to Build Our Own</h1>
-    <p class="sub">Design reference for FitVibe's <strong>Vaidya</strong> AI health coach. Synthesizes deep research into Google Health's <em>Ask Coach</em>, the PH-LLM &amp; PHIA papers, and competitor coaches (WHOOP, Oura, GPTCoach), mapped onto FitVibe's Go + PostgreSQL schema. <strong>Read the dated update below first</strong> — it supersedes the original §6/§9 architecture.</p>
+    <h1>Building <span class="om">Vaidya</span> — How Google/Fitbit's AI Coach Works, and How to Build One</h1>
+    <p class="sub">Design reference for FitVibe's <strong>Vaidya</strong> AI health coach. Synthesizes research into Google Health's <em>Ask Coach</em>, the PH-LLM &amp; PHIA papers, and competitor coaches (WHOOP, Oura, GPTCoach), mapped onto FitVibe's Go + PostgreSQL schema. The current architecture is summarized in the update block below.</p>
     <div class="meta-strip">
-      <span class="pill"><b>Source:</b> multi-agent research workflow · Jun 2026</span>
       <span class="pill"><b>Engine:</b> Pi SDK (embedded)</span>
       <span class="pill"><b>Runtime model:</b> Claude Opus 4.8 (now) → Zen later</span>
-      <span class="pill"><b>Built by:</b> us (not Pi)</span>
       <span class="pill"><span class="tag doc" style="margin:0">DOCUMENTED</span> = cited source</span>
-      <span class="pill"><span class="tag inf" style="margin:0">INFERRED</span> = our reasoning</span>
+      <span class="pill"><span class="tag inf" style="margin:0">INFERRED</span> = design reasoning</span>
     </div>
   </header>
 
   <section id="update" style="border:1px solid var(--accent); border-radius:14px; background:rgba(139,124,246,.08); padding:22px 24px; margin-bottom:36px;">
-    <h2 style="border:0; margin-top:0;"><span class="num">⟳</span>Architecture update — 2026-06-19 (authoritative)</h2>
-    <p style="color:var(--amber)"><strong>This block supersedes the original §6 (architecture) and §9 (build) below.</strong> The research and the §7 prompt still stand; the <em>how-we-build-it</em> and a few schema facts changed. Where this conflicts with anything further down, this wins.</p>
-    <h3>What changed</h3>
+    <h2 style="border:0; margin-top:0;"><span class="num">⟳</span>Architecture summary — 2026-06-19</h2>
+    <p style="color:var(--amber)">This block reflects the current Vaidya architecture. The research and the §7 prompt stand as written; the build approach and a few schema facts are captured here. Where this differs from the earlier sections below, this block is the current reference.</p>
+    <h3>Architecture</h3>
     <ul>
-      <li><strong>WE build the Vaidya service</strong> (in this repo, now) — <em>not</em> the Pi coding agent. The doc's §9 "Pi writes the Node service" framing is retired.</li>
-      <li><strong>Pi is the embedded runtime engine, via its SDK</strong> — npm <code>@earendil-works/pi-coding-agent</code>. The service calls <code>createAgentSession({ customTools })</code>, drives turns with <code>session.prompt()</code>, and streams via <code>session.subscribe()</code> (text_delta events) into our SSE response. The 5 read-only SQL tools are <code>defineTool({...})</code>; the LLM provider is set with <code>pi.registerProvider(...)</code>. We do <em>not</em> hand-roll an OpenAI tool-call loop — Pi runs it. Headless RPC (stdin/stdout JSONL) and JSON-event modes also exist.</li>
-      <li><strong>Runtime model: Claude Opus 4.8 now, OpenCode Go / Zen (<code>deepseek-v4-pro</code>) later.</strong> Pi is provider-neutral, so this is one config switch (<code>VAIDYA_PROVIDER</code>/<code>VAIDYA_MODEL</code>). With Opus, Anthropic prompt-caching of the byte-stable prefix applies now; re-verify cache behavior when switching to Zen.</li>
-      <li><strong>RAG is replaced by a curated <em>Pi Skill</em></strong> — <code>.pi/skills/vaidya-wellness/</code> (Agent-Skills standard: <code>SKILL.md</code> + <code>references/</code>), the same format as Claude Code skills, model-loaded on demand. We curate it and grow it via deep research over time; the runtime ships a <em>distilled snapshot</em> of it inside the versioned prompt/knowledge files (no live vector store). This retires §6 "3 · RAG" and the §8 "RAG sourcing" open question.</li>
-      <li><strong>Runtime self-extension is an end-user feature</strong> — because the engine is Pi, the user can later, <em>through chat</em>, ask the coach to gain a new capability; Pi writes a new tool to <code>.pi/extensions/*.ts</code> (<code>pi.registerTool</code>) and <code>/reload</code>s it into the live session. This is the whole reason to embed Pi rather than call a model directly.</li>
-      <li><strong>Readiness — decided.</strong> Was an open question; now a defined HRV + recent-sleep + RHR → /100 formula (HRV-dominant), each scored vs the user's own 30-day baseline, with an explicit missing-data fallback. <strong>Documented in <code>calculations-methodology.html</code></strong>; until built, tools return "not yet available" rather than a fabricated number. (It is implemented <em>nowhere</em> today — the app hardcodes 86.)</li>
-      <li><strong>Timezone — decided.</strong> Use the <em>data_points-offset trick</em> (latest <code>start_utc_offset_seconds</code> applied to <code>now()</code>, mirroring <code>internal/today/handler.go:186-196</code>) for query day-boundaries; <code>users.time_zone</code> only for human-readable cron scheduling (it's just daily-refreshed). Retires the §8 "Proactive cadence" caveat.</li>
+      <li><strong>The Vaidya service is built in this repo</strong> (rather than generated by the Pi coding agent).</li>
+      <li><strong>Pi is the embedded runtime engine, via its SDK</strong> — npm <code>@earendil-works/pi-coding-agent</code>. The service calls <code>createAgentSession({ customTools })</code>, drives turns with <code>session.prompt()</code>, and streams via <code>session.subscribe()</code> (text_delta events) into the SSE response. The 5 read-only SQL tools are <code>defineTool({...})</code>; the LLM provider is set with <code>pi.registerProvider(...)</code>. There is no hand-rolled OpenAI tool-call loop — Pi runs it. Headless RPC (stdin/stdout JSONL) and JSON-event modes also exist.</li>
+      <li><strong>Runtime model: Claude Opus 4.8 now, OpenCode Go / Zen (<code>deepseek-v4-pro</code>) later.</strong> Pi is provider-neutral, so this is one config switch (<code>VAIDYA_PROVIDER</code>/<code>VAIDYA_MODEL</code>). With Opus, Anthropic prompt-caching of the byte-stable prefix applies now; cache behavior should be re-verified when switching to Zen.</li>
+      <li><strong>RAG is replaced by a curated <em>Pi Skill</em></strong> — <code>.pi/skills/vaidya-wellness/</code> (Agent-Skills standard: <code>SKILL.md</code> + <code>references/</code>), the same format as Claude Code skills, model-loaded on demand. It is curated and grown via research over time; the runtime ships a <em>distilled snapshot</em> of it inside the versioned prompt/knowledge files (no live vector store).</li>
+      <li><strong>Runtime self-extension is an end-user feature</strong> — because the engine is Pi, the user can later, <em>through chat</em>, ask the coach to gain a new capability; Pi writes a new tool to <code>.pi/extensions/*.ts</code> (<code>pi.registerTool</code>) and <code>/reload</code>s it into the live session. This is the core reason to embed Pi rather than call a model directly.</li>
+      <li><strong>Readiness — decided.</strong> A defined HRV + recent-sleep + RHR → /100 formula (HRV-dominant), each scored vs the user's own 30-day baseline, with an explicit missing-data fallback. <strong>Documented in <code>calculations.md</code></strong>; until built, tools return "not yet available" rather than a fabricated number. (It is implemented <em>nowhere</em> today — the app hardcodes 86.)</li>
+      <li><strong>Timezone — decided.</strong> Use the <em>data_points-offset trick</em> (latest <code>start_utc_offset_seconds</code> applied to <code>now()</code>, mirroring <code>internal/today/handler.go:186-196</code>) for query day-boundaries; <code>users.time_zone</code> only for human-readable cron scheduling (it's just daily-refreshed).</li>
     </ul>
     <h3>Schema corrections (DDL is source of truth — <code>001_initial_schema.sql</code>)</h3>
     <ul>
@@ -132,7 +131,7 @@
       <li><code>health_data_records</code> exists as described (clean per-day <code>metric_name/value/unit</code> surface) — correct.</li>
       <li><strong>Repo gotcha:</strong> the root <code>.gitignore</code> is a <em>whitelist</em> (<code>/*</code> then <code>!/backend</code>…). A new <code>vaidya/</code> dir is <strong>silently git-ignored</strong> until the whitelist is extended (<code>!/vaidya</code>, <code>!/vaidya/**</code>, re-ignore <code>node_modules</code>/<code>dist</code>).</li>
     </ul>
-    <h3>Build sequence (we execute)</h3>
+    <h3>Build sequence</h3>
     <p>Scaffold + db + healthz (+ gitignore fix) → <code>vaidya_*</code> tables + identity (<code>google_user_id → users.id</code>) + localDate → readiness + baseline + summary builder → the 5 SQL <code>defineTool</code>s <em>(Milestone 0 ends here — fully unit-testable vs dev Postgres, no LLM)</em> → embed Pi SDK + provider (Opus) + system prompt + first coached turn → endpoints (<code>/vaidya/chat</code> SSE, <code>/vaidya/insights/today</code>, <code>/vaidya/memories</code>) + cron → curate the <code>vaidya-wellness</code> skill + enable self-extension. The Node SQL <strong>mirrors the existing Go queries</strong> (today/sleep/body repos); the only net-new algorithms are the readiness formula and delta-vs-baseline.</p>
   </section>
 
@@ -225,7 +224,7 @@ flowchart TB
           </tr>
         </table>
 
-        <div class="callout inf"><span class="ico">🟠</span><div><span class="t">Inference boundary.</span> The production coach <em>blends</em> PHIA's tool-using numeric reasoning with PH-LLM-like coaching — but Google has <strong>not</strong> confirmed PH-LLM ships, named the Gemini variant, or disclosed the retrieval/weighting. No verbatim consumer system prompt is public; the only published verbatim prompts come from the PH-LLM paper (which §3 borrows).</div></div>
+        <div class="callout inf"><span class="ico">🟠</span><div><span class="t">Inference boundary.</span> The production coach <em>blends</em> PHIA's tool-using numeric reasoning with PH-LLM-like coaching — but Google has <strong>not</strong> confirmed PH-LLM ships, named the Gemini variant, or disclosed the retrieval/weighting. No verbatim consumer system prompt is public; the only published verbatim prompts come from the PH-LLM paper (which §3 borrows from).</div></div>
 
         <div class="callout key"><span class="ico">🔑</span><div><span class="t">The single most important takeaway.</span> Every credible source — PH-LLM, PHIA, GPTCoach, Health-LLM — converges: <strong>do not dump raw API arrays into the prompt.</strong> Either (a) pre-aggregate into compact NL summaries with relative-change &amp; percentile/baseline context, or (b) expose data via tools/code queried on demand. FitVibe's <code>rollup_data_points</code> (<code>count_sum/avg/min/max</code> + <code>distance_meters_sum/energy_kcal_sum/duration_seconds_sum</code>; the <code>value_*</code> aggregates live on <code>data_points</code>) is <em>exactly</em> the right granularity for (a), and the schema backs (b) directly.</div></div>
       </section>
@@ -445,7 +444,7 @@ flowchart LR
         <p>In the Node.js service (see §9), each tool is a function that runs a parameterized <strong>read-only SQL query directly against the shared PostgreSQL database</strong> (via the <code>pg</code> driver) and formats the rows into an NL summary — "Node computes the stats with SQL, the LLM narrates them." No Go layer is involved at runtime.</p>
 
         <h4>3 · Curated knowledge — a Pi Skill (RAG retired, see the 2026-06-19 update)</h4>
-        <p>Instead of a runtime RAG/vector store, clinical/Ayurvedic-framing &amp; wellness-science knowledge lives in a curated <strong>Pi Skill</strong> at <code>.pi/skills/vaidya-wellness/</code> (<code>SKILL.md</code> + <code>references/</code>, Agent-Skills standard). We curate and grow it via deep research; the runtime ships a <em>distilled snapshot</em> baked into the versioned prompt/knowledge files. Never the open web, never the base model's untethered knowledge for health claims.</p>
+        <p>Instead of a runtime RAG/vector store, clinical/Ayurvedic-framing &amp; wellness-science knowledge lives in a curated <strong>Pi Skill</strong> at <code>.pi/skills/vaidya-wellness/</code> (<code>SKILL.md</code> + <code>references/</code>, Agent-Skills standard). It is curated and grown via research; the runtime ships a <em>distilled snapshot</em> baked into the versioned prompt/knowledge files. Never the open web, never the base model's untethered knowledge for health claims.</p>
 
         <h3>Conversation memory</h3>
         <ul>
@@ -606,7 +605,7 @@ USER DATA (auto-computed; today + 7-day + 30-day, with the user's own baselines)
         <h2><span class="num">8</span>Open questions / what to validate</h2>
         <ol>
           <li><strong>Encoding tradeoff for FitVibe:</strong> does summarized-context alone answer "what was my average X" accurately, or do you need the PHIA-style code/tool path? PH-LLM says text suffices for <em>advice</em>, a learned encoder for <em>prediction</em>; PHIA says generated code beats markdown tables for numeric questions. Validate by building both and grading on held-out objective questions.</li>
-          <li><strong>Readiness definition:</strong> Google's is HRV + recent sleep + RHR /100, weighting undocumented. Decide &amp; document FitVibe's own formula before Vaidya cites "readiness." <span class="tag inf">see readiness-score note</span></li>
+          <li><strong>Readiness definition:</strong> Google's is HRV + recent sleep + RHR /100, weighting undocumented. Define &amp; document FitVibe's own formula before Vaidya cites "readiness." (Now documented in <code>calculations.md</code>.) <span class="tag inf">readiness</span></li>
           <li><strong>Tool surface size:</strong> start with ~5 tools — too many degrade selection. Validate whether the standing data block makes some redundant.</li>
           <li><strong>Prompt-caching stability:</strong> confirm the prefix is byte-stable (no <code>now()</code>, sorted JSON, fixed tool order) and <code>cache_read_input_tokens &gt; 0</code> on repeat turns.</li>
           <li><strong>Anti-sycophancy + safety, empirically:</strong> test against illogical/unsafe premises &amp; medical-advice bait. Decide whether an external moderation layer is needed beyond Claude's built-in safety + the <code>refusal</code> stop reason.</li>
@@ -619,14 +618,14 @@ USER DATA (auto-computed; today + 7-day + 30-day, with the user's own baselines)
       <!-- ===== 9 ===== -->
       <section id="s9">
         <h2><span class="num">9</span>Building Vaidya with the Pi coding agent</h2>
-        <p><strong>Pi</strong> (by Mario Zechner) is the agent that will <em>write</em> Vaidya's code. Understanding how it works changes <em>how this doc should be consumed</em> and how the work should be scoped.</p>
+        <p><strong>Pi</strong> is an open-source coding agent relevant to how Vaidya's code is written and scoped. Understanding how it works informs how this reference should be consumed.</p>
 
         <div class="callout doc"><span class="ico">📘</span><div><span class="t">What Pi is.</span> An open-source, terminal-based, <strong>minimalist self-modifying</strong> coding agent. The <em>"shortest system prompt of any agent"</em> with only <strong>four base tools — Read, Write, Edit, Bash</strong>. Provider-neutral: drives Claude, GPT, Gemini, Groq, OpenRouter, and local Ollama through one core, deliberately avoiding provider-locked features. It is the foundation of OpenClaw. Sources: <a class="cite" href="https://lucumr.pocoo.org/2026/1/31/pi/">lucumr.pocoo.org/pi</a> · <a class="cite" href="https://pypi.org/project/pi-coding-agent/">pypi pi-coding-agent</a> · <a class="cite" href="https://dev.to/theoklitosbam7/pi-coding-agent-a-self-documenting-extensible-ai-partner-dn">dev.to</a>.</div></div>
 
         <h3>How Pi works (and why it matters here)</h3>
         <ul>
           <li><strong>Self-extends by writing code, not installing extensions.</strong> "If you want the agent to do something it doesn't do yet… you ask the agent to extend itself." Extensions are TypeScript modules (in <code>~/.pi/agent/extensions/</code>) that register custom tools; Pi hot-reloads them in a loop without losing the session.</li>
-          <li><strong>Self-documenting.</strong> Pi reads its own codebase/README to answer questions about itself — so it can discover project conventions by reading files (e.g. our <code>CLAUDE.md</code>, existing <code>internal/today</code> handlers) rather than needing them spelled out.</li>
+          <li><strong>Self-documenting.</strong> Pi reads its own codebase/README to answer questions about itself — so it can discover project conventions by reading files (e.g. the repo's <code>CLAUDE.md</code>, existing <code>internal/today</code> handlers) rather than needing them spelled out.</li>
           <li><strong>Tree-structured, branchable sessions.</strong> You can branch to fix a broken tool, then rewind without losing context — Pi summarizes the other branch. Good for iterating on the Vaidya service in isolation.</li>
           <li><strong>Provider-neutral by design.</strong> Pi avoids provider-locked features in its <em>own</em> operation — which aligns nicely here, since Vaidya's runtime also targets a provider-neutral API (OpenCode Zen, OpenAI-compatible). Pi can run on whatever model your OpenCode Go plan gives it; the code it writes calls Zen.</li>
         </ul>
@@ -681,14 +680,14 @@ flowchart LR
         <code>backend/internal/today/timeline.go</code> — worked example of timestamp/offset handling &amp; meal grouping the SQL tools should mirror.<br/>
         <code>backend/internal/healthapi/types.go</code> — <code>Category()</code>, the canonical data-type list (the <code>data_type</code> values the SQL filters on).<br/>
         The Node service lives in its own dir (e.g. <code>vaidya/</code>) and connects to the shared PostgreSQL database directly — no Go wiring.</p>
-        <p style="margin-top:14px">Generated from a multi-agent research workflow, June 2026. <span class="tag doc" style="margin:0">DOCUMENTED</span> claims are cited; <span class="tag inf" style="margin:0">INFERRED</span> claims are our reasoning — verify cited facts still hold before relying on them.</p>
+        <p style="margin-top:14px">Research &amp; design reference, June 2026. <span class="tag doc" style="margin:0">DOCUMENTED</span> claims are cited; <span class="tag inf" style="margin:0">INFERRED</span> claims are design reasoning — verify cited facts still hold before relying on them.</p>
       </div>
 
       <section id="changelog" style="margin-top:40px;">
         <h2><span class="num">✎</span>Changelog</h2>
         <ul>
-          <li><strong>2026-06-19</strong> — Architecture pivot (see the <a class="cite" href="#update">top update block</a>): <em>we</em> build the service (not Pi); Pi embedded as the runtime engine via its SDK (<code>@earendil-works/pi-coding-agent</code>); runtime model Claude Opus 4.8 now → Zen later (config switch); RAG replaced by a curated <code>vaidya-wellness</code> Pi Skill + runtime self-extension; readiness formula &amp; timezone source decided. Schema corrections: <code>rollup_data_points</code> uses <code>count_*</code> not <code>value_*</code>; <code>users</code> has <code>age</code>/<code>google_gender</code> not <code>birth_date</code>/<code>gender</code>; root <code>.gitignore</code> whitelist must be extended for <code>vaidya/</code>.</li>
-          <li><strong>Jun 2026</strong> — Original research &amp; design reference generated.</li>
+          <li><strong>2026-06-19</strong> — Architecture update (see the <a class="cite" href="#update">top summary block</a>): the service is built in-repo; Pi embedded as the runtime engine via its SDK (<code>@earendil-works/pi-coding-agent</code>); runtime model Claude Opus 4.8 now → Zen later (config switch); RAG replaced by a curated <code>vaidya-wellness</code> Pi Skill + runtime self-extension; readiness formula &amp; timezone source decided. Schema corrections: <code>rollup_data_points</code> uses <code>count_*</code> not <code>value_*</code>; <code>users</code> has <code>age</code>/<code>google_gender</code> not <code>birth_date</code>/<code>gender</code>; root <code>.gitignore</code> whitelist must be extended for <code>vaidya/</code>.</li>
+          <li><strong>Jun 2026</strong> — Original research &amp; design reference.</li>
         </ul>
       </section>
     </main>

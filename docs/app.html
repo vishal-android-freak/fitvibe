@@ -1,0 +1,213 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FitVibe — Mobile App</title>
+<style>
+/* FitVibe documentation — shared house style (dark, aurora accent).
+   Inlined into each doc's <style> block; kept here as the canonical source. */
+:root {
+  --bg: #0a0e1a; --panel: #131a2b; --panel2: #1a2236; --inset: #070b14;
+  --ink: #f8fafc; --body: #c3ccda; --muted: #8a97ab; --faint: #64748b;
+  --accent: #a78bfa; --accent2: #c4b5fd; --cyan: #22d3ee; --green: #4ade80;
+  --amber: #fbbf24; --red: #f43f5e; --blue: #60a5fa;
+  --line: rgba(255,255,255,0.09); --line2: rgba(255,255,255,0.16);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--body);
+  font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 260px 1fr; gap: 0; }
+nav.toc {
+  position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto;
+  padding: 28px 18px 60px; border-right: 1px solid var(--line); background: var(--inset);
+}
+nav.toc h2 { font-size: 12px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--faint); margin: 22px 0 8px; }
+nav.toc h2:first-child { margin-top: 0; }
+nav.toc a { display: block; color: var(--muted); text-decoration: none; padding: 4px 8px; border-radius: 7px; font-size: 13.5px; }
+nav.toc a:hover { color: var(--ink); background: var(--panel2); }
+nav.toc .brand { font-weight: 800; color: var(--ink); font-size: 17px; letter-spacing: -0.3px; margin-bottom: 6px; }
+nav.toc .brand span { color: var(--accent); }
+nav.toc .home { font-size: 12.5px; color: var(--accent); display: block; margin-bottom: 18px; text-decoration: none; }
+main { padding: 40px 46px 120px; min-width: 0; }
+header.hero { border-bottom: 1px solid var(--line); padding-bottom: 26px; margin-bottom: 8px; }
+header.hero .eyebrow { font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+header.hero h1 { font-size: 32px; letter-spacing: -0.6px; color: var(--ink); margin: 0 0 10px; }
+header.hero p { color: var(--muted); margin: 6px 0; max-width: 74ch; }
+h2.sec { font-size: 23px; color: var(--ink); letter-spacing: -0.3px; margin: 54px 0 6px; padding-top: 18px; border-top: 1px solid var(--line); }
+h2.sec:first-of-type { border-top: none; }
+h3 { font-size: 17px; color: var(--ink); margin: 30px 0 6px; }
+h4 { font-size: 14.5px; color: var(--accent); margin: 20px 0 4px; letter-spacing: 0.2px; }
+p { margin: 8px 0; }
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code { font-family: "JetBrains Mono", "SF Mono", Consolas, monospace; font-size: 12.5px; background: var(--inset); padding: 1.5px 6px; border-radius: 5px; color: #e7d7ff; }
+pre { background: var(--inset); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+pre code { background: none; padding: 0; color: #d6e3f0; font-size: 12.5px; line-height: 1.55; }
+table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13.5px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--accent2); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.6px; }
+td { color: var(--body); }
+td code { font-size: 11.5px; }
+tbody tr:hover { background: rgba(139,124,246,0.04); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; margin: 16px 0; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 18px 0; }
+.pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; letter-spacing: 0.3px; background: rgba(167,139,250,0.16); color: var(--accent2); }
+.callout { border-left: 3px solid var(--amber); background: rgba(251,191,36,0.06); border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 14px 0; }
+.callout.note { border-color: var(--cyan); background: rgba(34,211,238,0.06); }
+.callout.warn { border-color: var(--red); background: rgba(244,63,94,0.06); }
+.callout b { color: var(--ink); }
+ul, ol { margin: 8px 0; padding-left: 22px; }
+li { margin: 4px 0; }
+/* ASCII / diagram blocks: monospace, scrollable, never break the page width */
+pre.diagram { color: var(--accent2); line-height: 1.3; font-size: 12px; }
+.footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--faint); font-size: 13px; }
+@media (max-width: 880px) {
+  .wrap { grid-template-columns: 1fr; }
+  nav.toc { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--line); }
+  main { padding: 28px 20px 80px; }
+}
+</style>
+</head><body>
+<div class="wrap">
+  <nav class="toc">
+    <div class="brand">Fit<span>Vibe</span> · Docs</div>
+    <a class="home" href="README.html">← All docs</a>
+    <h2>On this page</h2>
+    <a href="#navigation">Navigation</a>
+    <a href="#the-five-surfaces">The five surfaces</a>
+    <a href="#authentication">Authentication</a>
+    <a href="#data-layer">Data layer</a>
+    <a href="#ask-vaidya-the-chat">Ask Vaidya — the chat</a>
+    <a href="#generative-ui">Generative UI</a>
+    <a href="#theme">Theme</a>
+    <a href="#notifications">Notifications</a>
+    <a href="#configuration">Configuration</a>
+    <a href="#useful-commands">Useful commands</a>
+    <h2>Other docs</h2>
+    <a href="architecture.html">Architecture</a>
+    <a href="setup.html">Setup</a>
+    <a href="backend.html">Backend</a>
+    <a href="data-model.html">Data model</a>
+    <a href="app.html">Mobile app</a>
+    <a href="vaidya.html">Vaidya AI coach</a>
+    <a href="calculations.html">Calculations</a>
+  </nav>
+  <main>
+    <header class="hero">
+      <div class="eyebrow">Mobile App</div>
+      <h1>Mobile App (Expo / React Native)</h1>
+      <p>The FitVibe app is the client for the whole platform — five surfaces fed by the backend's read API and the Vaidya coach.</p>
+    </header>
+
+    <ul>
+      <li><b>Source:</b> <a href="../appV2/"><code>appV2/</code></a></li>
+      <li><b>Stack:</b> Expo SDK 56 · React Native 0.85 · React 19 · <a href="https://docs.expo.dev/router/introduction/">expo-router</a> (file-based nav) · <a href="https://rnfirebase.io">react-native-firebase</a> (auth) · <a href="https://shopify.github.io/react-native-skia/">@shopify/react-native-skia</a> (canvas) · <a href="https://docs.swmansion.com/react-native-reanimated/">reanimated</a> · <a href="https://lucide.dev">lucide-react-native</a> (icons) · Sora + JetBrains Mono fonts</li>
+    </ul>
+
+    <div class="callout">
+      <b>Build requirement:</b> the app uses native modules (Firebase, Skia, image pickers, notifications, keyboard-controller), so it needs a <b>dev/standalone build</b> — it will not run in Expo Go. <code>app.config.js</code> wires the Google services files and trims Android ABIs for faster EAS dev/preview builds.
+    </div>
+
+    <h2 class="sec" id="navigation">Navigation</h2>
+    <p>File-based routing under <a href="../appV2/app/"><code>appV2/app/</code></a>:</p>
+    <pre><code>app/
+├── _layout.tsx          root: AuthProvider, fonts, KeyboardProvider, notification routing
+├── index.tsx            auth gate / welcome
+├── oauthredirect.tsx    OAuth deep-link callback
+├── (tabs)/
+│   ├── _layout.tsx      tab shell + custom glass BottomNav + auth guard
+│   ├── index.tsx        → Today
+│   ├── sleep.tsx        → Sleep
+│   ├── body.tsx         → Body
+│   └── insights.tsx     → Insights
+├── ask.tsx              → Ask Vaidya chat (pushed modal, not a real tab)
+├── history.tsx          conversation history (modal)
+└── analysis/[id].tsx    insight detail (modal)</code></pre>
+    <p>The bottom nav has five items; the center <b>Ask</b> item isn't a tab — it pushes the <code>/ask</code> chat modal.</p>
+
+    <h2 class="sec" id="the-five-surfaces">The five surfaces</h2>
+    <table>
+      <thead><tr><th>Screen</th><th>Source</th><th>Shows</th></tr></thead>
+      <tbody>
+        <tr><td><b>Today</b></td><td><code>src/screens/today/</code></td><td>A hero carousel (Readiness, Nutrition), a Vaidya headline insight, the activity timeline, and a last-night sleep summary.</td></tr>
+        <tr><td><b>Sleep</b></td><td><code>src/screens/sleep/</code></td><td>Sleep score, stage breakdown (hypnogram), quality metrics, vitals, naps, trends, and the sleep schedule editor.</td></tr>
+        <tr><td><b>Body</b></td><td><code>src/screens/body/</code></td><td>Vitals (RHR, HRV, SpO₂, respiratory rate, skin temp, VO₂max) with baselines, activity, body composition, and nutrition.</td></tr>
+        <tr><td><b>Insights</b></td><td><code>src/screens/insights/</code></td><td>The nightly Vaidya day-report feed, rendered as generative-UI blocks.</td></tr>
+        <tr><td><b>Ask Vaidya</b></td><td><code>src/screens/ask/</code></td><td>Live chat with the coach over a WebSocket — streamed text + generative blocks, with image/file attachments.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Today screen — one request, many sections</h3>
+    <p>Every section of the Today screen reads from a single shared hook, <code>useToday()</code> (<a href="../appV2/src/data/today.ts"><code>src/data/today.ts</code></a>), which makes <b>one</b> <code>GET /me/today</code> request. A module-level store dedupes concurrent loads (only one request in flight) and feeds all sections — no prop-threading and no four-way round trip.</p>
+    <p>The hero carousel (<a href="../appV2/src/screens/today/hero/"><code>src/screens/today/hero/</code></a>) holds the <b>Readiness</b> page (the 0–100 score ring + steps/heart/sleep factor tiles) and the <b>Nutrition</b> page (calories eaten vs. burned, macros, hydration).</p>
+
+    <h2 class="sec" id="authentication">Authentication</h2>
+    <p>Sign-in is brokered by the backend so no Google client secret ships in the app:</p>
+    <pre><code>1. User taps "Sign in with Google"
+2. App opens WebBrowser → backend /auth/start?redirect=fitvibe://oauthredirect
+3. Backend runs the Google OAuth dance, mints a Firebase custom token,
+   and deep-links back: fitvibe://oauthredirect?token=&lt;one-time&gt;
+4. App redeems it (GET /auth/session?token=) → { firebase_token }
+5. signInWithCustomToken(firebase_token) → Firebase is now the source of truth
+6. Every API call attaches the Firebase ID token as Authorization: Bearer &lt;idToken&gt;</code></pre>
+    <p>See <a href="../appV2/src/auth/"><code>src/auth/</code></a>. On a <code>401</code>, the API client force-refreshes the ID token and retries once.</p>
+
+    <h2 class="sec" id="data-layer">Data layer</h2>
+    <p><a href="../appV2/src/data/"><code>src/data/</code></a>:</p>
+    <ul>
+      <li><b><code>api.ts</code></b> — the HTTP client: a 12s timeout (RN's fetch has none), <code>401</code> → token-refresh-and-retry, normalized network errors, and the Firebase bearer header.</li>
+      <li><b><code>useResource.tsx</code></b> — a generic per-user data hook: shows a spinner only on first load, keeps stale data on refresh, surfaces an error only when there's nothing to show, and registers with the screen's refresh bus.</li>
+      <li><b><code>today.ts</code></b> — the shared Today store + <code>useToday()</code>.</li>
+      <li><b><code>refresh.tsx</code></b> — a <code>RefreshScope</code> per screen; each data hook registers its <code>reload</code> so pull-to-refresh refetches everything in parallel. (Data hooks must render <i>inside</i> the screen to register.)</li>
+      <li><b><code>vaidya.ts</code></b> — the Vaidya client: insight pulls over HTTP, conversation history, and the chat WebSocket.</li>
+    </ul>
+
+    <h2 class="sec" id="ask-vaidya-the-chat">Ask Vaidya — the chat</h2>
+    <p>The chat opens a WebSocket to <code>vaidya-service</code> (<a href="../appV2/src/data/vaidya.ts"><code>src/data/vaidya.ts</code></a> <code>openChat()</code>; the Firebase ID token is a query param because RN WebSockets can't reliably set headers). The server streams typed frames:</p>
+    <table>
+      <thead><tr><th>Frame</th><th>Effect in the UI</th></tr></thead>
+      <tbody>
+        <tr><td><code>{ type: 'ready', conversationId }</code></td><td>Session id (for resume).</td></tr>
+        <tr><td><code>{ type: 'token', delta }</code></td><td>Appended to the current assistant bubble's text.</td></tr>
+        <tr><td><code>{ type: 'tool', name }</code></td><td>A tool started — <b>closes the current text bubble</b> so following text starts a new bubble (mirrors how Pi splits a turn) and keeps the working indicator up.</td></tr>
+        <tr><td><code>{ type: 'block', block }</code></td><td>A generative-UI block appended to the turn.</td></tr>
+        <tr><td><code>{ type: 'done' }</code></td><td>Turn complete; the working indicator clears.</td></tr>
+        <tr><td><code>{ type: 'error', message }</code></td><td>Surfaced inline.</td></tr>
+      </tbody>
+    </table>
+    <p>Attachments (<code>{ kind: 'image' | 'text', mimeType, data: base64 }</code>) are sent with the message — images are shown to the model natively, text files appended to the prompt. Resuming a conversation loads prior messages over HTTP, then opens the socket with <code>?conversationId=</code>.</p>
+
+    <h2 class="sec" id="generative-ui">Generative UI</h2>
+    <p>Vaidya emits typed <b>GenerativeBlock</b>s (<a href="../appV2/src/data/blocks.ts"><code>src/data/blocks.ts</code></a>); the app renders them with <a href="../appV2/src/components/ai/BlockRenderer.tsx"><code>BlockRenderer</code></a>:</p>
+    <ul>
+      <li><b>Composite cards</b> — <code>today_headline</code>, <code>sleep_insight</code>, <code>day_summary</code>, <code>insight_card</code>.</li>
+      <li><b>Primitives</b> — <code>hypnogram</code>, <code>sparkline</code>, <code>bars</code>, <code>ring</code>, <code>stat_tile</code>, <code>stat_tile_grid</code>, <code>readiness_card</code>, <code>recovery_signals</code>, <code>streak_dots</code>, <code>micro_bars</code>, <code>badge</code>.</li>
+      <li><b>Escape hatch</b> — <code>canvas</code>, drawn with Skia from a small draw-op vocabulary (rect, circle, line, path, text, image, gradient, group).</li>
+    </ul>
+    <p>A <code>SafeBlock</code> error boundary isolates a broken block so its siblings still render. Hue token names (e.g. <code>"sleep"</code>, <code>"heart"</code>) are resolved to hex via the shared theme <code>resolveHue()</code>. Assistant prose is rendered by a dependency-free <code>MarkdownText</code> (markdown-it pulls Node stdlib that RN lacks).</p>
+
+    <h2 class="sec" id="theme">Theme</h2>
+    <p><a href="../appV2/src/theme/tokens.ts"><code>src/theme/tokens.ts</code></a> is the design system — a dark-first palette with an aurora accent (violet + cyan) reserved for AI/insight moments, per-metric hues (sleep, heart, move, oxygen, energy, hydration, nutrition, mind), Sora (display/sans) + JetBrains Mono (mono) type, a 4px spacing grid, and radius/contrast tokens tuned for legibility on dark cards.</p>
+
+    <h2 class="sec" id="notifications">Notifications</h2>
+    <p>Push is <b>opt-in</b> (<a href="../appV2/src/data/notifications.ts"><code>src/data/notifications.ts</code></a>); <code>expo-notifications</code> is lazy-imported so the app degrades gracefully if the native module is absent. On opt-in the Expo token is registered with <code>vaidya-service</code> (<code>POST /vaidya/push/register</code>). Tapping a notification deep-links to the relevant tab by its <code>data.tab</code> (today / sleep / insights), handled cold-start and warm.</p>
+
+    <h2 class="sec" id="configuration">Configuration</h2>
+    <p>Copy <a href="../appV2/.env.example"><code>appV2/.env.example</code></a> to <code>.env</code>:</p>
+    <ul>
+      <li><code>EXPO_PUBLIC_API_BASE_URL</code> — the Go backend (default <code>http://localhost:8080</code>).</li>
+      <li><code>EXPO_PUBLIC_VAIDYA_BASE_URL</code> — the Vaidya service (default <code>http://localhost:8090</code>; in production a proxy fronts both at one origin, so set them equal).</li>
+    </ul>
+    <p><code>EXPO_PUBLIC_*</code> vars are inlined into the bundle at build time. The backend brokers OAuth, so <b>no Google client id ships in the app</b>.</p>
+
+    <h2 class="sec" id="useful-commands">Useful commands</h2>
+    <pre><code>cd appV2
+npm install
+npx tsc --noEmit          # typecheck
+npm run ios               # dev build (or: npm run android)</code></pre>
+
+    <div class="footer">FitVibe documentation · MIT licensed · <a href="README.html">docs index</a></div>
+  </main>
+</div></body></html>

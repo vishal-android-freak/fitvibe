@@ -1,5 +1,5 @@
-# Ignore everything in the repo root except the backend folder, the mobile app
-# (appV2), the design handoff, README, CLAUDE.md, and this file.
+# Whitelist: ignore everything in the repo root except the services, the
+# documentation, and the top-level project files listed below.
 /*
 !/backend
 !/backend/**
@@ -13,8 +13,12 @@
 !/.pi/**
 !/design_handoff_fitvibe_app
 !/design_handoff_fitvibe_app/**
+!/docs
+!/docs/**
 !/README.md
 !/CLAUDE.md
+!/LICENSE
+!/CONTRIBUTING.md
 !/.gitignore
 
 # Re-ignore heavy/generated dirs inside the re-included folders.

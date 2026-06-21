@@ -1,125 +1,164 @@
+<div align="center">
+
+<img src="docs/assets/logo.png" alt="FitVibe" width="120" height="120" />
+
 # FitVibe
 
-Health-tracking system that ingests **Google Health API v4** data and surfaces it in a mobile app. Two parts live in this repo:
+**An open-source, self-hostable health platform — ingest your Google Health data, own it in your own PostgreSQL, and talk to an AI coach grounded entirely in your own numbers.**
 
-- **`backend/`** — a Go server that exchanges Google OAuth, backfills history, ingests real-time webhooks, runs scheduled gap-fill crons, and serves the app's read API. Built to run on a Raspberry Pi / small server.
-- **`appV2/`** — the Expo / React Native mobile app (the current app; `appV1/` is the prior version).
+[![License: MIT](https://img.shields.io/badge/License-MIT-A78BFA.svg)](LICENSE)
+[![Go](https://img.shields.io/badge/Go-1.25-00ADD8.svg)](backend/)
+[![Expo](https://img.shields.io/badge/Expo-SDK_56-000020.svg)](appV2/)
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB.svg)](vaidya-mcp/)
+[![Node](https://img.shields.io/badge/Node-22+-339933.svg)](vaidya-service/)
 
-The repo root also holds an unrelated Fitbit BLE reverse-engineering effort (`work/`, `FINDINGS.md`) — research, not part of the product.
+[Documentation](docs/) · [Architecture](docs/architecture.md) · [Backend](docs/backend.md) · [Mobile App](docs/app.md) · [Vaidya AI Coach](docs/vaidya.md)
 
-## Backend
+</div>
 
-### Features
+---
 
-- Google OAuth 2.0 code exchange and automatic refresh-token rotation
-- **PostgreSQL** storage with embedded, idempotent migrations
-- Historical backfill of all ingested data types (windowed: full, `-today`, or `-since`)
-- Real-time webhook ingestion with Tink ECDSA signature verification, decoupled receive/process
-- Cron gap-fill jobs (list, rollups, profile/settings, reconcile, catch-up)
-- A unified, screen-shaped read API for the app (`GET /me/today`, `GET /me/sleep/last-night`)
+## What is FitVibe?
 
-### Tech stack
+FitVibe is a complete, self-hostable health-tracking system. It pulls your wearable and health data from the **Google Health API v4**, stores the lossless raw data in **your own PostgreSQL**, derives the metrics and scores a polished health app needs (readiness, sleep score, recovery trends), and serves them to a beautiful **Expo / React Native** app.
 
-- Go 1.25
-- **PostgreSQL** via **pgx v5** (`github.com/jackc/pgx/v5`)
-- Chi router
-- Google OAuth2 / Google Health API v4
+On top of that sits **Vaidya** — an AI health coach that answers questions and writes daily insights using *only your real data*, never fabricated numbers. Vaidya runs as its own service, so the rest of the platform works fine without it.
 
-### Architecture
+It is built to run on hardware you control — a small VPS or even a Raspberry Pi.
 
-Every path that pulls data (backfill, cron, webhook processor) funnels DataPoints through `ingestion.MapDataPoint`, which stores the lossless raw payload in `payload_json` (JSONB) and extracts typed scalar/child columns. Hot fields (nutrition carbs/fat, meal type, calories) are promoted to columns at ingestion so the read API does plain column reads, not JSON extraction. `cmd/server/main.go` is the composition root — read it first.
+## Why
 
-The app's Today screen is served by a single backend-for-frontend endpoint, `GET /me/today`, which assembles the activity summary, nutrition, timeline, and last-night sleep concurrently in one response.
+Your health data shouldn't live only in someone else's cloud behind a coaching paywall. FitVibe is the answer to "what if I owned the pipeline" — from OAuth and ingestion, through the exact formulas behind every score, to an AI coach whose system prompt you can read. Everything derived is [documented with its formula](docs/calculations.md), and the AI is grounded in tool results, not vibes.
 
-### Project structure
+## Architecture at a glance
 
 ```
-backend/
-├── cmd/
-│   ├── authlink/        # Print the Google OAuth consent URL
-│   ├── server/          # HTTP server entrypoint (composition root)
-│   ├── backfill/        # Re-parse stored payloads through the current mapper
-│   ├── fetchbackfill/   # Re-fetch history from the Health API (-today / -since)
-│   └── webhooks/        # Manage webhook subscriptions (service account)
-├── internal/
-│   ├── api/             # Admin HTTP handlers
-│   ├── config/          # Environment config loader
-│   ├── cron/            # Scheduled sync jobs + historical backfill
-│   ├── db/              # pgx connection, embedded migrations, test helper
-│   ├── db/repositories/ # Data access layer
-│   ├── healthapi/       # Typed Google Health API v4 client
-│   ├── ingestion/       # DataPoint mapping + column/child extraction
-│   ├── oauth/           # OAuth exchange & token provider
-│   ├── sleep/           # Last-night sleep endpoint
-│   ├── today/           # Unified GET /me/today aggregate
-│   └── webhooks/        # Webhook handler & async processor
-├── docs/                # Design references (Postgres migration, Vaidya coach)
-├── docker-compose.yml   # Local dev PostgreSQL
-└── .env.example
+                         ┌───────────────────────────┐
+   Google Health API v4  │  Google OAuth + Webhooks  │
+            │            └───────────────────────────┘
+            ▼
+   ┌───────────────────┐      ingest · backfill · webhooks · cron
+   │   backend (Go)    │──────────────────────────────────────────┐
+   │  ingestion engine │                                           ▼
+   │  read API (BFF)   │                                  ┌─────────────────┐
+   └───────────────────┘                                  │   PostgreSQL    │
+            │  GET /me/today · /me/sleep · /me/body        │  (you own it)   │
+            │  Firebase-authed                             └─────────────────┘
+            ▼                                                  ▲          ▲
+   ┌───────────────────┐                          read-only  │          │ read+write
+   │  appV2 (Expo RN)  │                                      │          │ (vaidya_* tables)
+   │  Today · Sleep ·  │◀──── insights + chat (WS) ─────┐     │          │
+   │  Body · Insights  │                                │     │          │
+   │  Ask Vaidya       │                          ┌─────┴─────┴──────────┴───┐
+   └───────────────────┘                          │  vaidya-service (Node)   │
+                                                   │  embeds the Pi agent SDK │
+                                                   │  chat + nightly insights │
+                                                   └────────────┬─────────────┘
+                                                                │ MCP (streamable-HTTP)
+                                                                ▼
+                                                   ┌──────────────────────────┐
+                                                   │   vaidya-mcp (Python)    │
+                                                   │  read-only SQL tools +   │
+                                                   │  Google Health write tools│
+                                                   └──────────────────────────┘
 ```
 
-### Getting started
+See [`docs/architecture.md`](docs/architecture.md) for the full data flow, trust boundaries, and design rationale.
 
-1. Start a local PostgreSQL (Docker):
+## The four services
 
-   ```bash
-   cd backend
-   docker compose up -d
-   ```
+| Service | Stack | Role |
+|---------|-------|------|
+| **[`backend/`](backend/)** | Go 1.25, pgx, Chi | OAuth, ingestion, webhooks, cron gap-fill, and the screen-shaped read API. The heart of the system. |
+| **[`appV2/`](appV2/)** | Expo SDK 56, React Native 0.85 | The mobile app — Today, Sleep, Body, Insights, and the Ask Vaidya chat. |
+| **[`vaidya-service/`](vaidya-service/)** | Node 22, TypeScript, [Pi SDK](https://pi.dev) | The AI coach engine — live chat over WebSocket and cron-generated daily insights. |
+| **[`vaidya-mcp/`](vaidya-mcp/)** | Python 3.11, FastMCP | The agent's tools — read-only SQL over your health data + write-back to Google Health. |
 
-2. Copy the env file and fill in your Google credentials:
+Vaidya is optional: run just `backend/` + `appV2/` for a complete tracking app, and add the two Vaidya services when you want the AI coach.
 
-   ```bash
-   cp .env.example .env
-   # DATABASE_URL defaults to the docker compose instance
-   ```
+## Quick start
 
-3. Build and run the server (migrations apply automatically on startup):
+> **Prerequisites:** [Go 1.25+](https://go.dev), [Docker](https://docker.com) (for local PostgreSQL), [Node 22+](https://nodejs.org), [Python 3.11+](https://python.org), and Google Cloud OAuth credentials with the Health API enabled. See [`docs/setup.md`](docs/setup.md) for the full walk-through including Google Cloud and Firebase setup.
 
-   ```bash
-   go build -o server-bin ./cmd/server
-   ./server-bin
-   ```
-
-4. Authorize a user — print the consent URL, then exchange the code:
-
-   ```bash
-   go run ./cmd/authlink
-
-   curl -X POST http://localhost:8080/auth/exchange \
-     -H "Content-Type: application/json" \
-     -d '{"code":"YOUR_CODE","redirect_uri":"YOUR_REDIRECT_URI"}'
-   ```
-
-5. (Optional) Backfill history — everything, just today, or a recent window:
-
-   ```bash
-   go run ./cmd/fetchbackfill -user 1            # last DEFAULT_BACKFILL_DAYS
-   go run ./cmd/fetchbackfill -user 1 -today     # just today (local civil day)
-   go run ./cmd/fetchbackfill -user 1 -since 48h # last 48 hours
-   ```
-
-### Tests
-
-Repository tests run against a real PostgreSQL (each test in its own throwaway schema) and **skip** when none is reachable:
+### 1. Backend + database (the minimum to run)
 
 ```bash
-docker compose up -d
-TEST_DATABASE_URL="postgres://fitvibe:fitvibe@localhost:5432/fitvibe?sslmode=disable" go test ./...
+cd backend
+cp .env.example .env          # fill in your Google OAuth credentials
+docker compose up -d          # local PostgreSQL (migrations apply on server start)
+go run ./cmd/server           # starts on :8080
 ```
 
-### Configuration
+Authorize your first user and backfill history:
 
-Config loads from environment via `internal/config` (`.env` auto-loaded from CWD). Required: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `WEBHOOK_SECRET`, `DATABASE_URL`. See `backend/.env.example` for the full list including cron expressions and pool sizing.
+```bash
+go run ./cmd/authlink                 # prints the Google consent URL
+# complete consent; the app (or curl) exchanges the code at POST /auth/exchange
+go run ./cmd/fetchbackfill -user 1    # backfill history from the Health API
+```
 
-## App (`appV2/`)
+### 2. Mobile app
 
-Expo / React Native. The Today tab consumes the unified `GET /me/today` endpoint via a single shared hook with pull-to-refresh. See `appV2/AGENTS.md` for app-specific conventions (it targets a pinned Expo version).
+```bash
+cd appV2
+cp .env.example .env          # point EXPO_PUBLIC_API_BASE_URL at your backend
+npm install
+npm run ios                   # or: npm run android  (a dev build — not Expo Go)
+```
 
-## Roadmap
+> The app needs a **dev/standalone build**, not Expo Go, because it uses native modules (Firebase, Skia, notifications). See [`docs/app.md`](docs/app.md).
 
-- **Vaidya** — an AI health coach (the answer to Google's "Ask Coach"): a standalone Node.js/TypeScript service that embeds the **Pi agent SDK** as its engine, querying the shared PostgreSQL DB read-only via 5 SQL tools, with a curated wellness Pi Skill (in place of RAG) and runtime self-extension. Runtime model is Claude Opus 4.8 for now, switching to OpenCode Go/Zen later. Design + research: `backend/docs/vaidya-coach-research.html` (see the 2026-06-19 architecture update at the top).
+### 3. Vaidya AI coach (optional)
+
+```bash
+# Terminal A — the MCP tool server
+cd vaidya-mcp
+cp .env.example .env                 # DATABASE_URL_READONLY for the read-only role
+python -m venv .venv && .venv/bin/pip install -e .
+psql "$DATABASE_URL" -f sql/role_provisioning.sql   # create the read-only role (once, as superuser)
+python -m vaidya_mcp.server          # serves http://127.0.0.1:8765/mcp
+
+# Terminal B — the coach engine
+cd vaidya-service
+cp .env.example .env
+npm install && npm run dev           # serves :8090 (HTTP insights + chat WebSocket)
+```
+
+Full details for each service live in [`docs/`](docs/).
+
+## Documentation
+
+A complete documentation set lives in [`docs/`](docs/) — every document is provided as both **Markdown** (renders on GitHub) and an **enriched HTML** version (styled, with diagrams, great offline).
+
+| Doc | What it covers |
+|-----|----------------|
+| [Architecture](docs/architecture.md) | System-wide data flow, services, trust boundaries, design decisions |
+| [Setup guide](docs/setup.md) | End-to-end local setup: Google Cloud, Firebase, all four services |
+| [Backend](docs/backend.md) | Ingestion engine, read API, cron jobs, OAuth, webhooks |
+| [Data model](docs/data-model.md) | PostgreSQL schema, the upsert/dedupe contract, child tables |
+| [Mobile app](docs/app.md) | Expo app structure, screens, data layer, generative UI |
+| [Vaidya AI coach](docs/vaidya.md) | The agent service + MCP tools, chat protocol, insights |
+| [Calculations & methodology](docs/calculations.md) | Exact formulas for every derived metric and score |
+| [Vaidya design & research](docs/vaidya-research.md) | The research and architecture behind the coach |
+| [Google Health write payloads](docs/google-health-write-payloads.md) | Ground-truth v4 write JSON for the write tools |
+
+## Security & privacy
+
+FitVibe is built to keep your data yours:
+
+- **You host the database.** Health data never leaves infrastructure you control.
+- **Layered token authority.** The Go backend is the *sole* holder of Google refresh tokens (encrypted at rest); the AI services receive only short-lived access tokens through an internal, loopback/socket-bound provider — never the refresh tokens.
+- **Least privilege for the AI.** The MCP server reads through a dedicated PostgreSQL role with `SELECT`-only access to the health tables and *no* write access anywhere; writes go through the Google Health API, not raw SQL.
+- **The coach can't fabricate.** Vaidya's system prompts require every claim to be grounded in a tool result.
+
+When self-hosting, supply your own secrets via the `.env.example` template in each service. Never commit real credentials or service-account files.
+
+## Contributing
+
+Contributions are welcome. Please open an issue to discuss substantial changes first. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for development setup, the per-service test commands, and code conventions.
 
 ## License
 
-Private — for FitVibe use only.
+[MIT](LICENSE) © FitVibe.
+
+> **Note:** FitVibe integrates with the Google Health API and Google OAuth. You are responsible for complying with Google's API terms and for the privacy of any data you ingest. This software is provided "as is", without warranty — it is not a medical device and does not provide medical advice.

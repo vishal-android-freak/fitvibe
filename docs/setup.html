@@ -1,0 +1,206 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FitVibe — Setup Guide</title>
+<style>
+/* FitVibe documentation — shared house style (dark, aurora accent).
+   Inlined into each doc's <style> block; kept here as the canonical source. */
+:root {
+  --bg: #0a0e1a; --panel: #131a2b; --panel2: #1a2236; --inset: #070b14;
+  --ink: #f8fafc; --body: #c3ccda; --muted: #8a97ab; --faint: #64748b;
+  --accent: #a78bfa; --accent2: #c4b5fd; --cyan: #22d3ee; --green: #4ade80;
+  --amber: #fbbf24; --red: #f43f5e; --blue: #60a5fa;
+  --line: rgba(255,255,255,0.09); --line2: rgba(255,255,255,0.16);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--body);
+  font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 260px 1fr; gap: 0; }
+nav.toc {
+  position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto;
+  padding: 28px 18px 60px; border-right: 1px solid var(--line); background: var(--inset);
+}
+nav.toc h2 { font-size: 12px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--faint); margin: 22px 0 8px; }
+nav.toc h2:first-child { margin-top: 0; }
+nav.toc a { display: block; color: var(--muted); text-decoration: none; padding: 4px 8px; border-radius: 7px; font-size: 13.5px; }
+nav.toc a:hover { color: var(--ink); background: var(--panel2); }
+nav.toc .brand { font-weight: 800; color: var(--ink); font-size: 17px; letter-spacing: -0.3px; margin-bottom: 6px; }
+nav.toc .brand span { color: var(--accent); }
+nav.toc .home { font-size: 12.5px; color: var(--accent); display: block; margin-bottom: 18px; text-decoration: none; }
+main { padding: 40px 46px 120px; min-width: 0; }
+header.hero { border-bottom: 1px solid var(--line); padding-bottom: 26px; margin-bottom: 8px; }
+header.hero .eyebrow { font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+header.hero h1 { font-size: 32px; letter-spacing: -0.6px; color: var(--ink); margin: 0 0 10px; }
+header.hero p { color: var(--muted); margin: 6px 0; max-width: 74ch; }
+h2.sec { font-size: 23px; color: var(--ink); letter-spacing: -0.3px; margin: 54px 0 6px; padding-top: 18px; border-top: 1px solid var(--line); }
+h2.sec:first-of-type { border-top: none; }
+h3 { font-size: 17px; color: var(--ink); margin: 30px 0 6px; }
+h4 { font-size: 14.5px; color: var(--accent); margin: 20px 0 4px; letter-spacing: 0.2px; }
+p { margin: 8px 0; }
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code { font-family: "JetBrains Mono", "SF Mono", Consolas, monospace; font-size: 12.5px; background: var(--inset); padding: 1.5px 6px; border-radius: 5px; color: #e7d7ff; }
+pre { background: var(--inset); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+pre code { background: none; padding: 0; color: #d6e3f0; font-size: 12.5px; line-height: 1.55; }
+table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13.5px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--accent2); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.6px; }
+td { color: var(--body); }
+td code { font-size: 11.5px; }
+tbody tr:hover { background: rgba(139,124,246,0.04); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; margin: 16px 0; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 18px 0; }
+.pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; letter-spacing: 0.3px; background: rgba(167,139,250,0.16); color: var(--accent2); }
+.callout { border-left: 3px solid var(--amber); background: rgba(251,191,36,0.06); border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 14px 0; }
+.callout.note { border-color: var(--cyan); background: rgba(34,211,238,0.06); }
+.callout.warn { border-color: var(--red); background: rgba(244,63,94,0.06); }
+.callout b { color: var(--ink); }
+ul, ol { margin: 8px 0; padding-left: 22px; }
+li { margin: 4px 0; }
+/* ASCII / diagram blocks: monospace, scrollable, never break the page width */
+pre.diagram { color: var(--accent2); line-height: 1.3; font-size: 12px; }
+.footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--faint); font-size: 13px; }
+@media (max-width: 880px) {
+  .wrap { grid-template-columns: 1fr; }
+  nav.toc { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--line); }
+  main { padding: 28px 20px 80px; }
+}
+</style>
+</head><body>
+<div class="wrap">
+  <nav class="toc">
+    <div class="brand">Fit<span>Vibe</span> · Docs</div>
+    <a class="home" href="README.html">← All docs</a>
+    <h2>On this page</h2>
+    <a href="#prerequisites">Prerequisites</a>
+    <a href="#google-cloud-firebase">1. Google Cloud &amp; Firebase</a>
+    <a href="#postgresql">2. PostgreSQL</a>
+    <a href="#backend">3. Backend</a>
+    <a href="#mobile-app">4. Mobile app</a>
+    <a href="#vaidya-mcp">5. Vaidya MCP</a>
+    <a href="#vaidya-service">6. Vaidya service</a>
+    <a href="#production-notes">Production notes</a>
+    <a href="#troubleshooting">Troubleshooting</a>
+    <h2>Other docs</h2>
+    <a href="architecture.html">Architecture</a>
+    <a href="setup.html">Setup</a>
+    <a href="backend.html">Backend</a>
+    <a href="data-model.html">Data model</a>
+    <a href="app.html">Mobile app</a>
+    <a href="vaidya.html">Vaidya AI coach</a>
+    <a href="calculations.html">Calculations</a>
+  </nav>
+  <main>
+    <header class="hero">
+      <div class="eyebrow">Getting started</div>
+      <h1>Setup Guide</h1>
+      <p>This walks through running the full FitVibe stack locally. You can stop after step 4 for a working tracking app, and add Vaidya (steps 5–6) when you want the AI coach.</p>
+    </header>
+
+    <h2 class="sec" id="prerequisites">Prerequisites</h2>
+    <ul>
+      <li><b>Go 1.25+</b></li>
+      <li><b>Docker</b> (for local PostgreSQL) — or your own PostgreSQL 15+</li>
+      <li><b>Node 22+</b> and npm</li>
+      <li><b>Python 3.11+</b></li>
+      <li>A <b>Google Cloud project</b> with the Health API enabled and OAuth credentials</li>
+      <li>A <b>Firebase project</b> (same Google project) for app auth</li>
+    </ul>
+
+    <h2 class="sec" id="google-cloud-firebase">1. Google Cloud &amp; Firebase</h2>
+    <p>You need this once, and it's the only part that isn't a copy-paste.</p>
+    <ol>
+      <li><b>Create / pick a Google Cloud project</b> and enable the <b>Google Health API</b>.</li>
+      <li><b>OAuth credentials</b> — create an OAuth client. Note the <b>client id</b> and <b>client secret</b>, and register your redirect URI (the app uses a custom scheme like <code>com.fitvibe.app:/oauth2callback</code>; the brokered web flow uses your backend's <code>/auth/callback</code>).</li>
+      <li><b>Firebase</b> — in the same project, enable Firebase Authentication. Download:
+        <ul>
+          <li>the <b>Admin service-account JSON</b> (used by the backend and <code>vaidya-service</code> to mint/verify tokens) — keep it out of git,</li>
+          <li><code>google-services.json</code> (Android) and <code>GoogleService-Info.plist</code> (iOS) for the app.</li>
+        </ul>
+      </li>
+      <li><b>Webhooks</b> (optional, for real-time data) — you'll register a webhook subscriber pointing at your backend's public <code>POST /webhooks/google-health</code>. Use <code>go run ./cmd/webhooks</code> once the server is reachable.</li>
+    </ol>
+    <div class="callout warn"><b>Keep every credential file out of git.</b> The repo's <code>.gitignore</code> already excludes <code>.env</code> files; never commit service-account JSON.</div>
+
+    <h2 class="sec" id="postgresql">2. PostgreSQL</h2>
+    <p>The backend ships a docker-compose for local dev:</p>
+    <pre><code>cd backend
+docker compose up -d        # starts PostgreSQL; data persists in a named volume</code></pre>
+    <p>This matches the default <code>DATABASE_URL</code> in the env examples (<code>postgres://fitvibe:fitvibe@localhost:5432/fitvibe</code>). To stop: <code>docker compose down</code>.</p>
+
+    <h2 class="sec" id="backend">3. Backend</h2>
+    <pre><code>cd backend
+cp .env.example .env</code></pre>
+    <p>Edit <code>.env</code> and fill in at least the <b>required</b> values:</p>
+    <ul>
+      <li><code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code>, <code>GOOGLE_REDIRECT_URI</code></li>
+      <li><code>WEBHOOK_SECRET</code> (any strong string)</li>
+      <li><code>FIREBASE_PROJECT_ID</code> and <code>FIREBASE_CREDENTIALS_FILE</code> (path to your Admin service-account JSON) if you want app auth</li>
+    </ul>
+    <p>Then run it (migrations apply automatically on startup):</p>
+    <pre><code>go run ./cmd/server          # :8080</code></pre>
+    <p>Authorize your first user and pull history:</p>
+    <pre><code>go run ./cmd/authlink                 # prints the Google consent URL
+# complete consent; exchange the code (the app does this, or POST /auth/exchange)
+go run ./cmd/fetchbackfill -user 1    # backfill history
+# narrower windows:  -today   |   -since 48h   |   -since 2026-06-15</code></pre>
+    <p>Verify: <code>curl http://localhost:8080/healthz</code>.</p>
+
+    <h2 class="sec" id="mobile-app">4. Mobile app</h2>
+    <pre><code>cd appV2
+cp .env.example .env</code></pre>
+    <p>Set <code>EXPO_PUBLIC_API_BASE_URL</code> to your backend (e.g. <code>http://&lt;your-machine-ip&gt;:8080</code> so a device can reach it). Drop your <code>google-services.json</code> / <code>GoogleService-Info.plist</code> where <code>app.config.js</code> expects them (repo root by default, or point the <code>FITVIBE_GOOGLE_SERVICES_*</code> env vars at them).</p>
+    <pre><code>npm install
+npm run ios          # or: npm run android</code></pre>
+    <p>This produces a <b>dev build</b> (not Expo Go) because of the native modules. Sign in with Google in the app — it brokers through your backend.</p>
+
+    <h2 class="sec" id="vaidya-mcp">5. Vaidya MCP (optional)</h2>
+    <p>The agent's tools. It needs a <b>read-only PostgreSQL role</b>.</p>
+    <pre><code>cd vaidya-mcp
+cp .env.example .env</code></pre>
+    <p>Create the read-only role once (as a superuser), then set <code>DATABASE_URL_READONLY</code> in <code>.env</code> to that role's DSN:</p>
+    <pre><code>psql "postgres://fitvibe:fitvibe@localhost:5432/fitvibe" -f sql/role_provisioning.sql
+# then set a password for vaidya_ro and put its DSN in .env as DATABASE_URL_READONLY</code></pre>
+    <p>Point it at the Go token provider so the write tools can reach Google Health — in <code>backend/.env</code> set <code>INTERNAL_TOKEN_ADDR=127.0.0.1:8091</code> (and a shared <code>INTERNAL_TOKEN_SECRET</code>), and in <code>vaidya-mcp/.env</code> set <code>GO_TOKEN_URL=http://127.0.0.1:8091</code> with the same secret.</p>
+    <pre><code>python -m venv .venv &amp;&amp; .venv/bin/pip install -e .
+python -m vaidya_mcp.server          # http://127.0.0.1:8765/mcp</code></pre>
+
+    <h2 class="sec" id="vaidya-service">6. Vaidya service (optional)</h2>
+    <p>The coach engine. It needs the model auth and the MCP server running.</p>
+    <pre><code>cd vaidya-service
+cp .env.example .env</code></pre>
+    <ul>
+      <li><code>DATABASE_URL</code> — the main DSN (it creates and owns the <code>vaidya_*</code> tables).</li>
+      <li>Model auth — by default Pi uses Anthropic OAuth stored in <code>~/.pi/agent/auth.json</code>; authenticate Pi once on the machine.</li>
+      <li><code>.pi/mcp.json</code> already points at <code>http://127.0.0.1:8765/mcp</code>.</li>
+    </ul>
+    <pre><code>npm install
+npm run dev          # :8090  (HTTP insights + chat WebSocket)</code></pre>
+    <p>In the app, set <code>EXPO_PUBLIC_VAIDYA_BASE_URL</code> to this service (<code>http://&lt;ip&gt;:8090</code>). The Ask tab and Insights feed now light up.</p>
+
+    <h2 class="sec" id="production-notes">Production notes</h2>
+    <ul>
+      <li>A reverse proxy (nginx / Caddy) can front the Go backend and <code>vaidya-service</code> at one origin; set the app's two base URLs equal in that case.</li>
+      <li>Prefer the <b>Unix socket</b> form of the internal token provider in production (<code>INTERNAL_TOKEN_SOCKET</code> / <code>GO_TOKEN_SOCKET</code>).</li>
+      <li>Use <code>sslmode=require</code> (or stricter) on your <code>DATABASE_URL</code>.</li>
+      <li>The whole stack is designed to run on a small VPS or Raspberry Pi.</li>
+    </ul>
+
+    <h2 class="sec" id="troubleshooting">Troubleshooting</h2>
+    <table>
+      <thead><tr><th>Symptom</th><th>Likely cause</th></tr></thead>
+      <tbody>
+        <tr><td>Backend won't start: "GOOGLE_CLIENT_ID is required"</td><td><code>.env</code> not filled in / not in the working directory.</td></tr>
+        <tr><td>Repository tests all skip</td><td>No PostgreSQL reachable at <code>TEST_DATABASE_URL</code> — start docker compose.</td></tr>
+        <tr><td>App can't reach backend from a device</td><td><code>EXPO_PUBLIC_API_BASE_URL</code> points at <code>localhost</code> — use your machine's LAN IP.</td></tr>
+        <tr><td>Vaidya tools "not initialized"</td><td>The MCP server isn't running, or <code>.pi/mcp.json</code> URL is wrong.</td></tr>
+        <tr><td>MCP write tools fail to get a token</td><td>The Go internal token provider isn't enabled, or the <code>INTERNAL_TOKEN_SECRET</code> differs between services.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="footer">FitVibe documentation · MIT licensed · <a href="README.html">docs index</a></div>
+  </main>
+</div></body></html>

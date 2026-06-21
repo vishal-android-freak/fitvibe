@@ -12,11 +12,13 @@ Go backend for **FitVibe** that ingests **Google Health API v4** data into a **P
 - runs scheduled cron jobs to fill gaps (rollups, profile/settings, reconcile, catch-up),
 - serves a screen-shaped read API to the mobile app (`/me/today`, `/me/sleep/last-night`).
 
-The Go backend lives under `backend/`; the Expo/React Native app lives under `appV2/` (`appV1/` is the prior version). The repo root also holds an unrelated Fitbit BLE reverse-engineering effort (`FINDINGS.md`, `work/`, a large `.apkm`) — that is research, not part of the product.
+The Go backend lives under `backend/`; the Expo/React Native app lives under `appV2/` (`appV1/` is the prior version).
 
-> **Migration note:** the backend was moved off Turso/libSQL SQLite onto PostgreSQL (pgx). If you find any lingering SQLite/Turso/`?`-placeholder/`json_extract` code, it's stale — flag it. Design docs: `backend/docs/postgres-migration-plan.html`.
+> **Migration note:** the backend was moved off Turso/libSQL SQLite onto PostgreSQL (pgx). If you find any lingering SQLite/Turso/`?`-placeholder/`json_extract` code, it's stale — flag it.
 
-> **Calculations reference:** every derived metric/score/threshold in the app (sleep score + quality metrics, bands, Today aggregations, ingestion coercion, sync windows, client gauges) is documented with exact formulas, inputs, file refs, and validation in `backend/docs/calculations-methodology.html`. **It is a living document — update it whenever you add or change an algorithm** (there's a changelog section at the bottom).
+> **Project documentation** lives in the root `docs/` folder (each doc is Markdown + an enriched HTML twin): architecture, per-service docs, data model, setup, and reference docs.
+
+> **Calculations reference:** every derived metric/score/threshold in the app (sleep score + quality metrics, bands, Today aggregations, ingestion coercion, sync windows, client gauges) is documented with exact formulas, inputs, file refs, and validation in `docs/calculations.md` (and its `docs/calculations.html` twin). **It is a living document — update it whenever you add or change an algorithm** (there's a changelog section at the bottom).
 
 ## Commands
 

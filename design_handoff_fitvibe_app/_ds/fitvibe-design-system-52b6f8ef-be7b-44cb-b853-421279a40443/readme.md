@@ -23,18 +23,14 @@ charts, rings and metric tiles rendered inline in chat).
 - **FitVibe mobile app** (Expo / React Native) — *the* surface. Currently planned;
   this design system defines its visual language from the ground up. The UI kit in
   `ui_kits/app/` is the canonical recreation.
-- *(Backend only)* A Go service on a Raspberry Pi ingests Google Health webhooks +
-  cron syncs into a local Turso/SQLite DB and exposes REST APIs to the app. No UI.
+- *(Backend only)* A Go service ingests Google Health webhooks + cron syncs into a
+  PostgreSQL DB and exposes REST APIs to the app. No UI.
 
 ### Sources reviewed
-- `fitvibe/backend/PLAN.md` — full backend architecture, the **complete Google
-  Health data-type catalog** (the metric vocabulary this DS is built around), DB
-  schema, OAuth flow, webhook mechanics. *Primary domain source.*
-- `fitvibe/FINDINGS.md`, `fitvibe/fitbit-ble-analysis.html` — Fitbit BLE
-  reverse-engineering notes (how the watch talks to the phone). Context only.
-- `fitvibe/decompile/`, `fitvibe/work/` — decompiled **Fitbit** Android app, used
-  purely for protocol/API analysis. **Not** a UI source — its design was not copied.
-- `fitvibe/android/` — empty (the Expo app has not been built yet).
+- The backend architecture, the **Google Health data-type catalog** (the metric
+  vocabulary this DS is built around), the DB schema, OAuth flow, and webhook
+  mechanics — see [`docs/backend.md`](../../../docs/backend.md) and
+  [`docs/data-model.md`](../../../docs/data-model.md). *Primary domain source.*
 
 > ⚠️ **There was no existing FitVibe frontend, brand, logo, or design** to extract.
 > This system was **designed from scratch** against the product concept and the

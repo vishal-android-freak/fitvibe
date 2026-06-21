@@ -4,7 +4,7 @@
 // blended HRV-dominant and squashed through a logistic into 0-100.
 //
 // The exact formula, its empirical fit, and the honest limits are documented in
-// backend/docs/calculations-methodology.html (Readiness section). The weights
+// docs/calculations.md (Readiness section). The weights
 // and shape constants live here as named vars so they stay easy to retune as
 // more labeled days accrue.
 package readiness
@@ -15,7 +15,7 @@ import (
 	"math"
 )
 
-// Tunable formula constants (see calculations-methodology.html). HRV ≫ RHR ≫
+// Tunable formula constants (see docs/calculations.md). HRV ≫ RHR ≫
 // sleep was fitted to this user's real scores (RMSE 3.78); kept named so a
 // refit over ~30 days is a one-line change.
 var (

@@ -1,0 +1,256 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FitVibe — Architecture</title>
+<style>
+/* FitVibe documentation — shared house style (dark, aurora accent).
+   Inlined into each doc's <style> block; kept here as the canonical source. */
+:root {
+  --bg: #0a0e1a; --panel: #131a2b; --panel2: #1a2236; --inset: #070b14;
+  --ink: #f8fafc; --body: #c3ccda; --muted: #8a97ab; --faint: #64748b;
+  --accent: #a78bfa; --accent2: #c4b5fd; --cyan: #22d3ee; --green: #4ade80;
+  --amber: #fbbf24; --red: #f43f5e; --blue: #60a5fa;
+  --line: rgba(255,255,255,0.09); --line2: rgba(255,255,255,0.16);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--body);
+  font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 260px 1fr; gap: 0; }
+nav.toc {
+  position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto;
+  padding: 28px 18px 60px; border-right: 1px solid var(--line); background: var(--inset);
+}
+nav.toc h2 { font-size: 12px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--faint); margin: 22px 0 8px; }
+nav.toc h2:first-child { margin-top: 0; }
+nav.toc a { display: block; color: var(--muted); text-decoration: none; padding: 4px 8px; border-radius: 7px; font-size: 13.5px; }
+nav.toc a:hover { color: var(--ink); background: var(--panel2); }
+nav.toc .brand { font-weight: 800; color: var(--ink); font-size: 17px; letter-spacing: -0.3px; margin-bottom: 6px; }
+nav.toc .brand span { color: var(--accent); }
+nav.toc .home { font-size: 12.5px; color: var(--accent); display: block; margin-bottom: 18px; text-decoration: none; }
+main { padding: 40px 46px 120px; min-width: 0; }
+header.hero { border-bottom: 1px solid var(--line); padding-bottom: 26px; margin-bottom: 8px; }
+header.hero .eyebrow { font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+header.hero h1 { font-size: 32px; letter-spacing: -0.6px; color: var(--ink); margin: 0 0 10px; }
+header.hero p { color: var(--muted); margin: 6px 0; max-width: 74ch; }
+h2.sec { font-size: 23px; color: var(--ink); letter-spacing: -0.3px; margin: 54px 0 6px; padding-top: 18px; border-top: 1px solid var(--line); }
+h2.sec:first-of-type { border-top: none; }
+h3 { font-size: 17px; color: var(--ink); margin: 30px 0 6px; }
+h4 { font-size: 14.5px; color: var(--accent); margin: 20px 0 4px; letter-spacing: 0.2px; }
+p { margin: 8px 0; }
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code { font-family: "JetBrains Mono", "SF Mono", Consolas, monospace; font-size: 12.5px; background: var(--inset); padding: 1.5px 6px; border-radius: 5px; color: #e7d7ff; }
+pre { background: var(--inset); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+pre code { background: none; padding: 0; color: #d6e3f0; font-size: 12.5px; line-height: 1.55; }
+table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13.5px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--accent2); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.6px; }
+td { color: var(--body); }
+td code { font-size: 11.5px; }
+tbody tr:hover { background: rgba(139,124,246,0.04); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; margin: 16px 0; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 18px 0; }
+.pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; letter-spacing: 0.3px; background: rgba(167,139,250,0.16); color: var(--accent2); }
+.callout { border-left: 3px solid var(--amber); background: rgba(251,191,36,0.06); border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 14px 0; }
+.callout.note { border-color: var(--cyan); background: rgba(34,211,238,0.06); }
+.callout.warn { border-color: var(--red); background: rgba(244,63,94,0.06); }
+.callout b { color: var(--ink); }
+ul, ol { margin: 8px 0; padding-left: 22px; }
+li { margin: 4px 0; }
+/* ASCII / diagram blocks: monospace, scrollable, never break the page width */
+pre.diagram { color: var(--accent2); line-height: 1.3; font-size: 12px; }
+.footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--faint); font-size: 13px; }
+@media (max-width: 880px) {
+  .wrap { grid-template-columns: 1fr; }
+  nav.toc { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--line); }
+  main { padding: 28px 20px 80px; }
+}
+</style>
+</head><body>
+<div class="wrap">
+  <nav class="toc">
+    <div class="brand">Fit<span>Vibe</span> · Docs</div>
+    <a class="home" href="README.html">← All docs</a>
+    <h2>On this page</h2>
+    <a href="#big-picture">The big picture</a>
+    <a href="#services">The services</a>
+    <a href="#data-flow">Data flow</a>
+    <a href="#trust-boundaries">Trust boundaries</a>
+    <a href="#why-split">Why it's split this way</a>
+    <a href="#deployment">Deployment shape</a>
+    <h2>Other docs</h2>
+    <a href="architecture.html">Architecture</a>
+    <a href="setup.html">Setup</a>
+    <a href="backend.html">Backend</a>
+    <a href="data-model.html">Data model</a>
+    <a href="app.html">Mobile app</a>
+    <a href="vaidya.html">Vaidya AI coach</a>
+    <a href="calculations.html">Calculations</a>
+  </nav>
+  <main>
+    <header class="hero">
+      <div class="eyebrow">System overview</div>
+      <h1>Architecture</h1>
+      <p>FitVibe is four cooperating services around one PostgreSQL database. This document explains what each does, how data flows between them, and the trust boundaries that keep your health data yours.</p>
+    </header>
+
+    <h2 class="sec" id="big-picture">The big picture</h2>
+<pre class="diagram">                          ┌───────────────────────────┐
+   Google Health API v4   │  Google OAuth + Webhooks  │
+            │             └───────────────────────────┘
+            ▼
+   ┌────────────────────┐     ingest · backfill · webhooks · cron gap-fill
+   │    backend (Go)    │───────────────────────────────────────────────┐
+   │  • OAuth + tokens  │                                                ▼
+   │  • ingestion engine│                                       ┌──────────────────┐
+   │  • read API (BFF)  │   GET /me/today · /me/sleep · /me/body │   PostgreSQL     │
+   │  • internal token  │   (Firebase ID token auth)            │   (you own it)   │
+   │    provider        │                                       └──────────────────┘
+   └────────────────────┘                                          ▲          ▲
+            │                                          read-only   │          │ read+write
+            ▼                                          (health)    │          │ (vaidya_*)
+   ┌────────────────────┐                                          │          │
+   │   appV2 (Expo RN)  │                                          │          │
+   │  Today · Sleep ·   │◀───── insights (HTTP) + chat (WS) ──┐    │          │
+   │  Body · Insights · │                                     │    │          │
+   │  Ask Vaidya        │                              ┌──────┴────┴──────────┴──────┐
+   └────────────────────┘                              │   vaidya-service (Node)     │
+                                                        │  embeds the Pi agent SDK    │
+                                                        │  • chat over WebSocket      │
+                                                        │  • nightly insight crons    │
+                                                        │  • owns vaidya_* tables     │
+                                                        └──────────────┬──────────────┘
+                                                                       │ MCP (streamable-HTTP)
+                                                                       ▼
+                                                        ┌─────────────────────────────┐
+                                                        │     vaidya-mcp (Python)     │
+                                                        │  • read-only SQL tools      │
+                                                        │  • Google Health write tools│
+                                                        └─────────────────────────────┘
+                                                                       │ writes
+                                                                       ▼  (via Go token provider)
+                                                              Google Health API v4</pre>
+
+    <h2 class="sec" id="services">The services</h2>
+
+    <h3><code>backend/</code> — Go ingestion engine + read API</h3>
+    <p>The heart of the system. It is the only service that talks to Google for ingestion and the only holder of refresh tokens.</p>
+    <ul>
+      <li><strong>OAuth &amp; tokens</strong> — exchanges Google authorization codes, stores per-user refresh tokens encrypted at rest, and hands out short-lived access tokens through a <code>TokenProvider</code>.</li>
+      <li><strong>Ingestion engine</strong> — every path that pulls data (backfill, cron, webhook processing) funnels DataPoints through one mapper that stores the lossless raw payload as JSONB and extracts typed columns and child rows.</li>
+      <li><strong>Webhooks</strong> — receives real-time Google Health notifications, verifies them, queues them, and processes them asynchronously.</li>
+      <li><strong>Cron gap-fill</strong> — scheduled jobs that fill anything webhooks miss (rollups, profile, reconcile, catch-up, cron-only data types).</li>
+      <li><strong>Read API</strong> — a backend-for-frontend: <code>GET /me/today</code>, <code>/me/sleep/...</code>, <code>/me/body</code>, <code>/me/profile</code>, authenticated with Firebase ID tokens.</li>
+      <li><strong>Internal token provider</strong> — an internal-only endpoint (bound to a Unix socket or loopback) that serves <em>fresh access tokens</em> (never refresh tokens) to the Vaidya MCP server so it can write to Google Health.</li>
+    </ul>
+    <p>See <a href="backend.html">backend.html</a>.</p>
+
+    <h3><code>appV2/</code> — Expo / React Native app</h3>
+    <p>The mobile client. Five surfaces: <strong>Today</strong>, <strong>Sleep</strong>, <strong>Body</strong>, <strong>Insights</strong>, and <strong>Ask Vaidya</strong> (chat). The Today screen is fed by a single aggregate endpoint (<code>GET /me/today</code>) through one shared hook. Generative-UI blocks emitted by Vaidya are rendered with a block renderer (charts, rings, Skia canvas). See <a href="app.html">app.html</a>.</p>
+
+    <h3><code>vaidya-service/</code> — Node AI coach engine</h3>
+    <p>Embeds the <a href="https://pi.dev">Pi agent SDK</a> as the coaching engine. Two jobs:</p>
+    <ol>
+      <li><strong>Live chat</strong> over a WebSocket — streams the coach's response token-by-token, plus generative-UI blocks.</li>
+      <li><strong>Nightly insights</strong> — cron jobs generate a Today headline, per-sleep insights, and an end-of-day report per user, stored as replayable Pi sessions.</li>
+    </ol>
+    <p>It owns the <code>vaidya_*</code> tables (chat/insight metadata, push tokens) and reaches health data only through the MCP server. See <a href="vaidya.html">vaidya.html</a>.</p>
+
+    <h3><code>vaidya-mcp/</code> — Python MCP tool server</h3>
+    <p>The agent's hands. Exposes <a href="https://modelcontextprotocol.io">MCP</a> tools:</p>
+    <ul>
+      <li><strong>Read tools</strong> — query your health data through a dedicated read-only PostgreSQL role.</li>
+      <li><strong>A SQL escape hatch</strong> — a guarded, read-only single-statement query tool for anything the dedicated tools don't cover.</li>
+      <li><strong>Write tools</strong> — log nutrition, hydration, weight, exercise, etc. back to the Google Health API (using a fresh token from the Go provider).</li>
+    </ul>
+    <p>See <a href="vaidya.html">vaidya.html</a>.</p>
+
+    <h2 class="sec" id="data-flow">Data flow</h2>
+
+    <h3>Ingestion (data in)</h3>
+    <ol>
+      <li>A user authorizes via Google OAuth (brokered by the backend). The backend stores their encrypted refresh token and a <code>health_user_id</code> that ties them to webhook notifications.</li>
+      <li><strong>Backfill</strong> pulls historical data on first login. <strong>Webhooks</strong> deliver real-time changes. <strong>Cron jobs</strong> fill gaps and handle data types webhooks don't cover.</li>
+      <li>Every DataPoint flows through <code>ingestion.MapDataPoint</code>, which:
+        <ul>
+          <li>stores the full raw API response in <code>payload_json</code> (JSONB, lossless),</li>
+          <li>extracts common scalars into typed columns (<code>value_count/sum/avg/min/max</code>, enums, times),</li>
+          <li>promotes a few hot fields to named columns (nutrition carbs/fat, meal type),</li>
+          <li>extracts nested arrays into child tables (sleep stages, exercise splits, nutrients, ECG, …).</li>
+        </ul>
+      </li>
+      <li>A <code>UNIQUE ... NULLS NOT DISTINCT</code> index makes re-ingestion idempotent, so overlapping fetch windows are safe.</li>
+    </ol>
+    <p>See <a href="data-model.html">data-model.html</a> for the schema and the dedupe contract.</p>
+
+    <h3>Reads (data out to the app)</h3>
+    <p>The app authenticates with a Firebase ID token (the backend mints a Firebase custom token after OAuth, so sign-in is one step). The Today screen calls <code>GET /me/today</code>, which assembles the activity summary, nutrition, timeline, and last-night sleep <strong>concurrently</strong> into one response — collapsing four round trips into one. Derived metrics (readiness, sleep score) are computed here from stored data; see <a href="calculations.html">calculations.html</a>.</p>
+
+    <h3>Coaching (the AI loop)</h3>
+    <ol>
+      <li>The app opens a WebSocket to <code>vaidya-service</code> (or pulls a pre-generated insight over HTTP).</li>
+      <li><code>vaidya-service</code> drives a Pi agent turn. The agent calls MCP tools to read the user's real data.</li>
+      <li><code>vaidya-mcp</code> answers reads through the read-only role; for writes (logging a meal), it fetches a fresh token from the Go internal provider and POSTs to Google Health.</li>
+      <li>The coach streams back prose tokens and generative-UI blocks, which the app renders.</li>
+    </ol>
+
+    <h2 class="sec" id="trust-boundaries">Trust boundaries</h2>
+    <p>FitVibe is designed so that the powerful capability (Google account access) and the untrusted-ish capability (an LLM writing SQL) never overlap.</p>
+<pre class="diagram">   ┌───────────────────────────── HOLDS REFRESH TOKENS ─────────────────────────────┐
+   │  backend (Go)                                                                   │
+   │  • only service with Google refresh tokens (encrypted at rest)                  │
+   │  • internal token provider hands out SHORT-LIVED access tokens only,            │
+   │    bound to a Unix socket / loopback, optional bearer secret                    │
+   └─────────────────────────────────────────────────────────────────────────────────┘
+                  │ fresh access token (per write)
+                  ▼
+   ┌───────────────────────── LEAST-PRIVILEGE READS ────────────────────────────────┐
+   │  vaidya-mcp (Python)                                                            │
+   │  • reads health data through a dedicated PostgreSQL role (vaidya_ro)            │
+   │    with SELECT-only on health tables and NO write access anywhere               │
+   │  • SQL escape hatch is single-statement, read-only, row-capped                  │
+   │  • writes go through the Google Health API, never raw SQL                       │
+   └─────────────────────────────────────────────────────────────────────────────────┘
+                  ▲
+                  │ MCP over loopback
+   ┌──────────────┴──────────────────────────────────────────────────────────────────┐
+   │  vaidya-service (Node)                                                          │
+   │  • owns vaidya_* tables (read+write) — its own data, not health data            │
+   │  • the coach's system prompt forbids fabricating numbers; every claim must       │
+   │    come from a tool result                                                       │
+   └─────────────────────────────────────────────────────────────────────────────────┘</pre>
+    <p>Key properties:</p>
+    <ul>
+      <li><strong>The LLM never sees a refresh token.</strong> It gets, at most, a short-lived access token to perform an explicit write.</li>
+      <li><strong>The LLM can't mutate health data via SQL.</strong> Its database role is <code>SELECT</code>-only; writes are mediated by the Google Health API.</li>
+      <li><strong>Health data lives in one place you control.</strong> The Vaidya services hold only their own derived metadata.</li>
+    </ul>
+
+    <h2 class="sec" id="why-split">Why it's split this way</h2>
+    <table>
+      <thead><tr><th>Decision</th><th>Rationale</th></tr></thead>
+      <tbody>
+        <tr><td>Go owns ingestion + tokens</td><td>One authority for the powerful credential; ingestion is hot-path and benefits from Go's concurrency.</td></tr>
+        <tr><td>One aggregate read endpoint</td><td>The app's Today screen needs four things at once; assembling them server-side concurrently beats four mobile round trips.</td></tr>
+        <tr><td>Vaidya is two services</td><td>The <em>engine</em> (Node + Pi SDK) and its <em>tools</em> (Python MCP) have different runtimes and trust levels; splitting keeps the read-only boundary clean.</td></tr>
+        <tr><td>MCP for tools</td><td>A standard protocol means the same tools work for the chat engine and the cron insight jobs, and the read-only role is the real security boundary.</td></tr>
+        <tr><td>Lossless <code>payload_json</code></td><td>Storing the raw API response means new derived columns can be backfilled from stored data without re-hitting Google.</td></tr>
+      </tbody>
+    </table>
+
+    <h2 class="sec" id="deployment">Deployment shape</h2>
+    <p>Everything is built to run on modest hardware (a VPS or Raspberry Pi):</p>
+    <ul>
+      <li>One PostgreSQL instance.</li>
+      <li>The Go backend as a single process (migrations apply on startup).</li>
+      <li>The two Vaidya services as separate processes (optional).</li>
+      <li>A reverse proxy (e.g. nginx/Caddy) can front the Go backend and <code>vaidya-service</code> at one origin in production; in local dev they're separate ports (<code>:8080</code> and <code>:8090</code>).</li>
+    </ul>
+    <p>See <a href="setup.html">setup.html</a> for the step-by-step.</p>
+
+    <div class="footer">FitVibe documentation · MIT licensed · <a href="README.html">docs index</a></div>
+  </main>
+</div></body></html>

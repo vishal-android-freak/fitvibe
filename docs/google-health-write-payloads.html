@@ -1,0 +1,218 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FitVibe — Google Health Write Payloads</title>
+<style>
+/* FitVibe documentation — shared house style (dark, aurora accent).
+   Inlined into each doc's <style> block; kept here as the canonical source. */
+:root {
+  --bg: #0a0e1a; --panel: #131a2b; --panel2: #1a2236; --inset: #070b14;
+  --ink: #f8fafc; --body: #c3ccda; --muted: #8a97ab; --faint: #64748b;
+  --accent: #a78bfa; --accent2: #c4b5fd; --cyan: #22d3ee; --green: #4ade80;
+  --amber: #fbbf24; --red: #f43f5e; --blue: #60a5fa;
+  --line: rgba(255,255,255,0.09); --line2: rgba(255,255,255,0.16);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--body);
+  font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 260px 1fr; gap: 0; }
+nav.toc {
+  position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto;
+  padding: 28px 18px 60px; border-right: 1px solid var(--line); background: var(--inset);
+}
+nav.toc h2 { font-size: 12px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--faint); margin: 22px 0 8px; }
+nav.toc h2:first-child { margin-top: 0; }
+nav.toc a { display: block; color: var(--muted); text-decoration: none; padding: 4px 8px; border-radius: 7px; font-size: 13.5px; }
+nav.toc a:hover { color: var(--ink); background: var(--panel2); }
+nav.toc .brand { font-weight: 800; color: var(--ink); font-size: 17px; letter-spacing: -0.3px; margin-bottom: 6px; }
+nav.toc .brand span { color: var(--accent); }
+nav.toc .home { font-size: 12.5px; color: var(--accent); display: block; margin-bottom: 18px; text-decoration: none; }
+main { padding: 40px 46px 120px; min-width: 0; }
+header.hero { border-bottom: 1px solid var(--line); padding-bottom: 26px; margin-bottom: 8px; }
+header.hero .eyebrow { font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+header.hero h1 { font-size: 32px; letter-spacing: -0.6px; color: var(--ink); margin: 0 0 10px; }
+header.hero p { color: var(--muted); margin: 6px 0; max-width: 74ch; }
+h2.sec { font-size: 23px; color: var(--ink); letter-spacing: -0.3px; margin: 54px 0 6px; padding-top: 18px; border-top: 1px solid var(--line); }
+h2.sec:first-of-type { border-top: none; }
+h3 { font-size: 17px; color: var(--ink); margin: 30px 0 6px; }
+h4 { font-size: 14.5px; color: var(--accent); margin: 20px 0 4px; letter-spacing: 0.2px; }
+p { margin: 8px 0; }
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code { font-family: "JetBrains Mono", "SF Mono", Consolas, monospace; font-size: 12.5px; background: var(--inset); padding: 1.5px 6px; border-radius: 5px; color: #e7d7ff; }
+pre { background: var(--inset); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+pre code { background: none; padding: 0; color: #d6e3f0; font-size: 12.5px; line-height: 1.55; }
+table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13.5px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--accent2); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.6px; }
+td { color: var(--body); }
+td code { font-size: 11.5px; }
+tbody tr:hover { background: rgba(139,124,246,0.04); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; margin: 16px 0; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 18px 0; }
+.pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; letter-spacing: 0.3px; background: rgba(167,139,250,0.16); color: var(--accent2); }
+.callout { border-left: 3px solid var(--amber); background: rgba(251,191,36,0.06); border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 14px 0; }
+.callout.note { border-color: var(--cyan); background: rgba(34,211,238,0.06); }
+.callout.warn { border-color: var(--red); background: rgba(244,63,94,0.06); }
+.callout b { color: var(--ink); }
+ul, ol { margin: 8px 0; padding-left: 22px; }
+li { margin: 4px 0; }
+/* ASCII / diagram blocks: monospace, scrollable, never break the page width */
+pre.diagram { color: var(--accent2); line-height: 1.3; font-size: 12px; }
+.footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--faint); font-size: 13px; }
+@media (max-width: 880px) {
+  .wrap { grid-template-columns: 1fr; }
+  nav.toc { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--line); }
+  main { padding: 28px 20px 80px; }
+}
+</style>
+</head><body>
+<div class="wrap">
+  <nav class="toc">
+    <div class="brand">Fit<span>Vibe</span> · Docs</div>
+    <a class="home" href="README.html">← All docs</a>
+    <h2>On this page</h2>
+    <a href="#endpoint-auth">Endpoint &amp; auth</a>
+    <a href="#common-envelope">Common envelope</a>
+    <a href="#nutrition-log">nutrition-log</a>
+    <a href="#hydration-log">hydration-log</a>
+    <a href="#weight">weight</a>
+    <a href="#verified-live-write">Verified against a live write</a>
+    <a href="#verification">Verification</a>
+    <h2>Other docs</h2>
+    <a href="architecture.html">Architecture</a>
+    <a href="setup.html">Setup</a>
+    <a href="backend.html">Backend</a>
+    <a href="data-model.html">Data model</a>
+    <a href="app.html">Mobile app</a>
+    <a href="vaidya.html">Vaidya AI coach</a>
+    <a href="calculations.html">Calculations</a>
+  </nav>
+  <main>
+    <header class="hero">
+      <div class="eyebrow">Integration reference</div>
+      <h1>Google Health API v4 — Write Payloads</h1>
+      <p>This is the ground-truth reference for the <b>write</b> path: the MCP server (per the <code>vaidya-mcp-plan.md</code>) logs user-supplied data by POSTing to the Google Health API, which then syncs back into Postgres via the Go ingestion path and surfaces in the app. <b>Nothing writes to <code>data_points</code> directly except Go.</b></p>
+      <p>All payload shapes below are taken from <b>real records in this user's account</b> (read back from <code>payload_json</code> in the DB), so a write body is the same structure the API round-trips. The <code>healthapi.Client</code> is read-only today — these writes are net-new.</p>
+    </header>
+
+    <h2 class="sec" id="endpoint-auth">Endpoint &amp; auth</h2>
+    <ul>
+      <li><b>Create:</b> <code>POST https://health.googleapis.com/v4/users/{user}/dataTypes/{dataType}/dataPoints</code>
+        <ul>
+          <li><code>{user}</code> = the Google Health user id (<code>users.health_user_id</code> — the same id seen in the <code>name</code> field of stored payloads, e.g. <code>users/5007594416538393512/...</code>).</li>
+          <li><code>{dataType}</code> = the kebab→path data type: <code>nutrition-log</code>, <code>hydration-log</code>, <code>weight</code>, etc.</li>
+          <li>Body = a single <b>DataPoint</b> (the JSON shapes below). Returns an <code>Operation</code>.</li>
+        </ul>
+      </li>
+      <li><b>Update:</b> <code>PATCH …/dataPoints/{id}</code>. <b>Delete (batch):</b> <code>POST …/dataPoints:batchDelete</code>.</li>
+      <li><b>Auth:</b> <code>Authorization: Bearer &lt;access_token&gt;</code> where the token comes from the <b>Go internal token provider over the Unix socket</b> (Go is the sole token authority — never refresh in the MCP server). Scopes already granted at OAuth (<code>internal/oauth/google.go</code>):
+        <ul>
+          <li>nutrition + hydration → <code>…/auth/googlehealth.nutrition.writeonly</code></li>
+          <li>weight / body metrics → <code>…/auth/googlehealth.health_metrics_and_measurements.writeonly</code></li>
+          <li>activity → <code>…/auth/googlehealth.activity_and_fitness.writeonly</code></li>
+          <li>sleep → <code>…/auth/googlehealth.sleep.writeonly</code></li>
+        </ul>
+      </li>
+    </ul>
+
+    <h2 class="sec" id="common-envelope">Common envelope (every DataPoint)</h2>
+    <pre><code>{
+  // "name" is OMITTED on create (server assigns the id). Present only on read/patch.
+  "dataSource": {
+    "platform": "FITBIT",          // FitVibe-originated writes: confirm the right platform value;
+    "recordingMethod": "MANUAL"    // MANUAL = user-entered (what Vaidya logs are)
+  },
+  "&lt;unionKey&gt;": { /* one of nutritionLog | hydrationLog | weight | … */ }
+}</code></pre>
+    <p><b>Time members inside the union.</b> Session types (<code>nutrition-log</code>, <code>hydration-log</code>) carry an <code>interval</code>; sample types (<code>weight</code>) carry a <code>sampleTime</code>. We supply UTC <code>startTime</code>/<code>endTime</code> (RFC3339) and the matching <code>startUtcOffset</code>/<code>endUtcOffset</code> as <code>"&lt;seconds&gt;s"</code> (e.g. <code>"19800s"</code> for IST). The API also echoes <code>civilStartTime</code>/<code>civilEndTime</code> (structured date+time); on <b>write</b> the RFC3339 instants + offset are the authoritative inputs — let the API derive civil times, or send them too if required. For a point-in-time log, use a short interval (the API rejects a zero-width window; a 30–60s span is what the device emits — see the hydration example: 09:02:00→09:02:30Z).</p>
+
+    <h2 class="sec" id="nutrition-log">nutrition-log  (tool: <code>log_nutrition</code>)</h2>
+    <p>Real record (DINNER, "Phulka", 280 kcal):</p>
+    <pre><code>POST /v4/users/{user}/dataTypes/nutrition-log/dataPoints
+{
+  "dataSource": { "platform": "FITBIT", "recordingMethod": "MANUAL" },
+  "nutritionLog": {
+    "energy": { "kcal": 280, "userProvidedUnit": "KILOCALORIE" },
+    "serving": { "amount": 4, "foodMeasurementUnitDisplayName": "pieces" },  // optional
+    "interval": {
+      "startTime": "2026-06-16T14:30:00Z",
+      "endTime":   "2026-06-16T14:45:00Z",
+      "startUtcOffset": "19800s",
+      "endUtcOffset":   "19800s"
+    },
+    "mealType": "DINNER",                       // BREAKFAST | LUNCH | DINNER | SNACK | (UNSPECIFIED)
+    "foodDisplayName": "Phulka",
+    "totalCarbohydrate": { "grams": 60 },
+    "totalFat":          { "grams": 2 },
+    "nutrients": [                              // optional detailed macros/micros
+      { "nutrient": "PROTEIN",       "quantity": { "grams": 12 } },
+      { "nutrient": "DIETARY_FIBER", "quantity": { "grams": 4 } }
+    ]
+  }
+}</code></pre>
+    <p>Field notes:</p>
+    <ul>
+      <li><code>energy.kcal</code> → the app's calories (read path: <code>value_sum</code>). <code>userProvidedUnit:"KILOCALORIE"</code>.</li>
+      <li><code>mealType</code> → promoted to <code>meal_type</code>/<code>enum_value_secondary</code>.</li>
+      <li><code>totalCarbohydrate.grams</code>/<code>totalFat.grams</code> → promoted columns <code>nutrition_carbs_grams</code>/<code>nutrition_fat_grams</code>.</li>
+      <li><code>nutrients[]</code> (<code>{nutrient, quantity:{grams}}</code>) → child rows <code>nutrition_log_nutrients(nutrient, grams)</code>. <code>PROTEIN</code> is read by the Today nutrition query; other nutrient enums (<code>DIETARY_FIBER</code>, <code>SODIUM</code>, …) are stored as-is.</li>
+      <li><code>foodDisplayName</code> → promoted <code>food_display_name</code>.</li>
+    </ul>
+    <p>MCP tool inputs → payload: <code>calories</code>→<code>energy.kcal</code>; <code>carbs_g</code>/<code>fat_g</code>/<code>protein_g</code>→<code>totalCarbohydrate</code>/<code>totalFat</code>/<code>nutrients[PROTEIN]</code>; <code>meal_type</code>; <code>food_name</code>→<code>foodDisplayName</code>; <code>when</code>→<code>interval</code>.</p>
+
+    <h2 class="sec" id="hydration-log">hydration-log  (tool: <code>log_hydration</code>)</h2>
+    <p>Real record (700 ml):</p>
+    <pre><code>POST /v4/users/{user}/dataTypes/hydration-log/dataPoints
+{
+  "dataSource": { "platform": "FITBIT", "recordingMethod": "MANUAL" },
+  "hydrationLog": {
+    "interval": {
+      "startTime": "2026-06-11T09:02:00Z",
+      "endTime":   "2026-06-11T09:02:30Z",
+      "startUtcOffset": "19800s",
+      "endUtcOffset":   "19800s"
+    },
+    "amountConsumed": { "milliliters": 700, "userProvidedUnit": "MILLILITER" }
+  }
+}</code></pre>
+    <p>Field notes:</p>
+    <ul>
+      <li><code>amountConsumed.milliliters</code> is the volume (read path coerces <code>amountConsumed.milliliters</code>, with fallbacks <code>volume.*</code> / <code>volumeMilliliters</code> — <code>mapper.go:177</code>). <code>userProvidedUnit</code> ∈ <code>MILLILITER</code>, <code>LITER</code>, <code>FLUID_OUNCE</code>, etc. (echo what the user said; send <code>milliliters</code> as the canonical amount).</li>
+    </ul>
+
+    <h2 class="sec" id="weight">weight  (tool: <code>log_weight</code>)</h2>
+    <p>Sample type — uses <code>sampleTime</code>, not <code>interval</code>. The value is <b>grams</b> (<code>weightGrams</code>, an int):</p>
+    <pre><code>POST /v4/users/{user}/dataTypes/weight/dataPoints
+{
+  "dataSource": { "platform": "FITBIT", "recordingMethod": "MANUAL" },
+  "weight": {
+    "sampleTime": { "physicalTime": "2026-06-19T07:00:00Z", "utcOffset": "19800s" },
+    "weightGrams": 70000
+  }
+}</code></pre>
+    <p>Field notes:</p>
+    <ul>
+      <li><code>weightGrams</code> confirmed from a read fixture (<code>types_test.go:89</code> — <code>"weightGrams": 70000</code> = 70 kg).</li>
+      <li>Sample time: send <code>sampleTime.physicalTime</code> (the true UTC instant) + <code>sampleTime.utcOffset</code> (CLAUDE.md convention — read <code>physicalTime</code>, not <code>civilTime</code>). MCP input <code>weight_kg</code> → <code>weightGrams = round(weight_kg*1000)</code>.</li>
+    </ul>
+
+    <h2 class="sec" id="verified-live-write">Verified against a live write (2026-06-19/20)</h2>
+    <p>A live <code>log_hydration</code> (250 ml, then 200 ml via the MCP tool) returned <b>HTTP 200 / <code>"done": true</code></b> and created real data points. Confirmed:</p>
+    <ol>
+      <li><b><code>dataSource: {platform:"FITBIT", recordingMethod:"MANUAL"}</code> is accepted.</b> Google rewrites <code>platform</code> to <code>GOOGLE_WEB_API</code> on its side (it doesn't have to match a registered source) — send the envelope as-is.</li>
+      <li><b>Civil times are derived by the API</b> from <code>startTime</code>/<code>endTime</code> (RFC3339) + the <code>*UtcOffset</code>. Do <b>not</b> send <code>civilStartTime</code>/<code>civilEndTime</code> on write — the API computes them.</li>
+      <li><b>Token path:</b> the stored access token expires; refresh via the stored refresh token works non-interactively (no consent screen) and the granted scopes include <code>nutrition.writeonly</code>. In production the MCP server gets a fresh token from the Go internal token provider (Go refreshes + persists), so it never touches the refresh token itself.</li>
+      <li>A point-in-time log uses a short interval (we send a 30s span); a zero-width interval is rejected.</li>
+    </ol>
+    <p>Still to watch (non-blocking): exact <code>mealType</code> / <code>userProvidedUnit</code> / <code>nutrient</code> / <code>exerciseType</code> enum vocabularies beyond the ones seen in real data (<code>DINNER</code>, <code>KILOCALORIE</code>, <code>MILLILITER</code>, <code>PROTEIN</code>, <code>DIETARY_FIBER</code>), and the sync-back latency (webhook vs. catch-up cron) before a write shows on <code>/me/today</code>.</p>
+
+    <h2 class="sec" id="verification">Verification</h2>
+    <p>Smoke test (MCP Part 5): one live <code>log_hydration</code> (smallest, lowest-risk) → 200/Operation from Google → after a webhook or <code>cmd/fetchbackfill -user 1 -today</code>, the row appears in <code>data_points</code> (<code>data_type='hydration-log'</code>, <code>recording_method='MANUAL'</code>) and on <code>/me/today</code>. Then <code>log_nutrition</code>, then <code>log_weight</code>.</p>
+
+    <div class="footer">FitVibe documentation · MIT licensed · <a href="README.html">docs index</a></div>
+  </main>
+</div></body></html>

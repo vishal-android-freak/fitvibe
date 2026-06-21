@@ -61,7 +61,7 @@ export function SleepQualityCard({ night }: { night: NightView }) {
 
   // Sleep efficiency is intentionally omitted: the device gives no real
   // "time in bed", so asleep/sleep-period is always ~98-99% and carries no
-  // signal. See backend/docs/calculations-methodology.html.
+  // signal. See docs/calculations.md.
 
   return (
     <View style={styles.card}>

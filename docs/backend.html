@@ -1,0 +1,231 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FitVibe — Backend</title>
+<style>
+/* FitVibe documentation — shared house style (dark, aurora accent).
+   Inlined into each doc's <style> block; kept here as the canonical source. */
+:root {
+  --bg: #0a0e1a; --panel: #131a2b; --panel2: #1a2236; --inset: #070b14;
+  --ink: #f8fafc; --body: #c3ccda; --muted: #8a97ab; --faint: #64748b;
+  --accent: #a78bfa; --accent2: #c4b5fd; --cyan: #22d3ee; --green: #4ade80;
+  --amber: #fbbf24; --red: #f43f5e; --blue: #60a5fa;
+  --line: rgba(255,255,255,0.09); --line2: rgba(255,255,255,0.16);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--body);
+  font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 260px 1fr; gap: 0; }
+nav.toc {
+  position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto;
+  padding: 28px 18px 60px; border-right: 1px solid var(--line); background: var(--inset);
+}
+nav.toc h2 { font-size: 12px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--faint); margin: 22px 0 8px; }
+nav.toc h2:first-child { margin-top: 0; }
+nav.toc a { display: block; color: var(--muted); text-decoration: none; padding: 4px 8px; border-radius: 7px; font-size: 13.5px; }
+nav.toc a:hover { color: var(--ink); background: var(--panel2); }
+nav.toc .brand { font-weight: 800; color: var(--ink); font-size: 17px; letter-spacing: -0.3px; margin-bottom: 6px; }
+nav.toc .brand span { color: var(--accent); }
+nav.toc .home { font-size: 12.5px; color: var(--accent); display: block; margin-bottom: 18px; text-decoration: none; }
+main { padding: 40px 46px 120px; min-width: 0; }
+header.hero { border-bottom: 1px solid var(--line); padding-bottom: 26px; margin-bottom: 8px; }
+header.hero .eyebrow { font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+header.hero h1 { font-size: 32px; letter-spacing: -0.6px; color: var(--ink); margin: 0 0 10px; }
+header.hero p { color: var(--muted); margin: 6px 0; max-width: 74ch; }
+h2.sec { font-size: 23px; color: var(--ink); letter-spacing: -0.3px; margin: 54px 0 6px; padding-top: 18px; border-top: 1px solid var(--line); }
+h2.sec:first-of-type { border-top: none; }
+h3 { font-size: 17px; color: var(--ink); margin: 30px 0 6px; }
+h4 { font-size: 14.5px; color: var(--accent); margin: 20px 0 4px; letter-spacing: 0.2px; }
+p { margin: 8px 0; }
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code { font-family: "JetBrains Mono", "SF Mono", Consolas, monospace; font-size: 12.5px; background: var(--inset); padding: 1.5px 6px; border-radius: 5px; color: #e7d7ff; }
+pre { background: var(--inset); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; overflow-x: auto; margin: 12px 0; }
+pre code { background: none; padding: 0; color: #d6e3f0; font-size: 12.5px; line-height: 1.55; }
+table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13.5px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--accent2); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.6px; }
+td { color: var(--body); }
+td code { font-size: 11.5px; }
+tbody tr:hover { background: rgba(139,124,246,0.04); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 20px; margin: 16px 0; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 18px 0; }
+.pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; letter-spacing: 0.3px; background: rgba(167,139,250,0.16); color: var(--accent2); }
+.callout { border-left: 3px solid var(--amber); background: rgba(251,191,36,0.06); border-radius: 0 10px 10px 0; padding: 12px 16px; margin: 14px 0; }
+.callout.note { border-color: var(--cyan); background: rgba(34,211,238,0.06); }
+.callout.warn { border-color: var(--red); background: rgba(244,63,94,0.06); }
+.callout b { color: var(--ink); }
+ul, ol { margin: 8px 0; padding-left: 22px; }
+li { margin: 4px 0; }
+/* ASCII / diagram blocks: monospace, scrollable, never break the page width */
+pre.diagram { color: var(--accent2); line-height: 1.3; font-size: 12px; }
+.footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--faint); font-size: 13px; }
+@media (max-width: 880px) {
+  .wrap { grid-template-columns: 1fr; }
+  nav.toc { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--line); }
+  main { padding: 28px 20px 80px; }
+}
+</style>
+</head><body>
+<div class="wrap">
+  <nav class="toc">
+    <div class="brand">Fit<span>Vibe</span> · Docs</div>
+    <a class="home" href="README.html">← All docs</a>
+    <h2>On this page</h2>
+    <a href="#entrypoints">Entrypoints</a>
+    <a href="#ingestion">Ingestion — the heart of the system</a>
+    <a href="#read-api">The read API (backend-for-frontend)</a>
+    <a href="#webhooks">Webhooks — receive vs. process</a>
+    <a href="#cron-jobs">Cron jobs</a>
+    <a href="#oauth-tokens">OAuth &amp; tokens</a>
+    <a href="#health-api-client">The Health API client</a>
+    <a href="#database">Database</a>
+    <a href="#configuration">Configuration</a>
+    <a href="#tests">Tests</a>
+    <a href="#conventions">Conventions</a>
+    <h2>Other docs</h2>
+    <a href="architecture.html">Architecture</a>
+    <a href="setup.html">Setup</a>
+    <a href="backend.html">Backend</a>
+    <a href="data-model.html">Data model</a>
+    <a href="app.html">Mobile app</a>
+    <a href="vaidya.html">Vaidya AI coach</a>
+    <a href="calculations.html">Calculations</a>
+  </nav>
+  <main>
+    <header class="hero">
+      <div class="eyebrow">Backend (Go)</div>
+      <h1>Backend</h1>
+      <p>The Go backend is the heart of FitVibe: it owns Google OAuth and tokens, ingests all health data, and serves the screen-shaped read API to the app. It is a single process built to run on a small server or Raspberry Pi.</p>
+    </header>
+
+    <ul>
+      <li><b>Source:</b> <a href="../backend/">backend/</a></li>
+      <li><b>Stack:</b> Go 1.25 · PostgreSQL via <a href="https://github.com/jackc/pgx">pgx v5</a> · <a href="https://github.com/go-chi/chi">Chi</a> router · Google OAuth2 / Health API v4 · Firebase Admin · <a href="https://github.com/tink-crypto/tink-go">Tink</a> for token encryption · <a href="https://github.com/robfig/cron">robfig/cron</a></li>
+      <li><b>Composition root:</b> <a href="../backend/cmd/server/main.go">cmd/server/main.go</a> — read it first; it wires every repository, the OAuth service, the webhook handler + processor, the cron scheduler, the read-API handlers, and the router.</li>
+    </ul>
+
+    <h2 class="sec" id="entrypoints">Entrypoints</h2>
+    <table>
+      <thead><tr><th>Command</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>cmd/server</code></td><td>The HTTP server (composition root). Migrations apply on startup.</td></tr>
+        <tr><td><code>cmd/authlink</code></td><td>Print the Google OAuth consent URL.</td></tr>
+        <tr><td><code>cmd/backfill</code></td><td>Re-parse already-stored <code>payload_json</code> through the current mapper (recompute columns after a mapper change; <b>no</b> API calls).</td></tr>
+        <tr><td><code>cmd/fetchbackfill</code></td><td>Re-fetch history from the Health API. Flags: <code>-user N</code>, <code>-today</code>, <code>-since 48h</code> / <code>-since 2026-06-15</code>.</td></tr>
+        <tr><td><code>cmd/webhooks</code></td><td>Manage Google Health webhook subscriptions (service account).</td></tr>
+      </tbody>
+    </table>
+
+    <pre><code>cd backend
+docker compose up -d              # local PostgreSQL
+go run ./cmd/server               # :8080, migrations auto-apply
+go run ./cmd/fetchbackfill -user 1 -since 48h</code></pre>
+
+    <h2 class="sec" id="ingestion">Ingestion — the heart of the system</h2>
+    <p>Every path that pulls data (backfill, cron list/reconcile/catch-up, webhook processor) funnels DataPoints through <b><code>ingestion.MapDataPoint</code></b> (<a href="../backend/internal/ingestion/mapper.go">internal/ingestion/mapper.go</a>). It:</p>
+    <ol>
+      <li><b>Classifies</b> the data type via <code>healthapi.Category()</code> → one of <code>interval | sample | session | daily | food</code>.</li>
+      <li><b>Stores the full raw API response</b> in <code>payload_json</code> (lossless; JSONB).</li>
+      <li><b>Extracts common scalars</b> into typed columns: <code>value_count/sum/avg/min/max</code>, <code>enum_value</code>, plus the time coordinates (<code>sample_time</code> or <code>start_time</code>/<code>end_time</code>) and <code>civil_start_date</code>.</li>
+      <li><b>Promotes hot fields</b> to named columns so the read API queries columns, not JSON: <code>nutrition_carbs_grams</code>, <code>nutrition_fat_grams</code>, <code>meal_type</code>, <code>food_display_name</code>.</li>
+      <li><b>Extracts nested arrays</b> into child tables (<a href="../backend/internal/ingestion/children.go">internal/ingestion/children.go</a>): sleep stages, exercise splits/events, nutrition nutrients, ECG waveforms, irregular-rhythm windows, daily HR zones, active-minutes levels.</li>
+    </ol>
+    <p>Because the raw payload is preserved, new extracted/promoted columns can be backfilled from stored data with <code>cmd/backfill</code> — no re-fetch needed.</p>
+
+    <pre class="diagram"><code> Google Health API ──► healthapi.Client ──► ingestion.MapDataPoint ──► repositories ──► PostgreSQL
+ OAuth tokens ─────────────┘                       │  payload_json (JSONB, lossless)
+                                                   │  + typed scalar columns
+                                                   │  + promoted hot columns
+                                                   └─ + child tables (stages, splits, …)</code></pre>
+
+    <p><b>Adding a new data type:</b> add it to <code>Category()</code> in <a href="../backend/internal/healthapi/types.go">healthapi/types.go</a>, add a <code>case</code> in <code>extractScalars</code> (and <code>extractChildren</code> if it has nested arrays), and add it to the relevant data-type list in <code>internal/cron</code> if it should be backfilled/caught-up.</p>
+
+    <h2 class="sec" id="read-api">The read API (backend-for-frontend)</h2>
+    <p>Authenticated with a <b>Firebase ID token</b> (<code>Authorization: Bearer &lt;idToken&gt;</code>; uid = Google user id). After OAuth the backend mints a Firebase custom token so the app signs in with no extra consent step.</p>
+    <table>
+      <thead><tr><th>Endpoint</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>GET /me/today</code></td><td>The whole Today screen in one response — assembled concurrently (see below).</td></tr>
+        <tr><td><code>GET /me/sleep/last-night</code></td><td>The most recent night (<code>204</code> if none).</td></tr>
+        <tr><td><code>GET /me/sleep/nights?limit=14</code></td><td>Recent nights (limit capped at 60).</td></tr>
+        <tr><td><code>GET /me/sleep/schedule</code> · <code>PUT /me/sleep/schedule</code></td><td>Read / set target bed &amp; wake times.</td></tr>
+        <tr><td><code>GET /me/body</code></td><td>The whole Body tab — vitals, activity, body composition, nutrition.</td></tr>
+        <tr><td><code>GET /me/profile</code></td><td>Display profile (no tokens/scopes exposed).</td></tr>
+      </tbody>
+    </table>
+    <p><code>GET /me/today</code> (<a href="../backend/internal/today/">internal/today</a>) assembles the activity summary, nutrition totals, activity timeline, and last-night sleep <b>concurrently</b> (goroutines, one error path) into a single response — collapsing what used to be four round trips. The last-night sleep build logic is shared with the dedicated <code>GET /me/sleep/last-night</code> handler (<a href="../backend/internal/sleep/">internal/sleep</a>).</p>
+    <p>Derived metrics are computed here from stored data:</p>
+    <ul>
+      <li><b>Readiness</b> (<a href="../backend/internal/readiness/">internal/readiness</a>) — a 0–100 score from HRV, resting HR, and recent sleep vs. the user's own baseline.</li>
+      <li><b>Sleep score + quality</b> (<a href="../backend/internal/sleep/">internal/sleep</a>) — a 0–100 score plus quality metrics (time-to-sound-sleep, interruptions, sound sleep, disruptions) and age-banded typical stage ranges.</li>
+    </ul>
+    <p>The exact formulas live in <a href="calculations.html">calculations.html</a>.</p>
+
+    <h3>Other routes</h3>
+    <ul>
+      <li><b>OAuth:</b> <code>POST /auth/exchange</code>, <code>GET /auth/start</code>, <code>GET /auth/callback</code>, <code>GET /auth/session</code> (the brokered + direct flows).</li>
+      <li><b>Webhooks:</b> <code>POST /webhooks/google-health</code> (configurable path).</li>
+      <li><b>Admin:</b> <code>*/admin/subscribers</code> for webhook subscription management.</li>
+      <li><b>Health:</b> <code>GET /healthz</code>.</li>
+    </ul>
+
+    <h2 class="sec" id="webhooks">Webhooks — receive vs. process are decoupled</h2>
+    <ul>
+      <li><b><code>webhooks.Handler</code></b> (synchronous, on the request) verifies a notification and queues it. The verification handshake checks the <code>Authorization</code> header; real notifications are verified via <b>Tink ECDSA P-256</b> against Google's public keyset using the <code>X-Healthapi-Signature</code> header. Valid notifications are inserted into <code>webhook_notifications</code> with status <code>pending</code>. <b>No fetching happens on the request.</b></li>
+      <li><b><code>webhooks.Processor</code></b> (background goroutine, polls every 30s) drains pending notifications: looks up the user by <code>health_user_id</code>, and for each interval either applies a <code>DELETE</code> (removes local points in the range) or fetches + stores via the ingestion pipeline. Failures get exponential-backoff retries (capped).</li>
+    </ul>
+
+    <h2 class="sec" id="cron-jobs">Cron jobs</h2>
+    <p>Registered in <code>main</code> under configurable cron specs (<a href="../backend/internal/cron/">internal/cron</a>):</p>
+    <table>
+      <thead><tr><th>Job</th><th>Default schedule</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><b>ListSyncer</b></td><td><code>0 */6 * * *</code></td><td>Polls cron-only data types (no webhook support — ECG, vo2-max, oxygen-saturation, …).</td></tr>
+        <tr><td><b>RollupSyncer</b> (intraday)</td><td><code>0 * * * *</code></td><td>Hourly rollups.</td></tr>
+        <tr><td><b>RollupSyncer</b> (daily)</td><td><code>10 0 * * *</code></td><td>Daily rollups.</td></tr>
+        <tr><td><b>ProfileSettingsSyncer</b></td><td><code>0 2 * * *</code></td><td>Refreshes user profile / settings.</td></tr>
+        <tr><td><b>ReconcileSyncer</b></td><td><code>0 3 * * *</code></td><td>Uses the <code>:reconcile</code> endpoint to detect upstream changes/deletes.</td></tr>
+        <tr><td><b>CatchupSyncer</b></td><td><code>0 */3 * * *</code></td><td>Re-lists webhook-supported types over a recent overlapping window to recover notifications missed during downtime.</td></tr>
+        <tr><td><b>BackfillJob</b></td><td>(on signup / CLI)</td><td>Historical backfill of everything ingested.</td></tr>
+      </tbody>
+    </table>
+    <p><code>sync_state</code> tracks the last synced window per <code>(user_id, data_type, source)</code> so each syncer resumes where it left off. The catch-up syncer deliberately overlaps its window by <code>CATCHUP_LOOKBACK_HOURS</code>, relying on the idempotent upsert (see <a href="data-model.html">data-model.html</a>) so overlap is harmless.</p>
+
+    <h2 class="sec" id="oauth-tokens">OAuth &amp; tokens</h2>
+    <p><code>oauth.Service</code> exchanges codes, fetches the Google Health identity (<code>health_user_id</code> is the join key to webhooks), and persists tokens (encrypted at rest with Tink). <b><code>Service.TokenProvider(userID)</code></b> returns the token function passed to every <code>healthapi.Client</code>; it auto-refreshes when the access token is near expiry and persists rotated refresh tokens. Always obtain API tokens through this — never read <code>access_token</code> directly.</p>
+
+    <h3>Internal token provider</h3>
+    <p><a href="../backend/internal/internaltoken/">internal/internaltoken</a> optionally serves <b>fresh Google access tokens</b> to the Vaidya MCP server so it can write to Google Health — without ever exposing refresh tokens. It binds to a <b>Unix socket</b> (prod/Pi) or a <b>loopback TCP addr</b> (dev), guarded by an optional bearer secret (<code>INTERNAL_TOKEN_SECRET</code>). The binding is the real boundary; the secret is defense-in-depth. Leave both the socket and addr empty to disable it entirely.</p>
+
+    <h2 class="sec" id="health-api-client">The Health API client</h2>
+    <p><a href="../backend/internal/healthapi/client.go">internal/healthapi/client.go</a> is a typed v4 client, rate-limited (~250 req/min vs. Google's 300/min per-user quota) with <code>Retry-After</code>-aware exponential backoff on 429/5xx. It builds the per-category <code>filter</code> query string (the field path differs by category) and guards against degenerate (zero-width) windows that the API would reject. Read sample times from <code>sampleTime.physicalTime</code> (the true UTC instant) and <code>sampleTime.utcOffset</code>, not <code>civilTime</code>.</p>
+
+    <h2 class="sec" id="database">Database</h2>
+    <p><a href="../backend/internal/db/db.go">db.Open</a> opens a pgx v5 pool and exposes it as <code>*sql.DB</code> via the stdlib adapter, so repositories keep using <code>database/sql</code>. It retries the initial connect (handles a just-started Docker DB) and runs the embedded migrations on startup. Migrations are PostgreSQL DDL in <code>internal/db/migrations/</code>, applied in lexical order, and must be idempotent. See <a href="data-model.html">data-model.html</a>.</p>
+
+    <h2 class="sec" id="configuration">Configuration</h2>
+    <p>Config loads from environment via <a href="../backend/internal/config/config.go">internal/config</a>; <code>.env</code> is auto-loaded from the working directory. See <a href="../backend/.env.example">backend/.env.example</a> for the full annotated list.</p>
+    <p><b>Required:</b> <code>GOOGLE_CLIENT_ID</code>, <code>GOOGLE_CLIENT_SECRET</code>, <code>GOOGLE_REDIRECT_URI</code>, <code>WEBHOOK_SECRET</code>.<br>
+    <b>Common optional:</b> <code>DATABASE_URL</code> (defaults to the docker-compose instance), <code>FIREBASE_PROJECT_ID</code> / <code>FIREBASE_CREDENTIALS_FILE</code>, the <code>INTERNAL_TOKEN_*</code> provider settings, <code>DEFAULT_BACKFILL_DAYS</code>, and the <code>CRON_*</code> schedules.</p>
+
+    <h2 class="sec" id="tests">Tests</h2>
+    <p>Repository tests run against a real PostgreSQL (each test in its own throwaway schema) and <b>skip</b> when none is reachable:</p>
+    <pre><code>docker compose up -d
+TEST_DATABASE_URL="postgres://fitvibe:fitvibe@localhost:5432/fitvibe?sslmode=disable" go test ./...
+go vet ./...</code></pre>
+
+    <h2 class="sec" id="conventions">Conventions</h2>
+    <ul>
+      <li>Data-type names are <b>kebab-case</b> (<code>heart-rate</code>, <code>daily-resting-heart-rate</code>); <code>kebabToSnake</code> converts to the snake_case the API filter paths expect.</li>
+      <li>Number/duration coercion is centralized in <code>healthapi.Number</code> / <code>healthapi.DurationSeconds</code> (the API returns some ints as strings and durations as <code>"600s"</code>).</li>
+      <li>SQL is <b>PostgreSQL dialect</b>: <code>$1</code> placeholders, <code>RETURNING id</code>, <code>ON CONFLICT DO UPDATE</code>, real <code>time.Time</code> scans. Prefer promoted columns over querying JSON paths.</li>
+      <li>Times are stored as UTC instants in <code>TIMESTAMPTZ</code>; local wall-clock is rendered from the stored <code>*_utc_offset_seconds</code>. "Today" keys on the <code>civil_start_date</code> DATE column.</li>
+    </ul>
+
+    <div class="footer">FitVibe documentation · MIT licensed · <a href="README.html">docs index</a></div>
+  </main>
+</div></body></html>
