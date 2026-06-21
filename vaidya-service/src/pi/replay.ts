@@ -10,22 +10,12 @@
 
 import { readFile } from "node:fs/promises";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
-import { GenerativeBlock, type GenerativeBlock as Block } from "../tools/blocks.js";
+import { type GenerativeBlock as Block } from "../tools/blocks.js";
+import { blockFromToolCall } from "./transcript.js";
 
 export interface ReplayResult {
   blocks: Block[];
   text: string;
-}
-
-function coerce(v: unknown): unknown {
-  if (typeof v === "string") {
-    try {
-      return JSON.parse(v);
-    } catch {
-      return v;
-    }
-  }
-  return v;
 }
 
 /** Resolve a session id to its transcript file path (within cwd's session dir). */
@@ -60,15 +50,10 @@ export async function replaySession(cwd: string, sessionId: string): Promise<Rep
       if (!c || typeof c !== "object") continue;
       if (c.type === "text" && typeof c.text === "string") {
         textParts.push(c.text);
-      } else if (c.type === "toolCall" && (c.name === "emit_block" || c.name === "emit_canvas")) {
-        const args = c.arguments ?? {};
-        const candidate =
-          c.name === "emit_block"
-            ? coerce(args.block)
-            : { kind: "canvas", ...(typeof args === "object" ? args : {}) };
-        const parsed = GenerativeBlock.safeParse(candidate);
-        if (parsed.success) blocks.push(parsed.data);
+        continue;
       }
+      const block = blockFromToolCall(c);
+      if (block) blocks.push(block);
     }
   }
 

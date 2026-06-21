@@ -65,19 +65,18 @@ export async function notifyInsight(userId: number, type: InsightType, log?: (m:
   if (!messages.length) return;
 
   try {
-    const chunks = expo.chunkPushNotifications(messages);
-    const tickets = [];
-    for (const chunk of chunks) {
-      const t = await expo.sendPushNotificationsAsync(chunk);
-      tickets.push(...t);
+    // Send per chunk and pair each ticket with the token that produced it
+    // (tickets come back in send order, chunk-local) so pruning the bad ones
+    // doesn't depend on a global index lining up with `messages`.
+    for (const chunk of expo.chunkPushNotifications(messages)) {
+      const tickets = await expo.sendPushNotificationsAsync(chunk);
+      tickets.forEach((ticket, i) => {
+        if (ticket.status === "error" && ticket.details?.error === "DeviceNotRegistered") {
+          const bad = chunk[i]?.to as string;
+          if (bad) void unregisterToken(bad);
+        }
+      });
     }
-    // Prune tokens that are no longer valid.
-    tickets.forEach((ticket, i) => {
-      if (ticket.status === "error" && ticket.details?.error === "DeviceNotRegistered") {
-        const bad = messages[i]?.to as string;
-        if (bad) void unregisterToken(bad);
-      }
-    });
     log?.(`pushed ${type} to ${messages.length} device(s) for u${userId}`);
   } catch (err) {
     log?.(`push ${type} u${userId} failed: ${String(err)}`);

@@ -40,14 +40,17 @@ def _token_for(cfg: Config, user_id: int | None, google_user_id: str | None) -> 
     if cfg.internal_token_secret:
         headers["Authorization"] = f"Bearer {cfg.internal_token_secret}"
 
+    # Socket vs TCP differ only in transport + base URL (the host is ignored for
+    # a UDS transport, so any URL works there). The request is otherwise identical.
     if cfg.go_token_socket:
-        transport = httpx.HTTPTransport(uds=cfg.go_token_socket)
-        with httpx.Client(transport=transport, timeout=15) as c:
-            # Host is ignored for a UDS transport; any URL works.
-            r = c.get("http://localhost/google-token", params=params, headers=headers)
+        client = httpx.Client(transport=httpx.HTTPTransport(uds=cfg.go_token_socket), timeout=15)
+        url = "http://localhost/google-token"
     else:
-        with httpx.Client(timeout=15) as c:
-            r = c.get(f"{cfg.go_token_url}/google-token", params=params, headers=headers)
+        client = httpx.Client(timeout=15)
+        url = f"{cfg.go_token_url}/google-token"
+
+    with client as c:
+        r = c.get(url, params=params, headers=headers)
     r.raise_for_status()
     return r.json()["access_token"]
 
